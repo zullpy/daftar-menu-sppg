@@ -54,8 +54,25 @@ $belanjaList = $stmt->fetchAll();
     <style>
         /* ===== PAGE SETUP A4 (laporan bisa banyak menu, A4 lebih lega dari A5) ===== */
         @page {
-            size: A5 portrait;
-            margin: 10mm 12mm 10mm 12mm;
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .page-wrap {
+            width: 140mm;
+            /* setengah A4 */
+            min-height: 210mm;
+            /* tinggi A4 landscape */
+            padding: 8mm;
+            box-sizing: border-box;
+            border-right: 1px dashed #999;
+            box-shadow: none;
+            margin: 0;
         }
 
         * {
@@ -321,12 +338,15 @@ $belanjaList = $stmt->fetchAll();
         }
 
         .ttd-kiri {
-            text-align: left;
             width: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
         }
 
         .ttd-kanan {
-            text-align: right;
+            text-align: center;
             width: 50%;
         }
 
@@ -338,6 +358,16 @@ $belanjaList = $stmt->fetchAll();
         .ttd-line {
             display: block;
             margin-top: 2px;
+        }
+
+        .ttd-gap-kecil {
+            display: block;
+            height: 30px;
+        }
+
+        .ttd-line {
+            display: block;
+            text-align: center;
         }
 
         .cap-img {
@@ -409,18 +439,20 @@ $belanjaList = $stmt->fetchAll();
         /* ===== PRINT ===== */
         @media print {
             body {
-                margin: 0;
-                background: #fff;
-            }
-
-            .no-print {
-                display: none !important;
+                display: flex;
+                justify-content: flex-start;
             }
 
             .page-wrap {
+                max-width: none;
+                width: 140mm;
+                margin: 0;
+                padding: 8mm;
                 box-shadow: none;
-                padding: 0;
-                max-width: 100%;
+            }
+
+            .toolbar {
+                display: none !important;
             }
         }
     </style>
@@ -452,15 +484,11 @@ $belanjaList = $stmt->fetchAll();
                     <div class="alamat">Kp. Panyingkiran - Singaparna - Kab. Tasikmalaya</div>
                     <div class="alamat">email : kop.binausahasauyunan@gmail.com</div>
                 </td>
-
-                <td class="col-logo-kanan">
-                    <img src="../assets/logo-kbus.png" alt="Logo KBUS Kanan">
-                </td>
             </tr>
         </table>
 
         <!-- ===== JUDUL ===== -->
-        <div class="judul">LAPORAN PEMBELIAN</div>
+        <div class="judul">FAKTUR PENJUALAN</div>
 
         <!-- ===== INFO LAPORAN ===== -->
         <?php
@@ -503,33 +531,34 @@ $belanjaList = $stmt->fetchAll();
                 $menuTotal = array_sum(array_column($details, 'jumlah'));
                 $grandTotal += $menuTotal;
 
-                
+
             ?>
                 <div class="menu-section">
                     <table class="barang">
                         <thead>
                             <tr>
                                 <th class="col-no">No</th>
+                                <th class="col-nama">NAMA BARANG</th>
                                 <th class="col-qty">QTY</th>
                                 <th class="col-satuan">SATUAN</th>
-                                <th class="col-nama">NAMA BARANG</th>
                                 <th class="col-harga">HARGA</th>
                                 <th class="col-sub">SUB TOTAL</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php $no = 1; foreach ($details as $detail):  ?>
+                            <?php $no = 1;
+                            foreach ($details as $detail):  ?>
                                 <tr>
-                                    <td class="center"><?=  $no++ ?></td>
-                                    <td class="center"><?= number_format($detail['qty'], 2, ',', '.') ?></td>
-                                    <td class="center"><?= htmlspecialchars($detail['satuan']) ?></td>
+                                    <td class="center"><?= $no++ ?></td>
                                     <td><?= htmlspecialchars($detail['item_barang']) ?></td>
+                                    <td class="center"><?= rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',') ?></td>
+                                    <td class="left"><?= htmlspecialchars($detail['satuan']) ?></td>
                                     <td class="right">Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?></td>
                                     <td class="right">Rp <?= number_format($detail['jumlah'], 0, ',', '.') ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             <tr class="row-total">
-                                <td colspan="5" class="right">TOTAL  :</td>
+                                <td colspan="5" class="right">TOTAL :</td>
                                 <td class="right">Rp <?= number_format($menuTotal, 0, ',', '.') ?></td>
                             </tr>
                         </tbody>
@@ -537,7 +566,7 @@ $belanjaList = $stmt->fetchAll();
                 </div>
             <?php endforeach; ?>
 
-            
+
         <?php endif; ?>
 
         <!-- ===== CATATAN ===== -->
@@ -546,7 +575,7 @@ $belanjaList = $stmt->fetchAll();
                 <td class="catatan-label">Catatan :</td>
                 <td class="catatan-isi">
                     Terimakasih telah belanja di tempat kami<br>
-                    Mohon di cek dengan teliti barang yang sudah dibeli
+                    Mohon dicek dengan teliti barang yang sudah dibeli
                 </td>
             </tr>
         </table>
@@ -555,7 +584,7 @@ $belanjaList = $stmt->fetchAll();
         <table class="ttd-table">
             <tr>
                 <td class="ttd-kiri">
-                    Penerima / Pembelanja
+                    Penerima
                     <span class="ttd-gap"></span>
                     <span class="ttd-line">...................................</span>
                 </td>
@@ -564,14 +593,11 @@ $belanjaList = $stmt->fetchAll();
                     Hormat Kami,
                     <br>
                     <img src="../assets/logo-kbus.png" class="cap-img" alt="Cap KBUS">
-                    <br>
-                    <span class="ttd-line">...................................</span>
+                    <span class="ttd-gap-kecil"></span>
+                    <span class="ttd-line">Yudi Hendrian</span>
                 </td>
             </tr>
         </table>
-
-        <div class="printed-at">Dicetak pada: <?= date('d/m/Y H:i:s') ?> WIB</div>
-
     </div>
 
     <script>

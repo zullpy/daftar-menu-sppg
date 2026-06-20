@@ -1155,6 +1155,207 @@ main {
     transform: translateY(-1px);
 }
 
+/* ===== POPUP UPLOAD FOTO MENU ===== */
+.btn-upload-menu {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+}
+
+.upload-menu-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.upload-menu-popup.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.upload-menu-popup-content {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 340px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.upload-menu-popup.active .upload-menu-popup-content {
+    transform: scale(1);
+}
+
+.upload-menu-popup-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
+.upload-menu-popup-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    font-family: inherit;
+}
+
+.upload-menu-popup-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.upload-menu-popup-btn span {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.upload-menu-popup-btn small {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.btn-kamera-opt {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.btn-kamera-opt:hover {
+    background: #dcfce7;
+    border-color: #16a34a;
+}
+
+.btn-kamera-opt svg {
+    color: #16a34a;
+}
+
+.btn-galeri-opt {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+
+.btn-galeri-opt:hover {
+    background: #dbeafe;
+    border-color: #2563eb;
+}
+
+.btn-galeri-opt svg {
+    color: #2563eb;
+}
+
+.btn-cancel-opt {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 4px;
+    font-family: inherit;
+}
+
+.btn-cancel-opt:hover {
+    color: var(--danger);
+    background: #fee2e2;
+    border-radius: 8px;
+}
+
+/* ===== UPLOAD MENU OPTIONS INLINE (di modal) ===== */
+.upload-menu-options-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.btn-upload-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 12px;
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    font-family: inherit;
+}
+
+.btn-upload-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-upload-option span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.btn-upload-option small {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.btn-opt-kamera {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.btn-opt-kamera:hover {
+    background: #dcfce7;
+    border-color: #16a34a;
+    border-style: solid;
+}
+
+.btn-opt-galeri {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.btn-opt-galeri:hover {
+    background: #dbeafe;
+    border-color: #2563eb;
+    border-style: solid;
+}
+
+
 /* ============================================
    📱 MOBILE RESPONSIVE (DIPERBAIKI & DIPERBAGUS)
    ============================================ */
@@ -1502,5 +1703,16 @@ main {
     .badge-kategori {
         font-size: 11px;
         padding: 3px 8px;
+    }
+
+    .upload-menu-popup-content {
+        max-width: 100%;
+        padding: 16px;
+    }
+    .upload-menu-popup-btn {
+        padding: 14px;
+    }
+    .upload-menu-options-inline {
+        grid-template-columns: 1fr;
     }
 }

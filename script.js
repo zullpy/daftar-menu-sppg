@@ -41,7 +41,7 @@ function updateNoFaktur() {
     const fakturInput = document.querySelector('input[name="no_faktur"]');
     if (tglInput && fakturInput && tglInput.value) {
         const tglFormat = tglInput.value.replace(/-/g, '');
-        fakturInput.value = `0001-${tglFormat}-FC`;
+        fakturInput.value = `0001FC-${tglFormat}`;
     }
 }
 
@@ -98,36 +98,213 @@ function previewFotoMenuMulti(input) {
     });
 }
 
-// ===== Upload Inline =====
+// =====================================================
+// 🗜️ FUNGSI COMPRESS GAMBAR (BARU!)
+// =====================================================
+/**
+ * Compress gambar menggunakan Canvas API
+ * @param {File} file - File gambar yang akan di-compress
+ * @param {Object} options - Opsi compress
+ * @returns {Promise<File>} - File yang sudah di-compress
+ */
+function compressImage(file, options = {}) {
+    const {
+        maxWidth = 1600,        // Max lebar (px)
+        maxHeight = 1600,       // Max tinggi (px)
+        quality = 0.7,          // Quality JPEG (0-1)
+        maxSizeKB = 800,        // Target max size dalam KB
+        minQuality = 0.4        // Quality minimum kalau masih kebesaran
+    } = options;
+
+    return new Promise((resolve, reject) => {
+        // Skip kalau bukan gambar atau sudah kecil
+        if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+            resolve(file);
+            return;
+        }
+
+        // Skip kalau sudah kecil (< 500KB)
+        if (file.size < 500 * 1024) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Hitung dimensi baru (maintain aspect ratio)
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                // Buat canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+
+                // Background putih (untuk JPEG transparan)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+
+                // Gambar dengan smoothing
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Compress dengan quality bertahap
+                let currentQuality = quality;
+                const tryCompress = (q) => {
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            reject(new Error('Gagal compress gambar'));
+                            return;
+                        }
+
+                        // Kalau masih kebesaran dan quality masih di atas minimum, coba lagi
+                        if (blob.size > maxSizeKB * 1024 && q > minQuality) {
+                            tryCompress(q - 0.1);
+                            return;
+                        }
+
+                        // Convert blob ke File
+                        const compressedFile = new File(
+                            [blob],
+                            file.name.replace(/\.[^.]+$/, '.jpg'),
+                            { type: 'image/jpeg', lastModified: Date.now() }
+                        );
+
+                        console.log(`🗜️ Compress: ${formatSize(file.size)} → ${formatSize(blob.size)} (${Math.round((1 - blob.size / file.size) * 100)}% reduction)`);
+                        resolve(compressedFile);
+                    }, 'image/jpeg', q);
+                };
+
+                tryCompress(currentQuality);
+            };
+            img.onerror = () => reject(new Error('Gagal memuat gambar'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Gagal membaca file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+// Helper: format ukuran file
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+// =====================================================
+// 📤 UPLOAD INLINE PHOTO (UPDATED - DENGAN COMPRESS)
+// =====================================================
 function uploadInlinePhoto(input, action, id) {
     const files = input.files;
     if (!files || files.length === 0) return;
+
     const loading = document.getElementById('loadingOverlay');
-    if (loading) loading.classList.add('active');
-    const promises = Array.from(files).map(file => {
-        const fd = new FormData();
-        fd.append('action', action);
-        fd.append('foto', file);
-        if (action === 'add_menu_photo') fd.append('id_belanja', id);
-        else fd.append('id_detail', id);
+    if (loading) {
+        loading.innerHTML = `
+            <div class="spinner"></div>
+            <p id="loadingText">Mempersiapkan gambar...</p>
+        `;
+        loading.classList.add('active');
+    }
 
-        return fetch('database/upload_photo.php', { method: 'POST', body: fd })
-            .then(async r => {
-                const text = await r.text();
-                try { return JSON.parse(text); }
-                catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
-            });
-    });
+    // Tentukan apakah perlu compress berdasarkan action
+    const needCompress = (action === 'add_foto_receiving' || action === 'add_menu_photo');
 
-    Promise.all(promises).then(results => {
+    // Proses semua file (compress jika perlu)
+    const processFiles = async () => {
+        const processedFiles = [];
+        const totalFiles = files.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            const file = files[i];
+
+            // Update loading text
+            const loadingText = document.getElementById('loadingText');
+            if (loadingText) {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                    loadingText.textContent = `Mengcompress gambar ${i + 1}/${totalFiles}...`;
+                } else {
+                    loadingText.textContent = `Memproses file ${i + 1}/${totalFiles}...`;
+                }
+            }
+
+            try {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                    // Compress gambar
+                    const compressed = await compressImage(file, {
+                        maxWidth: 1600,
+                        maxHeight: 1600,
+                        quality: 0.75,
+                        maxSizeKB: 800
+                    });
+                    processedFiles.push(compressed);
+                } else {
+                    // File PDF atau GIF, skip compress
+                    processedFiles.push(file);
+                }
+            } catch (err) {
+                console.error('Error compress:', err);
+                processedFiles.push(file); // Fallback: pakai file asli
+            }
+        }
+
+        return processedFiles;
+    };
+
+    processFiles().then(processedFiles => {
+        // Update loading text
+        const loadingText = document.getElementById('loadingText');
+        if (loadingText) loadingText.textContent = 'Mengupload...';
+
+        // Upload semua file yang sudah di-compress
+        const promises = processedFiles.map(file => {
+            const fd = new FormData();
+            fd.append('action', action);
+            fd.append('foto', file);
+            if (action === 'add_menu_photo') fd.append('id_belanja', id);
+            else fd.append('id_detail', id);
+
+            return fetch('database/upload_photo.php', { method: 'POST', body: fd })
+                .then(async r => {
+                    const text = await r.text();
+                    try { return JSON.parse(text); }
+                    catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
+                });
+        });
+
+        return Promise.all(promises);
+    }).then(results => {
         if (loading) loading.classList.remove('active');
+        // Reset loading HTML
+        if (loading) {
+            loading.innerHTML = `<div class="spinner"></div><p>Memproses...</p>`;
+        }
+
         const failed = results.find(r => !r.success);
-        if (failed) alert('❌ Gagal upload: ' + failed.message);
-        else location.reload();
+        if (failed) {
+            alert('❌ Gagal upload: ' + failed.message);
+        } else {
+            location.reload();
+        }
     }).catch(err => {
         if (loading) loading.classList.remove('active');
+        if (loading) {
+            loading.innerHTML = `<div class="spinner"></div><p>Memproses...</p>`;
+        }
         alert('❌ Error: ' + err.message);
     });
+
     input.value = '';
 }
 
@@ -286,3 +463,62 @@ function clearSearch() {
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// ===== POPUP PILIHAN UPLOAD FOTO MENU =====
+function showUploadMenuOptions(idBelanja) {
+    // Hapus popup lama kalau ada
+    const oldPopup = document.getElementById('uploadMenuPopup');
+    if (oldPopup) oldPopup.remove();
+
+    // Buat popup baru
+    const popup = document.createElement('div');
+    popup.id = 'uploadMenuPopup';
+    popup.className = 'upload-menu-popup';
+    popup.innerHTML = `
+        <div class="upload-menu-popup-content">
+            <div class="upload-menu-popup-title">Pilih cara upload foto</div>
+            <button class="upload-menu-popup-btn btn-kamera-opt" onclick="triggerMenuPhoto('kamera', ${idBelanja})">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>📸 Ambil Foto</span>
+                <small>Buka kamera belakang</small>
+            </button>
+            <button class="upload-menu-popup-btn btn-galeri-opt" onclick="triggerMenuPhoto('galeri', ${idBelanja})">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>🖼️ Pilih dari Galeri</span>
+                <small>Bisa pilih banyak foto</small>
+            </button>
+            <button class="upload-menu-popup-btn btn-cancel-opt" onclick="closeUploadMenuPopup()">
+                Batal
+            </button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    // Animasi masuk
+    setTimeout(() => popup.classList.add('active'), 10);
+}
+
+function triggerMenuPhoto(type, idBelanja) {
+    const inputId = type === 'kamera'
+        ? `menuPhotoKamera_${idBelanja}`
+        : `menuPhotoGaleri_${idBelanja}`;
+    const input = document.getElementById(inputId);
+    if (input) input.click();
+    closeUploadMenuPopup();
+}
+
+function closeUploadMenuPopup() {
+    const popup = document.getElementById('uploadMenuPopup');
+    if (popup) {
+        popup.classList.remove('active');
+        setTimeout(() => popup.remove(), 200);
+    }
+}
+
+// Tutup popup kalau klik di luar
+document.addEventListener('click', function (e) {
+    const popup = document.getElementById('uploadMenuPopup');
+    if (popup && !popup.contains(e.target) && !e.target.closest('.btn-upload-menu')) {
+        closeUploadMenuPopup();
+    }
+});

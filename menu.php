@@ -161,7 +161,9 @@ foreach ($belanjaList as &$belanja) {
         $stmt->execute([$detail['id_detail']]);
         $detail['jumlah_foto'] = $stmt->fetchColumn();
     }
+    unset($detail); // PENTING: putuskan reference biar tidak "bocor" ke foreach lain
 }
+unset($belanja); // putuskan reference outer loop juga, best practice
 
 function formatTanggalIndonesia($tanggal)
 {
@@ -220,14 +222,15 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
         <div class="header-top">
             <div class="info-menu">
                 <h2>Menu SPPG Yayasan Bina Warga Sauyunan</h2>
-                <p>Kelola daftar menu, belanja, dan dokumentasi dengan mudah</p>
+                <p>Kelola daftar menu, E-book, </p>
                 <?php if ($isAdmin): ?>
                     <button class="btn btn-primary" style="margin-top: 16px;" onclick="openModal('modalAdd')">
                         <?= icon('plus', 16) ?> <span>Input Daftar Menu</span>
                     </button>
                 <?php else: ?>
+                    <!-- ✨ PESAN INFO OPERATOR (UPDATED) -->
                     <p style="margin-top:12px; font-size:13px; color:var(--muted); background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
-                        👋 Halo Operator! Anda hanya bisa <strong>upload foto receiving</strong>.
+                        👋 Halo Operator! Anda bisa <strong>upload foto menu</strong> dan <strong>foto receiving</strong>. 📸
                     </p>
                 <?php endif; ?>
             </div>
@@ -317,22 +320,24 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                 <?php endif; ?>
                                 <div class="menu-card-header">
                                     <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                                        <?php if (!empty($belanja['foto_menu'])): ?>
-                                            <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['foto_menu']) ?>')">
-                                                <img src="uploads/menu/<?= htmlspecialchars($belanja['foto_menu']) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
+                                        <!-- ✨ UPLOAD FOTO MENU: SEMUA ROLE BISA (UPDATED) -->
+                                        <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
+                                            <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>')">
+                                                <img src="uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
                                             </div>
-                                            <?php if ($isAdmin): ?>
-                                                <label class="btn btn-primary btn-sm" style="cursor:pointer;">➕ Tambah Foto
-                                                    <input type="file" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
-                                                </label>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <?php if ($isAdmin): ?>
-                                                <label class="btn btn-primary btn-sm" style="cursor:pointer;">Upload Foto Menu
-                                                    <input type="file" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
-                                                </label>
-                                            <?php endif; ?>
                                         <?php endif; ?>
+                                        <!-- ✨ SATU TOMBOL UPLOAD FOTO MENU (KAMERA + GALERI) -->
+                                        <button type="button" class="btn btn-primary btn-sm btn-upload-menu" onclick="showUploadMenuOptions(<?= $belanja['id_belanja'] ?>)">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="17 8 12 3 7 8" />
+                                                <line x1="12" y1="3" x2="12" y2="15" />
+                                            </svg>
+                                            <span><?= !empty($belanja['fotos']) ? 'Tambah Foto' : 'Upload Foto' ?></span>
+                                        </button>
+                                        <!-- Hidden inputs untuk galeri & kamera -->
+                                        <input type="file" id="menuPhotoGaleri_<?= $belanja['id_belanja'] ?>" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
+                                        <input type="file" id="menuPhotoKamera_<?= $belanja['id_belanja'] ?>" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
                                         <div>
                                             <h4 class="menu-title"><?= htmlspecialchars($belanja['judul']) ?></h4>
                                             <p class="menu-info">Porsi: <strong><?= number_format($belanja['porsi'] ?? 0) ?></strong></p>
@@ -403,6 +408,16 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                         <?php
                                         $no = 1;
                                         $totalBelanja = 0;
+                                        // Pastikan $kategoriGroups ada untuk operator juga (untuk badge warna)
+                                        if (!isset($kategoriGroups)) {
+                                            $kategoriGroups = [
+                                                'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff'],
+                                                'Bumbu'       => ['color' => '#d97706', 'bg' => '#fffbeb'],
+                                                'Sayuran'     => ['color' => '#16a34a', 'bg' => '#f0fdf4'],
+                                                'Buah-buahan' => ['color' => '#dc2626', 'bg' => '#fef2f2'],
+                                                'Tambahan'    => ['color' => '#7c3aed', 'bg' => '#f5f3ff'],
+                                            ];
+                                        }
                                         foreach ($belanja['details'] as $detail):
                                             $totalBelanja += $detail['jumlah'];
                                             $katColor = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['color'] ?? '#64748b';
@@ -412,7 +427,7 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                                 <td><?= $no++ ?></td>
                                                 <td><?= htmlspecialchars($detail['item_barang']) ?></td>
                                                 <td><span class="badge-kategori" style="background: <?= $katBg ?>; color: <?= $katColor ?>;"><?= htmlspecialchars($detail['kategori'] ?? 'Bahan Pokok') ?></span></td>
-                                                <td><?= number_format($detail['qty'], 2, ',', '.') ?></td>
+                                                <td><?= rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',') ?></td>
                                                 <td><?= htmlspecialchars($detail['satuan']) ?></td>
                                                 <?php if ($isAdmin): ?>
                                                     <td>Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?></td>
@@ -537,14 +552,27 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                             </div>
                             <div class="form-group">
                                 <label><?= icon('camera', 14) ?> Upload Foto Menu (Bisa Banyak)</label>
-                                <div class="file-upload-wrapper">
-                                    <input type="file" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
-                                    <label class="file-upload-label">
-                                        <span class="upload-icon"><?= icon('upload', 28) ?></span>
-                                        <span class="upload-text">Pilih Foto (Multiple)</span>
-                                        <small>JPG, PNG, GIF, WEBP</small>
-                                    </label>
+                                <div class="upload-menu-options-inline">
+                                    <button type="button" class="btn-upload-option btn-opt-kamera" onclick="document.getElementById('fotoMenuKamera').click()">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                            <circle cx="12" cy="13" r="4" />
+                                        </svg>
+                                        <span>Ambil Foto</span>
+                                        <small>Kamera HP</small>
+                                    </button>
+                                    <button type="button" class="btn-upload-option btn-opt-galeri" onclick="document.getElementById('fotoMenuGaleri').click()">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                                            <circle cx="8.5" cy="8.5" r="1.5" />
+                                            <polyline points="21 15 16 10 5 21" />
+                                        </svg>
+                                        <span>Pilih dari Galeri</span>
+                                        <small>Multiple foto</small>
+                                    </button>
                                 </div>
+                                <input type="file" id="fotoMenuGaleri" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
+                                <input type="file" id="fotoMenuKamera" name="foto_menu[]" class="file-input" accept="image/*" capture="environment" onchange="previewFotoMenuMulti(this)">
                                 <div id="fotoMenuPreview" class="image-preview"></div>
                             </div>
                         </div>
@@ -558,7 +586,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                             <table class="form-table" id="tableItem">
                                 <thead>
                                     <tr>
-                                        <th style="width:20%">NO</th>
                                         <th style="width:20%">Item Barang</th>
                                         <th style="width:12%">Kategori</th>
                                         <th style="width:8%">QTY</th>
