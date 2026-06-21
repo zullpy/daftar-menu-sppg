@@ -156,6 +156,16 @@
             color: var(--secondary);
         }
 
+        .menu-card.pengiriman .icon-wrap {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .menu-card.pengiriman .badge {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
         @media (max-width:480px) {
             .menu-grid {
                 grid-template-columns: 1fr;
@@ -180,7 +190,7 @@
             <span class="badge">Belanja Bahan</span>
         </a>
 
-        <a href="add-cost.php" class="menu-card add-cost">
+        <a href="addcost/index.php" class="menu-card add-cost">
             <div class="icon-wrap"><i class="ph ph-receipt"></i></div>
             <h3>Add Cost</h3>
             <p>Catat biaya tambahan di luar bahan makanan (operasional, transport, dll).</p>
@@ -192,6 +202,13 @@
             <h3>Pengambilan Stok Barang</h3>
             <p>Lihat laporan dan riwayat pengambilan stok barang dari gudang.</p>
             <span class="badge">Laporan Stok</span>
+        </a>
+
+        <a href="#" class="menu-card pengiriman">
+            <div class="icon-wrap"><i class="ph ph-truck"></i></div>
+            <h3>Laporan Pengiriman Barang</h3>
+            <p>Lihat laporan dan riwayat pengiriman barang ke gudang.</p>
+            <span class="badge">Laporan Pengiriman</span>
         </a>
 
     </div>

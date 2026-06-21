@@ -340,41 +340,293 @@ main {
     color: var(--muted);
 }
 
-/* Table */
-.belanja-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    border-radius: 8px;
-    overflow: hidden;
+/* ===== Item List (pengganti tabel belanja agar rapi di HP) ===== */
+.item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.belanja-table th {
-    padding: 14px 10px;
+.item-row {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.item-row:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+}
+
+.item-row-main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.item-row-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.item-row-no {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-row-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.item-row-name-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.item-row-name {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--text);
+    word-break: break-word;
+}
+
+.item-qty-chip {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: #eff6ff;
+    color: var(--primary);
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: .3px;
-    text-transform: uppercase;
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    text-align: left;
+    border: 1px solid #bfdbfe;
+    white-space: nowrap;
 }
 
-.belanja-table td {
-    padding: 12px 10px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-    vertical-align: middle;
+.item-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
 }
 
-.belanja-table tbody tr:hover {
+.item-row-harga {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.item-row-subtotal {
+    flex-shrink: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--primary);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.item-row-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.action-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-group-end {
+    margin-left: auto;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 34px;
+    min-width: 34px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all .15s ease;
+    font-family: inherit;
+}
+
+.action-btn svg {
+    flex-shrink: 0;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.action-btn-nota,
+.action-btn-edit {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+.action-btn-nota:hover,
+.action-btn-edit:hover {
+    background: #fef3c7;
+}
+
+.action-btn-nota-add,
+.action-btn-edit {
+    width: 34px;
+    padding: 0;
+}
+
+.action-btn-nota-add {
+    background: #f8fafc;
+    color: var(--muted);
+    border-color: var(--border);
+}
+
+.action-btn-nota-add:hover {
     background: #f1f5f9;
+    color: var(--text);
 }
 
-.belanja-table tfoot td {
+.action-btn-foto {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.action-btn-foto:hover {
+    background: #dbeafe;
+}
+
+.action-btn-galeri {
+    width: 34px;
+    padding: 0;
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.action-btn-galeri:hover {
+    background: #dbeafe;
+}
+
+.action-btn-kamera {
+    width: 34px;
+    padding: 0;
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+
+.action-btn-kamera:hover {
+    background: #dcfce7;
+}
+
+.action-btn-delete {
+    width: 34px;
+    padding: 0;
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.action-btn-delete:hover {
+    background: #fee2e2;
+}
+
+.item-list-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 22px;
+    background: #f8fafc;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+
+.item-list-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .2px;
+}
+
+.item-list-footer strong {
+    color: var(--primary);
     font-size: 15px;
-    padding: 14px 10px;
+}
+
+/* Info banner (pesan untuk role operator) */
+.info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #166534;
+    background: #f0fdf4;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #bbf7d0;
+}
+
+.info-banner svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.menu-info-alamat {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    font-size: 12px !important;
+    margin-top: 2px;
+}
+
+.menu-info-alamat svg {
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 /* Modal */
@@ -1114,46 +1366,7 @@ main {
     border-color: #fca5a5;
 }
 
-/* Tombol Foto Receiving */
-.td-foto-receiving {
-    white-space: nowrap;
-}
-
-.btn-foto-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-    margin-left: 4px;
-    vertical-align: middle;
-}
-
-.btn-galeri {
-    background: #eff6ff;
-    color: #2563eb;
-    border: 1.5px solid #bfdbfe;
-}
-
-.btn-galeri:hover {
-    background: #dbeafe;
-    transform: translateY(-1px);
-}
-
-.btn-kamera {
-    background: #f0fdf4;
-    color: #16a34a;
-    border: 1.5px solid #bbf7d0;
-}
-
-.btn-kamera:hover {
-    background: #dcfce7;
-    transform: translateY(-1px);
-}
+/* (Tombol foto receiving kini menggunakan .action-btn, lihat bagian Item List) */
 
 /* ===== POPUP UPLOAD FOTO MENU ===== */
 .btn-upload-menu {
@@ -1507,101 +1720,39 @@ main {
         max-height: 120px;
     }
 
-    /* === TABEL JADI CARD LIST DI MOBILE === */
-    .belanja-table {
-        display: block;
-        width: 100%;
-        border: none;
-    }
-
-    .belanja-table thead {
-        display: none;
-    }
-
-    .belanja-table tbody {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .belanja-table tfoot {
-        display: block;
-        border-top: 2px solid var(--border);
-        padding-top: 10px;
-        margin-top: 4px;
-    }
-
-    .belanja-table tfoot tr {
-        display: flex;
-        justify-content: space-between;
-        background: #f1f5f9;
-        border-radius: 8px;
-        padding: 10px 14px;
-    }
-
-    .belanja-table tfoot td {
-        border: none !important;
-        font-size: 14px;
-        font-weight: 700;
-    }
-
-    .belanja-table tbody tr {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 4px 12px;
-        background: #f8fafc;
-        border: 1px solid var(--border);
-        border-radius: 10px;
+    /* === ITEM LIST DI MOBILE: tap target lebih besar, tetap rapi === */
+    .item-row {
         padding: 12px;
-        position: relative;
-    }
-
-    .belanja-table tbody td {
-        border: none !important;
-        padding: 2px 0;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        min-height: 0;
-    }
-
-    .belanja-table tbody td:first-child {
-        grid-column: 1;
-        grid-row: 1;
-        font-weight: 800;
-        color: var(--primary);
-        font-size: 16px;
-        align-self: start;
-    }
-
-    .belanja-table tbody td:nth-child(2) {
-        grid-column: 2;
-        grid-row: 1;
-        font-weight: 700;
-        font-size: 15px;
-        color: var(--text);
-    }
-
-    .belanja-table tbody td:nth-child(n+3) {
-        grid-column: 1 / -1;
-        padding: 2px 0;
-        font-size: 13px;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .td-foto-receiving {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .btn-foto-action {
-        width: 42px;
-        height: 42px;
         border-radius: 10px;
+    }
+
+    .item-row-name {
+        font-size: 14px;
+    }
+
+    .item-row-subtotal {
+        font-size: 14px;
+    }
+
+    .item-row-actions {
+        gap: 10px;
+    }
+
+    .action-group {
+        gap: 8px;
+    }
+
+    .action-btn {
+        height: 38px;
+        min-width: 38px;
+    }
+
+    .action-btn-edit,
+    .action-btn-delete,
+    .action-btn-galeri,
+    .action-btn-kamera,
+    .action-btn-nota-add {
+        width: 38px;
     }
 
     .searchbar-inner {
@@ -1686,18 +1837,25 @@ main {
         font-size: 13px;
     }
 
-    .btn-foto-action {
-        width: 46px;
-        height: 46px;
-        border-radius: 12px;
+    .action-btn {
+        height: 40px;
+        min-width: 40px;
     }
 
-    .belanja-table tbody tr {
+    .action-btn-edit,
+    .action-btn-delete,
+    .action-btn-galeri,
+    .action-btn-kamera,
+    .action-btn-nota-add {
+        width: 40px;
+    }
+
+    .item-row {
         padding: 10px;
     }
 
-    .belanja-table tbody td:nth-child(2) {
-        font-size: 14px;
+    .item-row-name {
+        font-size: 13.5px;
     }
 
     .badge-kategori {
@@ -1709,9 +1867,11 @@ main {
         max-width: 100%;
         padding: 16px;
     }
+
     .upload-menu-popup-btn {
         padding: 14px;
     }
+
     .upload-menu-options-inline {
         grid-template-columns: 1fr;
     }

@@ -36,14 +36,21 @@ function toggleAccordion(header) {
 }
 
 // ===== Auto No Faktur =====
-function updateNoFaktur() {
+async function updateNoFaktur() {
     const tglInput = document.querySelector('input[name="tanggal"]');
     const fakturInput = document.querySelector('input[name="no_faktur"]');
-    if (tglInput && fakturInput && tglInput.value) {
-        const tglFormat = tglInput.value.replace(/-/g, '');
-        fakturInput.value = `0001FC-${tglFormat}`;
-    }
+
+    if (!tglInput.value) return;
+
+    const res = await fetch(
+        `../database/get-no-faktur.php?tanggal=${tglInput.value}`
+    );
+
+    fakturInput.value = await res.text();
 }
+
+document.querySelector('input[name="tanggal"]')
+    .addEventListener('change', updateNoFaktur);
 
 // ===== Dynamic Form Rows =====
 let rowIndex = 0;
@@ -66,7 +73,7 @@ function addRow() {
         <td><input type="number" name="jumlah[${rowIndex}]" class="input-jumlah" readonly placeholder="0" style="background:#f1f5f9;font-weight:600;"></td>
         <td><input type="file" name="nota_files[${rowIndex}][]" class="file-input-multi" multiple accept="image/*,.pdf" style="font-size:10px;"></td>
         <td><input type="file" name="foto_files[${rowIndex}][]" class="file-input-multi" multiple accept="image/*" style="font-size:10px;"></td>
-        <td><input type="hidden" name="row_index[]" value="${rowIndex}"><button type="button" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="removeRow(this)" title="Hapus">🗑</button></td>
+        <td><input type="hidden" name="row_index[]" value="${rowIndex}"><button type="button" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="removeRow(this)" title="Hapus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></td>
     `;
     tbody.appendChild(tr);
 }
@@ -333,7 +340,7 @@ function viewPhotos(idDetail, type, count) {
                     if (isImage) {
                         item.innerHTML = `<img src="${photoPath}${photo}" onclick="viewFullImage('${photoPath}${photo}')" alt="${type} ${index + 1}"><div class="photo-label">${type === 'nota' ? 'Nota' : 'Foto'} ${index + 1}</div>`;
                     } else {
-                        item.innerHTML = `<div style="height:200px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:48px;">📄</div><div class="photo-label">${photo}</div>`;
+                        item.innerHTML = `<div style="height:200px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="photo-label">${photo}</div>`;
                     }
                     grid.appendChild(item);
                 });
@@ -542,12 +549,12 @@ function showUploadMenuOptions(idBelanja) {
             <div class="upload-menu-popup-title">Pilih cara upload foto</div>
             <button class="upload-menu-popup-btn btn-kamera-opt" onclick="triggerMenuPhoto('kamera', ${idBelanja})">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <span>📸 Ambil Foto</span>
+                <span>Ambil Foto</span>
                 <small>Buka kamera belakang</small>
             </button>
             <button class="upload-menu-popup-btn btn-galeri-opt" onclick="triggerMenuPhoto('galeri', ${idBelanja})">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span>🖼️ Pilih dari Galeri</span>
+                <span>Pilih dari Galeri</span>
                 <small>Bisa pilih banyak foto</small>
             </button>
             <button class="upload-menu-popup-btn btn-cancel-opt" onclick="closeUploadMenuPopup()">

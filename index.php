@@ -6,7 +6,7 @@ session_start();
 // Sebaiknya nanti dipindah ke database / .env, ini contoh dasar
 // =======================================================
 $password_admin    = "admin123";
-$password_operator = "operator123";
+$password_operator = "op123";
 
 // =======================================================
 // PROSES VERIFIKASI PASSWORD (dipanggil via AJAX/fetch)
@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         </div>
 
         <div class="footer-text">
-            &copy; <?php echo date('Y'); ?> Bina Usaha Sauyunan. Semua hak dilindungi.
+            &copy; <?php echo date('Y'); ?> created by Muhammad Zulfahmi
         </div>
     </div>
 

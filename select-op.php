@@ -156,6 +156,16 @@
             color: var(--secondary);
         }
 
+        .menu-card.penerimaan .icon-wrap {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .menu-card.penerimaan .badge {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
         @media (max-width:480px) {
             .menu-grid {
                 grid-template-columns: 1fr;
@@ -180,11 +190,18 @@
             <span class="badge">Belanja Bahan</span>
         </a>
 
-        <a href="pengambilan-barang.php" class="menu-card pengambilan">
+        <a href="laporan/pengambilan.php" class="menu-card pengambilan">
             <div class="icon-wrap"><i class="ph ph-package"></i></div>
             <h3>Pengambilan Stok Barang</h3>
             <p>Lihat laporan dan riwayat pengambilan stok barang dari gudang.</p>
             <span class="badge">Laporan Stok</span>
+        </a>
+
+        <a href="#" class="menu-card penerimaan">
+            <div class="icon-wrap"><i class="ph ph-archive-box"></i></div>
+            <h3>Laporan Penerimaan Barang</h3>
+            <p>Lihat laporan dan riwayat penerimaan barang di gudang.</p>
+            <span class="badge">Laporan Penerimaan</span>
         </a>
 
     </div>

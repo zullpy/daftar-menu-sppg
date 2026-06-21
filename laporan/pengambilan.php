@@ -1,10 +1,22 @@
 <?php
-    // pengambilan-stok.php
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
+// pengambilan.php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
 require '../database/koneksi.php';
 
+if (!isset($_SESSION['role'])) {
+    header('Location: index.php');
+    exit;
+}
+
+$userRole = strtolower($_SESSION['role']);
+
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: /index.php');
+    exit;
+}
 $filterDari  = $_GET['dari'] ?? '';
 $filterSampai = $_GET['sampai'] ?? '';
 $filterSppg  = $_GET['sppg'] ?? '';
@@ -20,8 +32,9 @@ if (!empty($filterSampai)) {
     $params[':sampai'] = $filterSampai;
 }
 if (!empty($filterSppg)) {
-    $where[] = "pb.nama_sppg LIKE :sppg";
+    $where[] = "(pb.nama_sppg LIKE :sppg OR pb.nama_pengambil LIKE :sppg2)";
     $params[':sppg'] = '%' . $filterSppg . '%';
+    $params[':sppg2'] = '%' . $filterSppg . '%';
 }
 
 $whereSql = !empty($where) ? "WHERE " . implode(' AND ', $where) : '';
@@ -30,13 +43,19 @@ $sql = "SELECT pb.*,
         (SELECT COUNT(*) FROM pengambilan_barang_detail WHERE id_pengambilan = pb.id_pengambilan) AS jumlah_item
         FROM pengambilan_barang pb
         $whereSql
-        ORDER BY pb.tanggal_pengambilan DESC, pb.id_pengambilan DESC";
+        ORDER BY pb.tanggal_pengambilan DESC, pb.nama_pengambil ASC, pb.id_pengambilan DESC";
+
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 
+// Grouping Data: Tanggal (judul statis) -> Nama Pengambil (accordion)
 $dataGrouped = [];
+$totalLaporan = 0;
 while ($row = $stmt->fetch()) {
-    $dataGrouped[$row['tanggal_pengambilan']][] = $row;
+    $tgl = $row['tanggal_pengambilan'];
+    $pengambil = $row['nama_pengambil'] ?: 'Tidak Diketahui';
+    $dataGrouped[$tgl][$pengambil][] = $row;
+    $totalLaporan++;
 }
 ?>
 <!DOCTYPE html>
@@ -44,270 +63,59 @@ while ($row = $stmt->fetch()) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Pengambilan Stok Barang - Bina Usaha Sauyunan</title>
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     </link>
+    <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="pengambilan.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        :root {
-            --primary: #1565c0;
-            --primary-dark: #0d47a1;
-            --primary-light: #e3f2fd;
-            --bg: #f4f6f8;
-            --card-bg: #ffffff;
-            --text-dark: #212529;
-            --text-muted: #6c757d;
-            --border: #e0e0e0;
-            --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, sans-serif;
-        }
-
-        body {
-            background: var(--bg);
-            padding: 24px;
-        }
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .topbar h1 {
-            font-size: 22px;
-            color: var(--text-dark);
-        }
-
-        .topbar a.back {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 4px;
-        }
-
-        .filter-bar {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 24px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: end;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .filter-group label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .filter-group input {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 10px;
-            font-size: 13px;
-        }
-
-        .btn {
-            border: none;
-            border-radius: 10px;
-            padding: 9px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: #fff;
-        }
-
-        .btn-outline {
-            background: #fff;
-            border: 1px solid var(--border);
-            color: var(--text-dark);
-        }
-
-        .date-group {
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-            background: var(--card-bg);
-        }
-
-        .date-header {
-            padding: 14px 18px;
-            background: var(--primary-light);
-            color: var(--primary-dark);
-            font-weight: 700;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            justify-content: space-between;
-        }
-
-        .date-header .left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .date-body {
-            padding: 0;
-        }
-
-        .row-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 18px;
-            border-top: 1px solid var(--border);
-            font-size: 13px;
-        }
-
-        .row-item .main {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-
-        .row-item .no-pengambilan {
-            font-weight: 700;
-            color: var(--text-dark);
-        }
-
-        .row-item .sub {
-            color: var(--text-muted);
-            font-size: 12px;
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-        }
-
-        .row-item .count-badge {
-            background: var(--primary-light);
-            color: var(--primary-dark);
-            font-weight: 700;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 12px;
-            display: block;
-        }
-
-        /* Modal detail */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-            padding: 20px;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal-box {
-            background: #fff;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 600px;
-            max-height: 85vh;
-            overflow-y: auto;
-            padding: 24px;
-        }
-
-        .modal-box h2 {
-            font-size: 17px;
-            margin-bottom: 6px;
-        }
-
-        .modal-box .meta {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-        }
-
-        .detail-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .detail-table th {
-            text-align: left;
-            font-size: 12px;
-            color: var(--text-muted);
-            padding: 8px 6px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .detail-table td {
-            padding: 8px 6px;
-            font-size: 13px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .modal-footer {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 18px;
-        }
-    </style>
 </head>
 
 <body>
 
-    <div>
-        <a href="/select-bibi.php" class="back"><i class="ph ph-arrow-left"></i> Kembali ke Menu</a>
-        <div class="topbar">
-            <h1>Laporan Pengambilan Stok Barang</h1>
+    <div class="page-header">
+        <div class="header-top">
+            <div class="header-left">
+                <a href="?logout=1" class="btn-back" onclick="return confirm('Yakin ingin keluar?')">
+                    <i class="ph ph-arrow-left"></i>
+                    <span class="full">Kembali</span>
+                </a>
+
+                <div class="header-title-wrap">
+                    <h1>Laporan Pengambilan Barang</h1>
+                    <div class="header-subtitle">
+                        <?= date('d M Y') ?> • <?= count($dataGrouped) ?> pengambil • <?= $totalLaporan ?> laporan
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span class="role-badge <?= $userRole === 'admin' ? 'role-admin' : 'role-operator' ?>">
+                    <?= $userRole === 'admin' ? 'Admin' : 'Operator' ?>
+                </span>
+
+                <?php if ($userRole === 'operator'): ?>
+                    <button class="btn-add" onclick="openModal()">
+                        <i class="ph ph-plus"></i>
+                        <span>Tambah Laporan</span>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
-    <form class="filter-bar" method="GET">
+    <button type="button" class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilter()">
+        <span style="display:flex; align-items:center; gap:8px;">
+            <i class="ph ph-funnel"></i> Filter Data
+            <?php if ($filterDari || $filterSampai || $filterSppg): ?>
+                <span class="count-badge">aktif</span>
+            <?php endif; ?>
+        </span>
+        <i class="ph ph-caret-down chev"></i>
+    </button>
+
+    <form class="filter-bar" id="filterBar" method="GET">
         <div class="filter-group">
             <label>Dari Tanggal</label>
             <input type="date" name="dari" value="<?= htmlspecialchars($filterDari) ?>">
@@ -317,11 +125,11 @@ while ($row = $stmt->fetch()) {
             <input type="date" name="sampai" value="<?= htmlspecialchars($filterSampai) ?>">
         </div>
         <div class="filter-group">
-            <label>Nama SPPG</label>
-            <input type="text" name="sppg" placeholder="Cari SPPG..." value="<?= htmlspecialchars($filterSppg) ?>">
+            <label>Cari SPPG / Pengambil</label>
+            <input type="text" name="sppg" placeholder="Cari..." value="<?= htmlspecialchars($filterSppg) ?>">
         </div>
         <button type="submit" class="btn btn-primary"><i class="ph ph-funnel"></i> Filter</button>
-        <a href="pengambilan-stok.php" class="btn btn-outline"><i class="ph ph-x"></i> Reset</a>
+        <a href="pengambilan.php" class="btn btn-outline"><i class="ph ph-x"></i> Reset</a>
     </form>
 
     <?php if (empty($dataGrouped)): ?>
@@ -330,45 +138,137 @@ while ($row = $stmt->fetch()) {
             <p>Belum ada data pengambilan stok barang.</p>
         </div>
     <?php else: ?>
-        <?php foreach ($dataGrouped as $tanggal => $items): ?>
-            <div class="date-group">
-                <div class="date-header">
-                    <div class="left">
-                        <i class="ph ph-calendar"></i>
-                        <?= date('d F Y', strtotime($tanggal)) ?>
-                    </div>
-                    <span class="count-badge"><?= count($items) ?> pengambilan</span>
+        <?php foreach ($dataGrouped as $tanggal => $pengambilData): ?>
+            <div class="date-section">
+                <div class="date-section-title">
+                    <i class="ph ph-calendar"></i>
+                    <span><?= date('d F Y', strtotime($tanggal)) ?></span>
+                    <span class="count-badge"><?= array_sum(array_map('count', $pengambilData)) ?> laporan</span>
                 </div>
-                <div class="date-body">
-                    <?php foreach ($items as $item): ?>
-                        <div class="row-item">
-                            <div class="main">
-                                <span class="no-pengambilan"><?= htmlspecialchars($item['no_pengambilan']) ?></span>
-                                <span class="sub">
-                                    <span><i class="ph ph-storefront"></i> <?= htmlspecialchars($item['nama_sppg']) ?></span>
-                                    <?php if (!empty($item['no_kontak'])): ?>
-                                        <span><i class="ph ph-phone"></i> <?= htmlspecialchars($item['no_kontak']) ?></span>
-                                    <?php endif; ?>
-                                </span>
+
+                <?php foreach ($pengambilData as $namaPengambil => $items): ?>
+                    <?php $pengambilId = 'peng-' . md5($namaPengambil . $tanggal); ?>
+                    <div class="pengambil-group">
+                        <div class="pengambil-header" onclick="toggleAccordion('<?= $pengambilId ?>')">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                                <i class="ph ph-user"></i>
+                                <span class="label"><?= htmlspecialchars($namaPengambil) ?></span>
                             </div>
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span class="count-badge"><?= $item['jumlah_item'] ?> item</span>
-                                <button class="btn btn-outline" onclick="lihatDetail(<?= $item['id_pengambilan'] ?>, '<?= htmlspecialchars($item['no_pengambilan'], ENT_QUOTES) ?>', '<?= htmlspecialchars($item['nama_sppg'], ENT_QUOTES) ?>')">
-                                    <i class="ph ph-eye"></i> Detail
-                                </button>
+                            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                <span class="count-badge"><?= count($items) ?> laporan</span>
+                                <i class="ph ph-caret-down chev"></i>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+                        <div class="pengambil-body" id="<?= $pengambilId ?>">
+
+                            <?php foreach ($items as $item): ?>
+                                <div class="row-item">
+                                    <div class="main">
+                                        <span class="no-pengambilan"><?= htmlspecialchars($item['no_pengambilan']) ?></span>
+                                        <span class="sub">
+                                            <span><i class="ph ph-storefront"></i> <?= htmlspecialchars($item['nama_sppg']) ?></span>
+                                            <span><i class="ph ph-clock"></i> <?= htmlspecialchars($item['jam_pengambilan']) ?></span>
+                                            <?php if (!empty($item['no_kontak'])): ?>
+                                                <span><i class="ph ph-phone"></i> <?= htmlspecialchars($item['no_kontak']) ?></span>
+                                            <?php endif; ?>
+                                        </span>
+                                    </div>
+                                    <div class="actions">
+                                        <span class="status-badge status-<?= $item['status'] ?>">
+                                            <?= $item['status'] === 'verified' ? '✓ Faktur Dibuat' : '⏳ Pending' ?>
+                                        </span>
+                                        <span class="count-badge"><?= $item['jumlah_item'] ?> item</span>
+                                        <button class="btn btn-outline" onclick="lihatDetail(<?= $item['id_pengambilan'] ?>, '<?= htmlspecialchars($item['no_pengambilan'], ENT_QUOTES) ?>', '<?= htmlspecialchars($item['nama_sppg'], ENT_QUOTES) ?>')">
+                                            detail
+                                        </button>
+                                        <?php if ($userRole === 'admin' && $item['status'] !== 'verified'): ?>
+                                            <button class="btn btn-success" onclick="verifikasiLaporan(<?= $item['id_pengambilan'] ?>)">
+                                                <i class="ph ph-check"></i> Sudah Dibuatkan Faktur
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
             </div>
         <?php endforeach; ?>
+    <?php endif; ?>
+
+    <!-- FAB Tambah (mobile only, operator) -->
+    <?php if ($userRole === 'operator'): ?>
+        <button class="fab-add" onclick="openModal()" aria-label="Tambah Laporan">
+            <i class="ph ph-plus"></i>
+        </button>
+    <?php endif; ?>
+
+    <!-- Modal Tambah Laporan (Hanya Operator) -->
+    <?php if ($userRole === 'operator'): ?>
+        <div class="modal-overlay" id="modalTambah">
+            <div class="modal-box">
+                <div class="modal-drag-handle"></div>
+                <h2><i class="ph ph-plus-circle"></i> Tambah Laporan Pengambilan</h2>
+                <form id="formTambah">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nama Pengambil *</label>
+                            <input type="text" name="nama_pengambil" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama SPPG *</label>
+                            <input type="text" name="nama_sppg" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Pengambilan *</label>
+                            <input type="date" name="tanggal_pengambilan" id="tanggal_pengambilan" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Jam Pengambilan (Otomatis)</label>
+                            <input type="text" name="jam_pengambilan" id="jam_pengambilan"
+                                readonly placeholder="15:00"
+                                pattern="([01]\d|2[0-3]):[0-5]\d"
+                                style="font-weight:600; letter-spacing:1px;">
+                        </div>
+                        <div class="form-group full">
+                            <label>Nomor Kontak</label>
+                            <input type="text" name="no_kontak" placeholder="08xxx" inputmode="tel">
+                        </div>
+                    </div>
+
+                    <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <label style="font-weight:700; font-size:14px;">Detail Barang</label>
+                        <button type="button" class="btn btn-primary" onclick="addBarangRow()">
+                            <i class="ph ph-plus"></i> Tambah Barang
+                        </button>
+                    </div>
+
+                    <div class="barang-header">
+                        <span>Nama Barang</span>
+                        <span>Qty</span>
+                        <span>Satuan</span>
+                        <span></span>
+                    </div>
+                    <div id="barangContainer"></div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>
+                        <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     <?php endif; ?>
 
     <!-- Modal Detail -->
     <div class="modal-overlay" id="modalDetail">
         <div class="modal-box">
+            <div class="modal-drag-handle"></div>
             <h2 id="detailTitle"></h2>
-            <div class="meta" id="detailMeta"></div>
+            <div class="meta" id="detailMeta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;"></div>
             <table class="detail-table">
                 <thead>
                     <tr>
@@ -389,40 +289,7 @@ while ($row = $stmt->fetch()) {
         </div>
     </div>
 
-    <script>
-        function lihatDetail(id, noPengambilan, sppg) {
-            document.getElementById('modalDetail').classList.add('active');
-            document.getElementById('detailTitle').innerText = noPengambilan;
-            document.getElementById('detailMeta').innerText = 'SPPG: ' + sppg;
-            document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">Memuat...</td></tr>';
-
-            fetch('database/get-pengambilan-detail.php?id=' + id)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success' && data.detail.length > 0) {
-                        let html = '';
-                        data.detail.forEach(d => {
-                            html += `<tr>
-                        <td>${d.nama_barang}</td>
-                        <td>${parseFloat(d.qty)}</td>
-                        <td>${d.satuan}</td>
-                    </tr>`;
-                        });
-                        document.getElementById('detailBody').innerHTML = html;
-                    } else {
-                        document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">Tidak ada item.</td></tr>';
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#d32f2f;">Gagal memuat data.</td></tr>';
-                });
-        }
-
-        function closeDetail() {
-            document.getElementById('modalDetail').classList.remove('active');
-        }
-    </script>
-
+    <script src="pengambilan.js"></script>
 </body>
 
 </html>

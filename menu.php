@@ -283,10 +283,15 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                         <?= icon('plus', 16) ?> <span>Input Daftar Menu</span>
                     </button>
                 <?php else: ?>
-                    <!-- ✨ PESAN INFO OPERATOR (UPDATED) -->
-                    <p style="margin-top:12px; font-size:13px; color:var(--muted); background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
-                        👋 Halo Operator! Anda bisa <strong>upload foto menu</strong> dan <strong>foto receiving</strong>. 📸
-                    </p>
+                    <!-- Pesan info operator -->
+                    <div class="info-banner">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                        <span>Halo Operator! Anda bisa <strong>upload foto menu</strong> dan <strong>foto receiving</strong>.</span>
+                    </div>
                 <?php endif; ?>
             </div>
             <div class="menu-carousel">
@@ -389,9 +394,30 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                             <div class="menu-card">
                                 <?php if (!empty($belanja['nama_sppg']) || !empty($belanja['no_faktur'])): ?>
                                     <div class="dapur-info-badge">
-                                        <span>🏭 <?= htmlspecialchars($belanja['nama_sppg'] ?? '-') ?></span>
-                                        <span>📄 <?= htmlspecialchars($belanja['no_faktur'] ?? '-') ?></span>
-                                        <span>📞 <?= htmlspecialchars($belanja['no_kontak'] ?? '-') ?></span>
+                                        <span>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+                                                <path d="M17 18h1" />
+                                                <path d="M12 18h1" />
+                                                <path d="M7 18h1" />
+                                            </svg>
+                                            <?= htmlspecialchars($belanja['nama_sppg'] ?? '-') ?>
+                                        </span>
+                                        <span>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                <polyline points="14 2 14 8 20 8" />
+                                                <line x1="16" y1="13" x2="8" y2="13" />
+                                                <line x1="16" y1="17" x2="8" y2="17" />
+                                            </svg>
+                                            <?= htmlspecialchars($belanja['no_faktur'] ?? '-') ?>
+                                        </span>
+                                        <span>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                                            </svg>
+                                            <?= htmlspecialchars($belanja['no_kontak'] ?? '-') ?>
+                                        </span>
                                     </div>
                                 <?php endif; ?>
                                 <div class="menu-card-header">
@@ -427,7 +453,10 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                         <div>
                                             <h4 class="menu-title"><?= htmlspecialchars($belanja['judul']) ?></h4>
                                             <p class="menu-info">Porsi: <strong><?= number_format($belanja['porsi'] ?? 0) ?></strong></p>
-                                            <?php if (!empty($belanja['alamat'])): ?><p class="menu-info" style="font-size:12px;">📍 <?= htmlspecialchars($belanja['alamat']) ?></p><?php endif; ?>
+                                            <?php if (!empty($belanja['alamat'])): ?><p class="menu-info menu-info-alamat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                                        <circle cx="12" cy="10" r="3" />
+                                                    </svg> <?= htmlspecialchars($belanja['alamat']) ?></p><?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -471,115 +500,141 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                     </div>
                                 <?php endif; ?>
 
-                                <table class="belanja-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 4%;">No</th>
-                                            <th>Item Barang</th>
-                                            <th style="width: 10%;">Kategori</th>
-                                            <th style="width: 7%;">QTY</th>
-                                            <th style="width: 7%;">Satuan</th>
-                                            <?php if ($isAdmin): ?>
-                                                <th style="width: 11%;">Harga Satuan</th>
-                                                <th style="width: 11%;">Jumlah</th>
-                                                <th style="width: 8%;">Nota</th>
-                                            <?php endif; ?>
-                                            <th style="width: 10%;">📷 Foto</th>
-                                            <?php if ($isAdmin): ?>
-                                                <th style="width: 8%;">Aksi</th>
-                                            <?php endif; ?>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php
-                                        $no = 1;
-                                        $totalBelanja = 0;
-                                        // Pastikan $kategoriGroups ada untuk operator juga (untuk badge warna)
-                                        if (!isset($kategoriGroups)) {
-                                            $kategoriGroups = [
-                                                'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff'],
-                                                'Bumbu'       => ['color' => '#d97706', 'bg' => '#fffbeb'],
-                                                'Sayuran'     => ['color' => '#16a34a', 'bg' => '#f0fdf4'],
-                                                'Buah-buahan' => ['color' => '#dc2626', 'bg' => '#fef2f2'],
-                                                'Tambahan'    => ['color' => '#7c3aed', 'bg' => '#f5f3ff'],
-                                            ];
-                                        }
-                                        foreach ($belanja['details'] as $detail):
-                                            $totalBelanja += $detail['jumlah'];
-                                            $katColor = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['color'] ?? '#64748b';
-                                            $katBg = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['bg'] ?? '#f1f5f9';
-                                        ?>
-                                            <tr>
-                                                <td><?= $no++ ?></td>
-                                                <td><?= htmlspecialchars($detail['item_barang']) ?></td>
-                                                <td><span class="badge-kategori" style="background: <?= $katBg ?>; color: <?= $katColor ?>;"><?= htmlspecialchars($detail['kategori'] ?? 'Bahan Pokok') ?></span></td>
-                                                <td><?= rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',') ?></td>
-                                                <td><?= htmlspecialchars($detail['satuan']) ?></td>
+                                <div class="item-list">
+                                    <?php
+                                    $no = 1;
+                                    $totalBelanja = 0;
+                                    // Pastikan $kategoriGroups ada untuk operator juga (untuk badge warna)
+                                    if (!isset($kategoriGroups)) {
+                                        $kategoriGroups = [
+                                            'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff'],
+                                            'Bumbu'       => ['color' => '#d97706', 'bg' => '#fffbeb'],
+                                            'Sayuran'     => ['color' => '#16a34a', 'bg' => '#f0fdf4'],
+                                            'Buah-buahan' => ['color' => '#dc2626', 'bg' => '#fef2f2'],
+                                            'Tambahan'    => ['color' => '#7c3aed', 'bg' => '#f5f3ff'],
+                                        ];
+                                    }
+                                    foreach ($belanja['details'] as $detail):
+                                        $totalBelanja += $detail['jumlah'];
+                                        $katColor = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['color'] ?? '#64748b';
+                                        $katBg = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['bg'] ?? '#f1f5f9';
+                                        $qtyDisplay = rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',');
+                                    ?>
+                                        <div class="item-row">
+                                            <div class="item-row-main">
+                                                <div class="item-row-info">
+                                                    <span class="item-row-no"><?= $no++ ?></span>
+                                                    <div class="item-row-text">
+                                                        <div class="item-row-name-line">
+                                                            <span class="item-row-name"><?= htmlspecialchars($detail['item_barang']) ?></span>
+                                                            <span class="item-qty-chip"><?= $qtyDisplay ?> <?= htmlspecialchars($detail['satuan']) ?></span>
+                                                        </div>
+                                                        <div class="item-row-meta">
+                                                            <span class="badge-kategori" style="background: <?= $katBg ?>; color: <?= $katColor ?>;"><?= htmlspecialchars($detail['kategori'] ?? 'Bahan Pokok') ?></span>
+                                                            <?php if ($isAdmin): ?>
+                                                                <span class="item-row-harga">Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?> / <?= htmlspecialchars($detail['satuan']) ?></span>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <?php if ($isAdmin): ?>
-                                                    <td>Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?></td>
-                                                    <td>Rp <?= number_format($detail['jumlah'], 0, ',', '.') ?></td>
-                                                    <td>
+                                                    <div class="item-row-subtotal">Rp <?= number_format($detail['jumlah'], 0, ',', '.') ?></div>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <div class="item-row-actions">
+                                                <?php if ($isAdmin): ?>
+                                                    <div class="action-group">
                                                         <?php if ($detail['jumlah_nota'] > 0): ?>
-                                                            <button class="btn btn-warning btn-sm btn-icon" onclick="viewPhotos(<?= $detail['id_detail'] ?>, 'nota', <?= $detail['jumlah_nota'] ?>)">👁️ <?= $detail['jumlah_nota'] ?></button>
+                                                            <button type="button" class="action-btn action-btn-nota" onclick="viewPhotos(<?= $detail['id_detail'] ?>, 'nota', <?= $detail['jumlah_nota'] ?>)" title="Lihat Nota (<?= $detail['jumlah_nota'] ?>)">
+                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                                    <polyline points="14 2 14 8 20 8" />
+                                                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                                                </svg>
+                                                                <span><?= $detail['jumlah_nota'] ?></span>
+                                                            </button>
                                                         <?php endif; ?>
-                                                        <label class="btn btn-secondary btn-sm btn-icon" style="cursor:pointer; margin-left:4px;">➕
+                                                        <label class="action-btn action-btn-nota-add" title="Tambah Nota">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <line x1="12" y1="5" x2="12" y2="19" />
+                                                                <line x1="5" y1="12" x2="19" y2="12" />
+                                                            </svg>
                                                             <input type="file" accept="image/*,.pdf" multiple hidden onchange="uploadInlinePhoto(this, 'add_nota', <?= $detail['id_detail'] ?>)">
                                                         </label>
-                                                    </td>
+                                                    </div>
                                                 <?php endif; ?>
+
                                                 <!-- Foto Receiving: tersedia untuk semua role -->
-                                                <td class="td-foto-receiving">
+                                                <div class="action-group">
                                                     <?php if ($detail['jumlah_foto'] > 0): ?>
-                                                        <button class="btn btn-primary btn-sm btn-icon" onclick="viewPhotos(<?= $detail['id_detail'] ?>, 'foto', <?= $detail['jumlah_foto'] ?>)">👁️ <?= $detail['jumlah_foto'] ?></button>
+                                                        <button type="button" class="action-btn action-btn-foto" onclick="viewPhotos(<?= $detail['id_detail'] ?>, 'foto', <?= $detail['jumlah_foto'] ?>)" title="Lihat Foto Receiving (<?= $detail['jumlah_foto'] ?>)">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                                <circle cx="12" cy="12" r="3" />
+                                                            </svg>
+                                                            <span><?= $detail['jumlah_foto'] ?></span>
+                                                        </button>
                                                     <?php endif; ?>
-                                                    <label class="btn-foto-action btn-galeri" title="Pilih dari Galeri">
-                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                                    <label class="action-btn action-btn-galeri" title="Pilih dari Galeri">
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                             <rect x="3" y="3" width="18" height="18" rx="2" />
                                                             <circle cx="8.5" cy="8.5" r="1.5" />
                                                             <polyline points="21 15 16 10 5 21" />
                                                         </svg>
                                                         <input type="file" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_foto_receiving', <?= $detail['id_detail'] ?>)">
                                                     </label>
-                                                    <label class="btn-foto-action btn-kamera" title="Ambil Foto dengan Kamera">
-                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                                    <label class="action-btn action-btn-kamera" title="Ambil Foto dengan Kamera">
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                                                             <circle cx="12" cy="13" r="4" />
                                                         </svg>
                                                         <input type="file" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_foto_receiving', <?= $detail['id_detail'] ?>)">
                                                     </label>
-                                                </td>
+                                                </div>
+
                                                 <?php if ($isAdmin): ?>
-                                                    <td>
-                                                        <button class="btn btn-sm btn-icon" style="background:#f59e0b;color:#fff;" onclick="openEditItem(this)"
+                                                    <div class="action-group action-group-end">
+                                                        <button type="button" class="action-btn action-btn-edit" onclick="openEditItem(this)"
                                                             data-id="<?= $detail['id_detail'] ?>"
                                                             data-item="<?= htmlspecialchars($detail['item_barang']) ?>"
                                                             data-qty="<?= $detail['qty'] ?>"
                                                             data-satuan="<?= htmlspecialchars($detail['satuan']) ?>"
                                                             data-harga="<?= $detail['harga_satuan'] ?>"
-                                                            data-kategori="<?= htmlspecialchars($detail['kategori']) ?>" title="Edit">✏️</button>
-                                                        <a href="?delete_detail=<?= $detail['id_detail'] ?>" class="btn btn-sm btn-icon" style="background:#ef4444;color:#fff;" onclick="return confirm('Yakin ingin menghapus item ini?')" title="Hapus">🗑️</a>
-                                                    </td>
+                                                            data-kategori="<?= htmlspecialchars($detail['kategori']) ?>" title="Edit Item">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                                                            </svg>
+                                                        </button>
+                                                        <a href="?delete_detail=<?= $detail['id_detail'] ?>" class="action-btn action-btn-delete" onclick="return confirm('Yakin ingin menghapus item ini?')" title="Hapus Item">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <polyline points="3 6 5 6 21 6" />
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                <line x1="10" y1="11" x2="10" y2="17" />
+                                                                <line x1="14" y1="11" x2="14" y2="17" />
+                                                            </svg>
+                                                        </a>
+                                                    </div>
                                                 <?php endif; ?>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                        <?php if (empty($belanja['details'])): ?>
-                                            <tr>
-                                                <td colspan="<?= $isAdmin ? '10' : '6' ?>" style="text-align: center; color: var(--muted); padding: 20px;">Belum ada item barang</td>
-                                            </tr>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                    <?php if (empty($belanja['details'])): ?>
+                                        <div class="item-list-empty">Belum ada item barang</div>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if (!empty($belanja['details'])): ?>
+                                    <div class="item-list-footer">
+                                        <?php if ($isAdmin): ?>
+                                            <span>Total Belanja</span>
+                                            <strong>Rp <?= number_format($totalBelanja, 0, ',', '.') ?></strong>
+                                        <?php else: ?>
+                                            <span>Total Item</span>
+                                            <strong><?= count($belanja['details']) ?> item</strong>
                                         <?php endif; ?>
-                                    </tbody>
-                                    <tfoot>
-                                        <tr style="background: #f1f5f9; font-weight: 700;">
-                                            <?php if ($isAdmin): ?>
-                                                <td colspan="6" style="text-align: right;">TOTAL :</td>
-                                                <td colspan="4">Rp <?= number_format($totalBelanja, 0, ',', '.') ?></td>
-                                            <?php else: ?>
-                                                <td colspan="3" style="text-align: right;">TOTAL ITEM :</td>
-                                                <td colspan="3"><?= count($belanja['details']) ?> item</td>
-                                            <?php endif; ?>
-                                        </tr>
-                                    </tfoot>
-                                </table>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -599,7 +654,12 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formBelanja">
                     <div class="form-section">
-                        <h3 class="section-title">🏭 Informasi Dapur</h3>
+                        <h3 class="section-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                                <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+                                <path d="M17 18h1" />
+                                <path d="M12 18h1" />
+                                <path d="M7 18h1" />
+                            </svg>Informasi Dapur</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nama SPPG <span class="required">*</span></label>
@@ -620,7 +680,11 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                         </div>
                     </div>
                     <div class="form-section">
-                        <h3 class="section-title">🍽️ Informasi Menu</h3>
+                        <h3 class="section-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                                <path d="M7 2v20" />
+                                <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                            </svg>Informasi Menu</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Tanggal <span class="required">*</span></label>
@@ -699,7 +763,9 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
         <div class="modal-overlay" id="modalEdit">
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
-                    <h2>✏️ Edit Item Barang</h2>
+                    <h2><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;">
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                        </svg>Edit Item Barang</h2>
                     <button class="close-modal" onclick="closeModal('modalEdit')"><?= icon('x', 20) ?></button>
                 </div>
                 <form method="POST">
@@ -746,7 +812,7 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
         <div class="modal-overlay" id="modalAddItem">
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
-                    <h2>➕ Tambah Barang Susulan</h2>
+                    <h2><?= icon('plus', 18) ?> Tambah Barang Susulan</h2>
                     <button class="close-modal" onclick="closeModal('modalAddItem')"><?= icon('x', 20) ?></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formAddItem">
