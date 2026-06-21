@@ -143,6 +143,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
     }
 }
 
+// ====== 🔒 PROSES TAMBAH BARANG SUSULAN (HANYA ADMIN) ======
+// Dipakai dari tombol "Tambah Barang" di menu-card, untuk item yang lupa diinput
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
+    if (!$isAdmin) {
+        header("Location: menu.php?error=unauthorized");
+        exit;
+    }
+    try {
+        $idBelanja = (int)$_POST['id_belanja'];
+        $item = $_POST['item_barang'];
+        $qty = $_POST['qty'];
+        $satuan = $_POST['satuan'];
+        $harga = $_POST['harga_satuan'];
+        $jumlah = (float)$qty * (float)$harga;
+        $kategori = $_POST['kategori'] ?? 'Bahan Pokok';
+
+        $stmt = $pdo->prepare("INSERT INTO belanja_detail (id_belanja, item_barang, qty, satuan, harga_satuan, jumlah, kategori) VALUES (:id_belanja, :item_barang, :qty, :satuan, :harga_satuan, :jumlah, :kategori)");
+        $stmt->execute([
+            ':id_belanja'    => $idBelanja,
+            ':item_barang'   => $item,
+            ':qty'           => $qty,
+            ':satuan'        => $satuan,
+            ':harga_satuan'  => $harga,
+            ':jumlah'        => $jumlah,
+            ':kategori'      => $kategori,
+        ]);
+        $idDetail = $pdo->lastInsertId();
+
+        // Item susulan juga bisa langsung dilampiri nota kalau ada
+        if (isset($_FILES['nota_susulan']) && $_FILES['nota_susulan']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = 'uploads/nota/';
+            if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
+            $fileExt = strtolower(pathinfo($_FILES['nota_susulan']['name'], PATHINFO_EXTENSION));
+            $newName = 'nota_' . date('YmdHis') . '_' . $idDetail . '.' . $fileExt;
+            if (move_uploaded_file($_FILES['nota_susulan']['tmp_name'], $uploadDir . $newName)) {
+                $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (:id_detail, :file_nota)")
+                    ->execute([':id_detail' => $idDetail, ':file_nota' => $newName]);
+            }
+        }
+
+        header("Location: menu.php?item_added=1");
+        exit;
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
 // ====== AMBIL DATA ======
 $belanjaList = $pdo->query("SELECT * FROM belanja ORDER BY tanggal DESC, created_at DESC")->fetchAll();
 foreach ($belanjaList as &$belanja) {
@@ -164,6 +211,13 @@ foreach ($belanjaList as &$belanja) {
     unset($detail); // PENTING: putuskan reference biar tidak "bocor" ke foreach lain
 }
 unset($belanja); // putuskan reference outer loop juga, best practice
+
+// ====== 📄 AMBIL DATA FAKTUR YANG SUDAH DITANDATANGANI (PER TANGGAL) ======
+$fakturMap = [];
+$stmtFaktur = $pdo->query("SELECT tanggal, file_faktur FROM faktur_ttd");
+foreach ($stmtFaktur->fetchAll() as $f) {
+    $fakturMap[$f['tanggal']] = $f['file_faktur'];
+}
 
 function formatTanggalIndonesia($tanggal)
 {
@@ -221,8 +275,9 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
 
         <div class="header-top">
             <div class="info-menu">
+                <h1 style="font-size: 24px; font-weight: 500; color:gray;">Permen Ceker</h1>
+                <span style="font-style: italic; color:gray;">Perencana Menu - Cek dan Receiving Barang</span>
                 <h2>Menu SPPG Yayasan Bina Warga Sauyunan</h2>
-                <p>Kelola daftar menu, E-book, </p>
                 <?php if ($isAdmin): ?>
                     <button class="btn btn-primary" style="margin-top: 16px;" onclick="openModal('modalAdd')">
                         <?= icon('plus', 16) ?> <span>Input Daftar Menu</span>
@@ -275,6 +330,8 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
         <?php if (isset($_GET['success'])): ?><div class="alert alert-success"><?= icon('check', 18) ?> <span>Daftar Menu berhasil ditambahkan!</span></div><?php endif; ?>
         <?php if (isset($_GET['updated'])): ?><div class="alert alert-success"><?= icon('check', 18) ?> <span>Item berhasil diupdate!</span></div><?php endif; ?>
         <?php if (isset($_GET['deleted'])): ?><div class="alert alert-success"><?= icon('check', 18) ?> <span>Item berhasil dihapus!</span></div><?php endif; ?>
+        <?php if (isset($_GET['item_added'])): ?><div class="alert alert-success"><?= icon('check', 18) ?> <span>Barang susulan berhasil ditambahkan!</span></div><?php endif; ?>
+        <?php if (isset($_GET['faktur_uploaded'])): ?><div class="alert alert-success"><?= icon('check', 18) ?> <span>Foto faktur tertandatangan berhasil diupload!</span></div><?php endif; ?>
         <?php if (isset($_GET['error']) && $_GET['error'] === 'unauthorized'): ?><div class="alert alert-error"><?= icon('alert', 18) ?> <span>Akses ditolak! Hanya admin yang bisa melakukan aksi ini.</span></div><?php endif; ?>
         <?php if (isset($error)): ?><div class="alert alert-error"><?= icon('alert', 18) ?> <span>Error: <?= htmlspecialchars($error) ?></span></div><?php endif; ?>
 
@@ -301,6 +358,25 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
                             <?php if ($isAdmin): ?>
+                                <?php if (isset($fakturMap[$tanggal])): ?>
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); viewFullImage('uploads/faktur/<?= htmlspecialchars($fakturMap[$tanggal]) ?>')">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <span>Lihat Foto Faktur</span>
+                                    </button>
+                                <?php else: ?>
+                                    <label class="btn btn-warning btn-sm" style="cursor:pointer;" onclick="event.stopPropagation();">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="17 8 12 3 7 8" />
+                                            <line x1="12" y1="3" x2="12" y2="15" />
+                                        </svg>
+                                        <span>Upload Faktur TTD</span>
+                                        <input type="file" accept="image/*,.pdf" hidden onchange="event.stopPropagation(); uploadFakturTTD(this, '<?= $tanggal ?>')">
+                                    </label>
+                                <?php endif; ?>
                                 <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); exportPDF('<?= $tanggal ?>')">
                                     <?= icon('download', 14) ?> <span>Ekspor PDF</span>
                                 </button>
@@ -338,6 +414,16 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                         <!-- Hidden inputs untuk galeri & kamera -->
                                         <input type="file" id="menuPhotoGaleri_<?= $belanja['id_belanja'] ?>" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
                                         <input type="file" id="menuPhotoKamera_<?= $belanja['id_belanja'] ?>" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
+                                        <!-- ✨ TOMBOL TAMBAH BARANG SUSULAN (HANYA ADMIN) -->
+                                        <?php if ($isAdmin): ?>
+                                            <button type="button" class="btn btn-secondary btn-sm" onclick="openAddItemModal(<?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($belanja['judul'])) ?>')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                </svg>
+                                                <span>Tambah Barang</span>
+                                            </button>
+                                        <?php endif; ?>
                                         <div>
                                             <h4 class="menu-title"><?= htmlspecialchars($belanja['judul']) ?></h4>
                                             <p class="menu-info">Porsi: <strong><?= number_format($belanja['porsi'] ?? 0) ?></strong></p>
@@ -651,6 +737,58 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('modalEdit')">Batal</button>
                         <button type="submit" name="update_detail" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Tambah Barang Susulan -->
+        <div class="modal-overlay" id="modalAddItem">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>➕ Tambah Barang Susulan</h2>
+                    <button class="close-modal" onclick="closeModal('modalAddItem')"><?= icon('x', 20) ?></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data" id="formAddItem">
+                    <input type="hidden" name="id_belanja" id="additem_id_belanja">
+                    <div class="form-section">
+                        <p id="additem_judul_menu" style="margin-bottom:14px;color:var(--muted);font-size:13px;"></p>
+                        <div class="form-group">
+                            <label>Nama Item Barang <span class="required">*</span></label>
+                            <input type="text" name="item_barang" class="form-control" placeholder="Contoh: Minyak Goreng" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Kategori</label>
+                                <select name="kategori" class="form-control" required>
+                                    <?php foreach ($KATEGORI_LIST as $kat): ?>
+                                        <option value="<?= $kat ?>"><?= $kat ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Satuan <span class="required">*</span></label>
+                                <input type="text" name="satuan" class="form-control" placeholder="pcs/kg" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>QTY <span class="required">*</span></label>
+                                <input type="number" name="qty" class="form-control" step="0.01" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Harga Satuan <span class="required">*</span></label>
+                                <input type="number" name="harga_satuan" class="form-control" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label><?= icon('camera', 14) ?> Lampiran Nota (Opsional)</label>
+                            <input type="file" name="nota_susulan" class="form-control" accept="image/*,.pdf">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('modalAddItem')">Batal</button>
+                        <button type="submit" name="add_single_item" class="btn btn-primary">Simpan Barang</button>
                     </div>
                 </form>
             </div>

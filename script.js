@@ -346,6 +346,11 @@ function viewPhotos(idDetail, type, count) {
         });
 }
 function viewFullImage(src) {
+    const ext = src.split('.').pop().toLowerCase();
+    if (ext === 'pdf') {
+        window.open(src, '_blank');
+        return;
+    }
     document.getElementById('fullImage').src = src;
     document.getElementById('fullImageModal').classList.add('active');
 }
@@ -370,6 +375,64 @@ function openEditItem(btn) {
     document.getElementById('edit_harga').value = btn.dataset.harga;
     document.getElementById('edit_kategori').value = btn.dataset.kategori;
     openModal('modalEdit');
+}
+
+// ===== Tambah Barang Susulan (item yang lupa diinput) =====
+function openAddItemModal(idBelanja, judulMenu) {
+    const form = document.getElementById('formAddItem');
+    form.reset();
+    document.getElementById('additem_id_belanja').value = idBelanja;
+    document.getElementById('additem_judul_menu').textContent = `Menambahkan item untuk: ${judulMenu}`;
+    openModal('modalAddItem');
+}
+
+// ===== Upload Faktur Yang Sudah Ditandatangani =====
+function uploadFakturTTD(input, tanggal) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) {
+        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload faktur...</p>`;
+        loading.classList.add('active');
+    }
+
+    const doUpload = (uploadFile) => {
+        const fd = new FormData();
+        fd.append('action', 'add_faktur_ttd');
+        fd.append('tanggal', tanggal);
+        fd.append('foto', uploadFile);
+
+        fetch('database/upload-faktur.php', { method: 'POST', body: fd })
+            .then(async r => {
+                const text = await r.text();
+                try { return JSON.parse(text); }
+                catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
+            })
+            .then(result => {
+                if (loading) loading.classList.remove('active');
+                if (!result.success) {
+                    alert('❌ Gagal upload faktur: ' + result.message);
+                } else {
+                    window.location.href = 'menu.php?faktur_uploaded=1';
+                }
+            })
+            .catch(err => {
+                if (loading) loading.classList.remove('active');
+                alert('❌ Error: ' + err.message);
+            });
+    };
+
+    // Compress dulu kalau file-nya gambar, biar tidak berat (PDF dilewati)
+    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+        compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
+            .then(doUpload)
+            .catch(() => doUpload(file));
+    } else {
+        doUpload(file);
+    }
+
+    input.value = '';
 }
 
 // ===== Form Submit Validation =====

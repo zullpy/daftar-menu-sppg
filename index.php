@@ -23,11 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     if ($role === 'admin' && $password === $password_admin) {
         $valid = true;
         $_SESSION['role'] = 'admin';
-        $redirect = 'menu.php';
+        $redirect = 'select-bibi.php';
     } elseif ($role === 'operator' && $password === $password_operator) {
         $valid = true;
         $_SESSION['role'] = 'operator';
-        $redirect = 'menu.php';
+        $redirect = 'select-op.php';
     }
 
     if ($valid) {
@@ -50,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
 
     <style>
         :root {
