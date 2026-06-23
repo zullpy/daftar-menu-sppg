@@ -1,25 +1,20 @@
 <?php
 session_start();
-
 // =======================================================
 // KONFIGURASI PASSWORD
 // Sebaiknya nanti dipindah ke database / .env, ini contoh dasar
 // =======================================================
 $password_admin    = "admin123";
 $password_operator = "op123";
-
 // =======================================================
 // PROSES VERIFIKASI PASSWORD (dipanggil via AJAX/fetch)
 // =======================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['aksi'] === 'verifikasi') {
     header('Content-Type: application/json');
-
     $role     = $_POST['role'] ?? '';
     $password = $_POST['password'] ?? '';
-
     $valid = false;
     $redirect = '';
-
     if ($role === 'admin' && $password === $password_admin) {
         $valid = true;
         $_SESSION['role'] = 'admin';
@@ -29,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         $_SESSION['role'] = 'operator';
         $redirect = 'select-op.php';
     }
-
     if ($valid) {
         echo json_encode(['status' => 'sukses', 'redirect' => $redirect]);
     } else {
@@ -45,14 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pilih Akses - Bina Usaha Sauyunan</title>
-
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
-
     <style>
         :root {
             --color-primary: #2563eb;
@@ -90,6 +81,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             max-width: 760px;
         }
 
+        /* BANNER STYLES - TANPA BACKGROUND PUTIH */
+        .banner-wrapper {
+            margin-bottom: 32px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: transparent;
+            /* TIDAK ADA BACKGROUND PUTIH */
+            box-shadow: none;
+            /* TIDAK ADA SHADOW PUTIH */
+            border: none;
+            /* TIDAK ADA BORDER */
+        }
+
+        .banner-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: transparent;
+            /* PASTIKAN TRANSPARENT */
+        }
+
         .header-text {
             text-align: center;
             margin-bottom: 40px;
@@ -116,6 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         @media (max-width: 640px) {
             .pilihan-wrapper {
                 grid-template-columns: 1fr;
+            }
+
+            .banner-wrapper {
+                margin-bottom: 24px;
             }
         }
 
@@ -205,13 +221,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
 </head>
 
 <body>
-
     <div class="container">
-        <div class="header-text">
+        <!-- BANNER SECTION - DITAMBAHKAN DI SINI -->
+        <div class="banner-wrapper">
+            <img src="/assets/banner.png" alt="PerMen CekeR Banner" class="banner-image">
+        </div>
+        
+        <!-- <div class="header-text">
             <h1>Bina Usaha Sauyunan</h1>
             <p>Silakan pilih jenis akses untuk melanjutkan</p>
-        </div>
-
+        </div> -->
+        
         <div class="pilihan-wrapper">
             <div class="kartu-akses admin" onclick="pilihAkses('admin')">
                 <div class="icon-wrapper">
@@ -246,12 +266,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             Swal.fire({
                 title: `Masuk sebagai ${label}`,
                 html: `
-            <div style="text-align:left; margin-top: 8px;">
-                <label style="font-size:13px; color:#64748b; display:block; margin-bottom:6px;">Password</label>
-                <input type="password" id="input-password" class="swal2-input" 
-                       style="margin:0; width:100%;" placeholder="Masukkan password ${label}" autofocus>
-            </div>
-        `,
+                    <div style="text-align:left; margin-top: 8px;">
+                        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:6px;">Password</label>
+                        <input type="password" id="input-password" class="swal2-input" 
+                            style="margin:0; width:100%;" placeholder="Masukkan password ${label}" autofocus>
+                    </div>
+                `,
                 showCancelButton: true,
                 confirmButtonText: 'Masuk',
                 cancelButtonText: 'Batal',
@@ -327,7 +347,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                 });
         }
     </script>
-
 </body>
 
 </html>

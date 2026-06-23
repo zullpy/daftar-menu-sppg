@@ -300,10 +300,24 @@ main {
 .menu-card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 16px;
-    flex-wrap: wrap;
     gap: 16px;
+}
+
+.menu-card-left {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.menu-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
 }
 
 .menu-thumbnail {
@@ -1589,11 +1603,6 @@ main {
         max-width: 100%;
     }
 
-    .menu-card-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
     .date-header {
         flex-direction: column;
         align-items: flex-start;
@@ -1670,20 +1679,25 @@ main {
         margin-bottom: 12px;
     }
 
-    .menu-card-header>div {
-        flex-direction: column;
-        gap: 10px;
+    .menu-card-header {
+        flex-direction: row;
+        align-items: flex-start;
     }
 
     .menu-thumbnail {
-        width: 100%;
-        height: 160px;
+        width: 90px;
+        height: 90px;
+        flex-shrink: 0;
     }
 
     .menu-thumbnail img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+    }
+
+    .menu-card-actions {
+        flex-direction: column;
     }
 
     .menu-title {

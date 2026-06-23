@@ -8,7 +8,6 @@
     --surface: #ffffff;
     --line: #e3e6ec;
     --line-strong: #ccd1db;
-
     --navy: #1f2b4d;
     --navy-soft: #34406b;
     --navy-tint: #e8ebf3;
@@ -605,26 +604,66 @@ textarea.form-control {
     font-family: var(--font-mono);
 }
 
-/* Detail Info */
+/* ═══════════════════════════════════════════
+   DETAIL INFO - GRID 3 KOLOM × 2 BARIS
+   ═══════════════════════════════════════════ */
 .detail-info {
     background: var(--surface);
-    padding: 16px;
+    padding: 18px 20px;
     border-radius: var(--radius-sm);
     margin-bottom: 16px;
     border: 1px solid var(--line);
 }
 
-.detail-info p {
-    margin-bottom: 6px;
+.detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px 24px;
+}
+
+.detail-info-grid p {
+    margin-bottom: 0;
     font-size: 13.5px;
     color: var(--ink-soft);
     display: flex;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    background: var(--paper);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--navy);
+    transition: all 0.15s ease;
 }
 
-.detail-info p strong {
+.detail-info-grid p:hover {
+    background: var(--navy-tint);
+    border-left-color: var(--amber);
+}
+
+.detail-info-grid p strong {
+    color: var(--navy);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: auto;
+}
+
+.detail-info-grid p strong .icon {
+    width: 13px;
+    height: 13px;
+    color: var(--amber);
+}
+
+.detail-info-grid p .info-value {
     color: var(--ink);
-    min-width: 150px;
+    font-size: 13.5px;
+    font-weight: 500;
+    word-break: break-word;
+    line-height: 1.45;
 }
 
 /* Action Buttons */
@@ -811,7 +850,15 @@ footer {
     height: 13px;
 }
 
-/* Responsive */
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 992px) {
+    .detail-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     header {
         flex-direction: column;
@@ -857,7 +904,7 @@ footer {
         gap: 8px;
     }
 
-    .detail-info p strong {
-        min-width: 120px;
+    .detail-info-grid {
+        grid-template-columns: 1fr;
     }
 }

@@ -7,16 +7,16 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operato
     header("Location: ../index.php?error=unauthorized");
     exit;
 }
+
 $is_admin = ($_SESSION['role'] === 'admin');
 $is_operator = ($_SESSION['role'] === 'operator');
 
 // Handle delete (Hanya Admin)
 if (isset($_GET['hapus']) && $is_admin) {
     $id = (int)$_GET['hapus'];
-    // Hapus berurutan karena foreign key
-    $pdo->prepare("DELETE dp FROM detail_penerimaan dp 
-                   INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id 
-                   WHERE pr.pengiriman_id = ?")->execute([$id]);
+    $pdo->prepare("DELETE dp FROM detail_penerimaan dp
+        INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id
+        WHERE pr.pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM penerimaan WHERE pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM detail_pengiriman WHERE pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM pengiriman WHERE id = ?")->execute([$id]);
@@ -24,21 +24,21 @@ if (isset($_GET['hapus']) && $is_admin) {
     exit;
 }
 
-// Query dengan agregasi status per faktur
-// Nama kolom: total_item, total_qty, item_sudah_diterima, item_bermasalah
+// Query dengan agregasi status per surat jalan
 $query = "SELECT p.*,
     (SELECT COUNT(*) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_item,
     (SELECT SUM(qty) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_qty,
-    (SELECT COUNT(*) FROM detail_penerimaan dpr 
-        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id 
+    (SELECT COUNT(*) FROM detail_penerimaan dpr
+        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
         WHERE pr.pengiriman_id = p.id) as item_sudah_diterima,
-    (SELECT COUNT(*) FROM detail_penerimaan dpr 
-        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id 
+    (SELECT COUNT(*) FROM detail_penerimaan dpr
+        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
         WHERE pr.pengiriman_id = p.id AND dpr.status_barang IN ('kurang','tidak_ada')) as item_bermasalah,
     pr.nama_penerima_barang, pr.tanggal_terima
     FROM pengiriman p
     LEFT JOIN penerimaan pr ON pr.pengiriman_id = p.id
-    ORDER BY p.tanggal_ekspedisi DESC, p.no_faktur DESC";
+    ORDER BY p.tanggal_ekspedisi DESC, p.no_surat_jalan DESC";
+
 $stmt = $pdo->query($query);
 $all_data = $stmt->fetchAll();
 
@@ -96,6 +96,7 @@ foreach ($all_data as $row) {
             </nav>
         </header>
         <div class="header-stripe"></div>
+
         <main>
             <?php if (isset($_GET['msg'])): ?>
                 <div class="alert alert-success" id="alertMsg">
@@ -106,7 +107,7 @@ foreach ($all_data as $row) {
                     <?php
                     $msg = $_GET['msg'];
                     if ($msg == 'deleted') echo 'Data berhasil dihapus!';
-                    elseif ($msg == 'saved') echo 'Konfirmasi penerimaan berhasil disimpan!';
+                    elseif ($msg == 'saved') echo 'Data pengiriman berhasil disimpan!';
                     else echo 'Operasi berhasil!';
                     ?>
                 </div>
@@ -141,7 +142,7 @@ foreach ($all_data as $row) {
                                     </svg>
                                     <?= date('d F Y', strtotime($tanggal)) ?>
                                 </h3>
-                                <span class="badge"><?= count($items) ?> Faktur</span>
+                                <span class="badge"><?= count($items) ?> Surat Jalan</span>
                             </div>
                             <svg class="icon arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M6 9l6 6 6-6" />
@@ -150,21 +151,19 @@ foreach ($all_data as $row) {
                         <div class="date-content">
                             <?php foreach ($items as $item): ?>
                                 <?php
-                                // Ambil detail barang + status penerimaan per item
                                 $stmt_d = $pdo->prepare("
-                    SELECT dp.*, 
-                           dpr.status_barang AS terima_status, 
-                           dpr.keterangan AS terima_ket
-                    FROM detail_pengiriman dp
-                    LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
-                    LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id 
-                                                   AND dpr.penerimaan_id = pr.id
-                    WHERE dp.pengiriman_id = ?
-                ");
+                                SELECT dp.*,
+                                    dpr.status_barang AS terima_status,
+                                    dpr.keterangan AS terima_ket
+                                FROM detail_pengiriman dp
+                                LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
+                                LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id
+                                    AND dpr.penerimaan_id = pr.id
+                                WHERE dp.pengiriman_id = ?
+                            ");
                                 $stmt_d->execute([$item['id']]);
                                 $details = $stmt_d->fetchAll();
 
-                                // Tentukan status faktur berdasarkan item
                                 $is_fully_checked = ($item['item_sudah_diterima'] == $item['total_item'] && $item['total_item'] > 0);
                                 $has_issue = ($item['item_bermasalah'] > 0);
                                 $is_partial = ($item['item_sudah_diterima'] > 0 && !$is_fully_checked);
@@ -177,14 +176,23 @@ foreach ($all_data as $row) {
                                                     <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
                                                     <path d="M14 3v5h5" />
                                                 </svg>
-                                                <?= htmlspecialchars($item['no_faktur']) ?>
+                                                <?= htmlspecialchars($item['no_surat_jalan']) ?>
                                             </strong>
                                             <span>
                                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                                    <circle cx="12" cy="8" r="3.5" />
-                                                    <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
+                                                    <path d="M3 7l9-4 9 4-9 4-9-4z" />
+                                                    <path d="M3 7v10l9 4 9-4V7" />
                                                 </svg>
-                                                <?= htmlspecialchars($item['nama_penerima']) ?>
+                                                SPPG: <?= htmlspecialchars($item['nama_sppg']) ?>
+                                            </span>
+                                            <span>
+                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <rect x="1" y="3" width="15" height="13" rx="2" />
+                                                    <path d="M16 8h4l3 3v5h-7V8z" />
+                                                    <circle cx="5.5" cy="18.5" r="2.5" />
+                                                    <circle cx="18.5" cy="18.5" r="2.5" />
+                                                </svg>
+                                                <?= htmlspecialchars($item['ekspedisi'] ?? '-') ?>
                                             </span>
                                             <span class="badge-info"><?= $item['total_qty'] ?> Item</span>
                                         </div>
@@ -222,10 +230,6 @@ foreach ($all_data as $row) {
                                         </div>
                                     </div>
                                     <div class="accordion-content">
-                                        <div class="detail-info">
-                                            <p><strong>Alamat:</strong> <?= htmlspecialchars($item['alamat']) ?></p>
-                                            <p><strong>Tanggal Ekspedisi:</strong> <?= date('d F Y', strtotime($item['tanggal_ekspedisi'])) ?></p>
-                                        </div>
                                         <table class="table-detail">
                                             <thead>
                                                 <tr>
@@ -282,6 +286,16 @@ foreach ($all_data as $row) {
                                             </tfoot>
                                         </table>
                                         <div class="action-buttons">
+                                            <!-- ✅ Tombol Cetak Surat Jalan SELALU muncul -->
+                                            <a href="../database/export-pdf-pengiriman.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-info">
+                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
+                                                    <path d="M14 3v5h5" />
+                                                    <path d="M9 13h6M9 17h6" />
+                                                </svg>
+                                                Cetak Surat Jalan
+                                            </a>
+
                                             <?php if (!$is_fully_checked && $is_operator): ?>
                                                 <a href="../penerimaan/index.php?id=<?= $item['id'] ?>" class="btn btn-warning">
                                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -299,17 +313,6 @@ foreach ($all_data as $row) {
                                                     <?= htmlspecialchars($item['nama_penerima_barang']) ?> |
                                                     <?= date('d/m/Y H:i', strtotime($item['tanggal_terima'])) ?>
                                                 </div>
-                                            <?php endif; ?>
-
-                                            <?php if ($is_fully_checked): ?>
-                                                <a href="../database/export-pdf-pengiriman.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-info">
-                                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
-                                                        <path d="M14 3v5h5" />
-                                                        <path d="M9 13h6M9 17h6" />
-                                                    </svg>
-                                                    Cetak Surat Jalan
-                                                </a>
                                             <?php endif; ?>
 
                                             <?php if ($is_admin): ?>
@@ -337,10 +340,12 @@ foreach ($all_data as $row) {
                 <?php endforeach; ?>
             <?php endif; ?>
         </main>
+
         <footer>
             <p>&copy; <?= date('Y') ?> Created By Muhammad Zulfahmi</p>
         </footer>
     </div>
+
     <script src="script.js"></script>
 </body>
 

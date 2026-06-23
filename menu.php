@@ -421,44 +421,52 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                     </div>
                                 <?php endif; ?>
                                 <div class="menu-card-header">
-                                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                                        <!-- ✨ UPLOAD FOTO MENU: SEMUA ROLE BISA (UPDATED) -->
-                                        <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
-                                            <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>')">
-                                                <img src="uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
-                                            </div>
-                                        <?php endif; ?>
-                                        <!-- ✨ SATU TOMBOL UPLOAD FOTO MENU (KAMERA + GALERI) -->
-                                        <button type="button" class="btn btn-primary btn-sm btn-upload-menu" onclick="showUploadMenuOptions(<?= $belanja['id_belanja'] ?>)">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="17 8 12 3 7 8" />
-                                                <line x1="12" y1="3" x2="12" y2="15" />
-                                            </svg>
-                                            <span><?= !empty($belanja['fotos']) ? 'Tambah Foto' : 'Upload Foto' ?></span>
-                                        </button>
-                                        <!-- Hidden inputs untuk galeri & kamera -->
-                                        <input type="file" id="menuPhotoGaleri_<?= $belanja['id_belanja'] ?>" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
-                                        <input type="file" id="menuPhotoKamera_<?= $belanja['id_belanja'] ?>" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
-                                        <!-- ✨ TOMBOL TAMBAH BARANG SUSULAN (HANYA ADMIN) -->
-                                        <?php if ($isAdmin): ?>
-                                            <button type="button" class="btn btn-secondary btn-sm" onclick="openAddItemModal(<?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($belanja['judul'])) ?>')">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                                </svg>
-                                                <span>Tambah Barang</span>
-                                            </button>
-                                        <?php endif; ?>
+                                    <!-- KIRI: info menu + tombol-tombol -->
+                                    <div class="menu-card-left">
                                         <div>
                                             <h4 class="menu-title"><?= htmlspecialchars($belanja['judul']) ?></h4>
                                             <p class="menu-info">Porsi: <strong><?= number_format($belanja['porsi'] ?? 0) ?></strong></p>
-                                            <?php if (!empty($belanja['alamat'])): ?><p class="menu-info menu-info-alamat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <?php if (!empty($belanja['alamat'])): ?>
+                                                <p class="menu-info menu-info-alamat">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                                         <circle cx="12" cy="10" r="3" />
-                                                    </svg> <?= htmlspecialchars($belanja['alamat']) ?></p><?php endif; ?>
+                                                    </svg> <?= htmlspecialchars($belanja['alamat']) ?>
+                                                </p>
+                                            <?php endif; ?>
+                                        </div>
+                                        <!-- Tombol 2 baris -->
+                                        <div class="menu-card-actions">
+                                            <!-- ✨ SATU TOMBOL UPLOAD FOTO MENU (KAMERA + GALERI) -->
+                                            <button type="button" class="btn btn-primary btn-sm btn-upload-menu" onclick="showUploadMenuOptions(<?= $belanja['id_belanja'] ?>)">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                    <polyline points="17 8 12 3 7 8" />
+                                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                                </svg>
+                                                <span><?= !empty($belanja['fotos']) ? 'Tambah Foto' : 'Upload Foto' ?></span>
+                                            </button>
+                                            <!-- Hidden inputs untuk galeri & kamera -->
+                                            <input type="file" id="menuPhotoGaleri_<?= $belanja['id_belanja'] ?>" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
+                                            <input type="file" id="menuPhotoKamera_<?= $belanja['id_belanja'] ?>" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
+                                            <!-- ✨ TOMBOL TAMBAH BARANG SUSULAN (HANYA ADMIN) -->
+                                            <?php if ($isAdmin): ?>
+                                                <button type="button" class="btn btn-secondary btn-sm" onclick="openAddItemModal(<?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($belanja['judul'])) ?>')">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                                    </svg>
+                                                    <span>Tambah Barang</span>
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
+                                    <!-- KANAN: foto thumbnail -->
+                                    <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
+                                        <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>')">
+                                            <img src="uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <!-- 🔒 KOTAK KATEGORI HANYA UNTUK ADMIN -->
