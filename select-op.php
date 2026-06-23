@@ -1,6 +1,6 @@
 <?php
-// selection.php
-// Halaman menu pilihan utama
+session_start(); // ← WAJIB di baris paling atas!
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -197,11 +197,11 @@
             <span class="badge">Laporan Stok</span>
         </a>
 
-        <a href="#" class="menu-card penerimaan">
+        <a href="/penerimaan/index.php" class="menu-card penerimaan">
             <div class="icon-wrap"><i class="ph ph-archive-box"></i></div>
             <h3>Laporan Penerimaan Barang</h3>
-            <p>Lihat laporan dan riwayat penerimaan barang di gudang.</p>
-            <span class="badge">Laporan Penerimaan</span>
+            <p>Cetak label penerimaan barang dan cetak bukti serah terima barang.</p>
+            <span class="badge">Cetak Bukti</span>
         </a>
 
     </div>

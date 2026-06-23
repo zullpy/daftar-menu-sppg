@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         </div>
 
         <div class="footer-text">
-            &copy; <?php echo date('Y'); ?> created by Muhammad Zulfahmi
+            &copy; <?php echo date('Y'); ?> Created By Muhammad Zulfahmi
         </div>
     </div>
 

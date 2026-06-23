@@ -1,6 +1,5 @@
 <?php
-// selection.php
-// Halaman menu pilihan utama
+session_start();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -204,7 +203,7 @@
             <span class="badge">Laporan Stok</span>
         </a>
 
-        <a href="#" class="menu-card pengiriman">
+        <a href="pengiriman/index.php" class="menu-card pengiriman">
             <div class="icon-wrap"><i class="ph ph-truck"></i></div>
             <h3>Laporan Pengiriman Barang</h3>
             <p>Lihat laporan dan riwayat pengiriman barang ke gudang.</p>

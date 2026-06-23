@@ -64,9 +64,9 @@ $belanjaList = $stmt->fetchAll();
         }
 
         .page-wrap {
-            width: 140mm;
+            width: 148.5mm;
             /* setengah A4 */
-            min-height: 210mm;
+            min-height: 200mm;
             /* tinggi A4 landscape */
             padding: 8mm;
             box-sizing: border-box;
@@ -445,7 +445,7 @@ $belanjaList = $stmt->fetchAll();
 
             .page-wrap {
                 max-width: none;
-                width: 140mm;
+                width: 148.5mm;
                 margin: 0;
                 padding: 8mm;
                 box-shadow: none;
