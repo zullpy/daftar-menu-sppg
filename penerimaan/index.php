@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Jakarta');
 require_once '../database/koneksi.php';
 
 if (!isset($_SESSION['role'])) {
@@ -13,22 +14,31 @@ if (!in_array($_SESSION['role'], ['admin', 'operator'])) {
 
 $is_admin = ($_SESSION['role'] === 'admin');
 $is_operator = ($_SESSION['role'] === 'operator');
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$lokasiSession = $_SESSION['lokasi'] ?? 'semua';
+$lokasiMap = ['sodong' => 'Sodong', 'sariwangi' => 'Sariwangi', 'manonjaya' => 'Manonjaya', 'semua' => 'Semua'];
 
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $stmt = $pdo->prepare("SELECT * FROM pengiriman WHERE id = ?");
 $stmt->execute([$id]);
 $pengiriman = $stmt->fetch();
+
 if (!$pengiriman) {
     header("Location: ../pengiriman/index.php");
     exit;
 }
 
+if ($is_operator && $lokasiSession !== 'semua') {
+    if (($pengiriman['lokasi'] ?? 'semua') !== $lokasiSession) {
+        die("⛔ <h2 style='text-align:center; margin-top:50px; color:#c73e3e;'>Akses Ditolak!</h2><p style='text-align:center;'>Anda hanya dapat mengkonfirmasi penerimaan untuk dapur <strong>" . ($lokasiMap[$lokasiSession] ?? $lokasiSession) . "</strong>.</p>");
+    }
+}
+
 $stmt_d = $pdo->prepare("
-    SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan
-    FROM detail_pengiriman dp
-    LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
-    LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
-    WHERE dp.pengiriman_id = ?
+SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan
+FROM detail_pengiriman dp
+LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
+LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
+WHERE dp.pengiriman_id = ?
 ");
 $stmt_d->execute([$id]);
 $details = $stmt_d->fetchAll();
@@ -44,16 +54,23 @@ if ($penerimaan_exist && !empty($penerimaan_exist['tanggal_terima'])) {
     $tanggal_terima_value = date('Y-m-d\TH:i');
 }
 
+$ttd_pengirim_existing = $pengiriman['tanda_tangan_pengirim'] ?? '';
+$ttd_penerima_existing = $penerimaan_exist['tanda_tangan_penerima'] ?? '';
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!$is_operator) die("Hanya operator yang dapat melakukan konfirmasi.");
-
     try {
         $pdo->beginTransaction();
+        $ttd_pengirim = $_POST['tanda_tangan_pengirim'] ?? null;
+        if (empty($ttd_pengirim) || $ttd_pengirim === 'data:image/png;base64,') {
+            throw new Exception("Tanda tangan pengirim wajib diisi!");
+        }
+        $pdo->prepare("UPDATE pengiriman SET tanda_tangan_pengirim = ? WHERE id = ?")
+            ->execute([$ttd_pengirim, $id]);
 
         $nama_penerima_barang = trim($_POST['nama_penerima_barang']);
         $tanggal_terima_mysql = date('Y-m-d H:i:s', strtotime($_POST['tanggal_terima']));
         $ttd_penerima = $_POST['tanda_tangan_penerima'] ?? null;
-
         if (empty($ttd_penerima) || $ttd_penerima === 'data:image/png;base64,') {
             throw new Exception("Tanda tangan penerima wajib diisi!");
         }
@@ -64,16 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $penerimaan_id = $penerimaan_exist['id'];
             $pdo->prepare("DELETE FROM detail_penerimaan WHERE penerimaan_id = ?")->execute([$penerimaan_id]);
         } else {
-            $pdo->prepare("INSERT INTO penerimaan (pengiriman_id, nama_penerima_barang, tanggal_terima, tanda_tangan_penerima) 
-                           VALUES (?, ?, ?, ?)")
+            $pdo->prepare("INSERT INTO penerimaan (pengiriman_id, nama_penerima_barang, tanggal_terima, tanda_tangan_penerima)
+            VALUES (?, ?, ?, ?)")
                 ->execute([$id, $nama_penerima_barang, $tanggal_terima_mysql, $ttd_penerima]);
             $penerimaan_id = $pdo->lastInsertId();
         }
 
-        $detail_ids = $_POST['detail_id'];
-        $statuses = $_POST['status_barang'];
+        $detail_ids  = $_POST['detail_id'];
+        $statuses    = $_POST['status_barang'];
         $keterangans = $_POST['keterangan_status'];
-
         $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, keterangan) VALUES (?, ?, ?, ?)");
         for ($i = 0; $i < count($detail_ids); $i++) {
             $status = $statuses[$i] ?? null;
@@ -82,7 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt_insert->execute([$penerimaan_id, (int)$detail_ids[$i], $status, $ket ?: null]);
             }
         }
-
         $pdo->commit();
         header("Location: ../pengiriman/index.php?msg=saved");
         exit;
@@ -102,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link rel="stylesheet" href="../pengiriman/style.css">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <style>
+        /* ── Select status wrapper ── */
         .select-wrapper {
             position: relative;
         }
@@ -152,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             background: var(--red-tint);
         }
 
+        /* ── Pengirim info box ── */
         .pengirim-box {
             background: var(--navy-tint);
             border-left: 4px solid var(--navy);
@@ -175,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: var(--navy);
         }
 
-        /* Signature Pad */
+        /* ── Signature ── */
         .signature-wrapper {
             background: #fff;
             border: 2px dashed var(--line-strong);
@@ -193,10 +210,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .signature-canvas {
             width: 100%;
             max-width: 500px;
-            /* ← Batasi lebar */
             height: 180px;
             margin: 0 auto;
-            /* ← Center canvas */
             display: block;
             background: #fff;
             border-radius: var(--radius-sm);
@@ -212,6 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-top: 8px;
             font-size: 12px;
             color: var(--ink-faint);
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .btn-clear-sig {
@@ -243,6 +260,201 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .sig-status.done {
             color: var(--green);
+        }
+
+        /* ── Lokasi badge ── */
+        .lokasi-badge-info {
+            background: var(--amber-tint);
+            color: var(--amber);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--amber);
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ══════════════════════════════════════
+           MOBILE: Tabel Pengecekan → Card List
+           ══════════════════════════════════════ */
+        @media (max-width: 768px) {
+
+            /* Nomor kartu di pojok kanan atas */
+            .barang-card-no {
+                position: absolute;
+                top: 10px;
+                right: 12px;
+                background: var(--navy);
+                color: #fff;
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                font-size: 10px;
+                font-weight: 700;
+                font-family: var(--font-mono);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Sembunyikan tabel, tampilkan card */
+            .table-pengecekan {
+                display: none !important;
+            }
+
+            .cards-pengecekan {
+                display: flex !important;
+            }
+
+            .signature-canvas {
+                height: 160px;
+            }
+
+            .pengirim-box {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .form-section {
+                padding: 14px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+
+        /* Cards container — hidden on desktop, shown on mobile */
+        .cards-pengecekan {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .barang-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--navy-soft);
+            border-radius: var(--radius-sm);
+            padding: 14px 14px 14px 14px;
+            position: relative;
+        }
+
+        /* Border kiri berubah sesuai status */
+        .barang-card.status-ada {
+            border-left-color: var(--green);
+        }
+
+        .barang-card.status-kurang {
+            border-left-color: var(--orange);
+        }
+
+        .barang-card.status-tidak_ada {
+            border-left-color: var(--red);
+        }
+
+        .barang-card-nama {
+            font-weight: 700;
+            font-size: 14.5px;
+            color: var(--ink);
+            padding-right: 28px;
+            /* ruang untuk nomor */
+            margin-bottom: 4px;
+        }
+
+        .barang-card-catatan {
+            font-size: 11px;
+            color: var(--ink-faint);
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        .barang-card-qty {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--navy);
+            background: var(--navy-tint);
+            padding: 3px 10px;
+            border-radius: 999px;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+        }
+
+        .barang-card-field {
+            margin-bottom: 10px;
+        }
+
+        .barang-card-field label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-soft);
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        /* ── Tombol status penerimaan (mobile cards) ── */
+        .status-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-status-pilih {
+            flex: 1;
+            padding: 10px 6px;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--line-strong);
+            background: var(--surface);
+            color: var(--ink-soft);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            line-height: 1.2;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-status-pilih .btn-icon {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .btn-status-pilih:active {
+            transform: scale(0.96);
+        }
+
+        /* Aktif per status */
+        .btn-status-pilih.active-ada {
+            background: var(--green-tint);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .btn-status-pilih.active-kurang {
+            background: var(--orange-tint);
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        .btn-status-pilih.active-tidak_ada {
+            background: var(--red-tint);
+            border-color: var(--red);
+            color: var(--red);
         }
     </style>
 </head>
@@ -276,6 +488,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
+            <div class="lokasi-badge-info">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                </svg>
+                Pengiriman untuk: <strong><?= htmlspecialchars($lokasiMap[$pengiriman['lokasi']] ?? $pengiriman['lokasi']) ?></strong>
+            </div>
+
             <div class="info-card">
                 <h3>
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -306,8 +526,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
 
             <form method="POST" onsubmit="return submitWithSignature()">
-                <input type="hidden" name="tanda_tangan_penerima" id="ttd_penerima_input"
-                    value="<?= $penerimaan_exist ? htmlspecialchars($penerimaan_exist['tanda_tangan_penerima'] ?? '') : '' ?>">
+                <input type="hidden" name="tanda_tangan_pengirim" id="ttd_pengirim_input" value="<?= htmlspecialchars($ttd_pengirim_existing) ?>">
+                <input type="hidden" name="tanda_tangan_penerima" id="ttd_penerima_input" value="<?= htmlspecialchars($ttd_penerima_existing) ?>">
 
                 <div class="form-section">
                     <div class="section-header">
@@ -316,10 +536,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <path d="M9 11l3 3 8-8" />
                                 <path d="M20 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h9" />
                             </svg>
-                            Pengecekan Barang (Per Item)
+                            Pengecekan Barang (<?= count($details) ?> Item)
                         </h3>
                     </div>
-                    <table class="table-detail">
+
+                    <!-- DESKTOP: tabel biasa -->
+                    <table class="table-detail table-pengecekan">
                         <thead>
                             <tr>
                                 <th style="width: 30%">Nama Barang</th>
@@ -372,6 +594,73 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+
+                    <!-- MOBILE: card list -->
+                    <div class="cards-pengecekan">
+                        <?php $no = 1;
+                        foreach ($details as $d): ?>
+                            <div class="barang-card <?= $d['terima_status'] ? 'status-' . $d['terima_status'] : '' ?>" id="card-<?= $d['id'] ?>">
+                                <div class="barang-card-no"><?= $no++ ?></div>
+                                <div class="barang-card-nama"><?= htmlspecialchars($d['nama_barang']) ?></div>
+                                <?php if ($d['keterangan']): ?>
+                                    <div class="barang-card-catatan">📝 Catatan kirim: <?= htmlspecialchars($d['keterangan']) ?></div>
+                                <?php endif; ?>
+                                <div class="barang-card-qty">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
+                                        <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
+                                    </svg>
+                                    <?= $d['qty'] ?> <?= htmlspecialchars($d['satuan']) ?>
+                                </div>
+
+                                <div class="barang-card-field">
+                                    <label>Status Penerimaan *</label>
+                                    <!-- Hidden input sebagai nilai form -->
+                                    <input type="hidden" name="status_barang[]" class="status-hidden-input"
+                                        value="<?= htmlspecialchars($d['terima_status'] ?? '') ?>" required>
+                                    <div class="status-btn-group">
+                                        <button type="button"
+                                            class="btn-status-pilih <?= ($d['terima_status'] ?? '') === 'ada' ? 'active-ada' : '' ?>"
+                                            onclick="pilihStatus(this, 'ada')">
+                                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M20 6L9 17l-5-5" />
+                                            </svg>
+                                            <span>Ada<br>Lengkap</span>
+                                        </button>
+                                        <button type="button"
+                                            class="btn-status-pilih <?= ($d['terima_status'] ?? '') === 'kurang' ? 'active-kurang' : '' ?>"
+                                            onclick="pilihStatus(this, 'kurang')">
+                                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                                <line x1="12" y1="9" x2="12" y2="13" />
+                                                <line x1="12" y1="17" x2="12.01" y2="17" />
+                                            </svg>
+                                            <span>Kurang/<br>Rusak</span>
+                                        </button>
+                                        <button type="button"
+                                            class="btn-status-pilih <?= ($d['terima_status'] ?? '') === 'tidak_ada' ? 'active-tidak_ada' : '' ?>"
+                                            onclick="pilihStatus(this, 'tidak_ada')">
+                                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                            <span>Tidak<br>Ada</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="barang-card-field field-keterangan" style="<?= in_array($d['terima_status'] ?? '', ['kurang', 'tidak_ada']) ? '' : 'display:none;' ?>">
+                                    <label>Keterangan</label>
+                                    <input type="text" name="keterangan_status[]" class="form-control input-ket"
+                                        placeholder="Wajib diisi jika kurang/tidak ada"
+                                        value="<?= htmlspecialchars($d['terima_keterangan'] ?? '') ?>">
+                                </div>
+
+                                <!-- hidden id untuk form submit -->
+                                <input type="hidden" name="detail_id[]" value="<?= $d['id'] ?>">
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
 
                 <div class="form-section">
@@ -393,7 +682,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </div>
                 </div>
 
-                <!-- ═══ CANVAS TANDA TANGAN PENERIMA ═══ -->
+                <!-- TTD Pengirim -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3>
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                <path d="M2 2l7.586 7.586" />
+                                <circle cx="11" cy="11" r="2" />
+                            </svg>
+                            Tanda Tangan Pengirim
+                        </h3>
+                        <span class="sig-status empty" id="sigStatusPengirim">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 7v5l3 2" />
+                            </svg>
+                            Belum ditandatangani
+                        </span>
+                    </div>
+                    <div class="signature-wrapper" id="sigWrapperPengirim">
+                        <canvas id="canvasPengirim" class="signature-canvas"></canvas>
+                        <div class="signature-actions">
+                            <small>✍️ Gambar tanda tangan pengirim di area putih</small>
+                            <button type="button" class="btn-clear-sig" onclick="clearSignature('pengirim')">🗑️ Hapus TTD</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TTD Penerima -->
                 <div class="form-section">
                     <div class="section-header">
                         <h3>
@@ -401,7 +719,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <path d="M12 19l7-7 3 3-7 7-3-3z" />
                                 <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
                             </svg>
-                            Tanda Tangan Penerima (SPPG)
+                            Tanda Tangan Penerima
                         </h3>
                         <span class="sig-status empty" id="sigStatusPenerima">
                             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -415,9 +733,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <canvas id="canvasPenerima" class="signature-canvas"></canvas>
                         <div class="signature-actions">
                             <small>✍️ Gambar tanda tangan penerima di area putih</small>
-                            <button type="button" class="btn-clear-sig" onclick="clearSignature('penerima')">
-                                🗑️ Hapus TTD
-                            </button>
+                            <button type="button" class="btn-clear-sig" onclick="clearSignature('penerima')">🗑️ Hapus TTD</button>
                         </div>
                     </div>
                 </div>
@@ -444,94 +760,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </form>
         </main>
     </div>
+
     <script>
-        // ============================================
-        // SIGNATURE PAD - PENERIMA
-        // ============================================
-        const canvasPenerima = document.getElementById('canvasPenerima');
-        const sigPadPenerima = new SignaturePad(canvasPenerima, {
-            backgroundColor: 'rgb(255, 255, 255)',
-            penColor: 'rgb(31, 43, 77)',
-            minWidth: 1,
-            maxWidth: 2.5
-        });
-
-        const existingTTDPenerima = document.getElementById('ttd_penerima_input').value;
-        const ttdInput = document.getElementById('ttd_penerima_input');
-
-        // ═══════════════════════════════════════════════════════════
-        // RESIZE CANVAS (WAJIB! Biar signature gak ngaco)
-        // ═══════════════════════════════════════════════════════════
-        function resizeCanvas() {
+        // ── Resize canvas ──
+        function resizeSignatureCanvas(canvas, pad, existingData) {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvasPenerima.width = canvasPenerima.offsetWidth * ratio;
-            canvasPenerima.height = canvasPenerima.offsetHeight * ratio;
-            canvasPenerima.getContext('2d').scale(ratio, ratio);
-
-            // Clear & load ulang TTD existing kalau ada
-            sigPadPenerima.clear();
-            if (existingTTDPenerima && existingTTDPenerima.length > 100 && existingTTDPenerima !== 'data:image/png;base64,') {
-                sigPadPenerima.fromDataURL(existingTTDPenerima);
-                updateSigStatus('penerima', true);
-                // Pastikan hidden input juga terisi
-                ttdInput.value = existingTTDPenerima;
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext('2d').scale(ratio, ratio);
+            pad.clear();
+            if (existingData && existingData.length > 100 && existingData !== 'data:image/png;base64,') {
+                pad.fromDataURL(existingData);
             }
         }
 
-        // Jalankan resize saat load
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-        window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
-
-        // ═══════════════════════════════════════════════════════════
-        // AUTO-SAVE: Setiap selesai gambar, langsung simpan ke hidden input
-        // ═══════════════════════════════════════════════════════════
-        sigPadPenerima.addEventListener('endStroke', () => {
-            const isSigned = !sigPadPenerima.isEmpty();
-            updateSigStatus('penerima', isSigned);
-
-            // Auto-save ke hidden input
-            if (isSigned) {
-                ttdInput.value = sigPadPenerima.toDataURL('image/png');
-            } else {
-                ttdInput.value = '';
-            }
-        });
-
-        function clearSignature(type) {
-            if (type === 'penerima') {
-                sigPadPenerima.clear();
-                ttdInput.value = '';
-                updateSigStatus('penerima', false);
-            }
-        }
-
-        function updateSigStatus(type, isSigned) {
-            const status = document.getElementById('sigStatusPenerima');
-            const wrapper = document.getElementById('sigWrapperPenerima');
-            if (isSigned) {
-                status.className = 'sig-status done';
-                status.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Sudah ditandatangani`;
-                wrapper.classList.add('signed');
-            } else {
-                status.className = 'sig-status empty';
-                status.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Belum ditandatangani`;
-                wrapper.classList.remove('signed');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // HELPER: Trim whitespace dari signature pad
-        // ═══════════════════════════════════════════════════════════
+        // ── Trim whitespace dari TTD ──
         function getTrimmedSignature(pad) {
             const canvas = pad.toCanvas();
             const ctx = canvas.getContext('2d');
             const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imgData.data;
-            const w = canvas.width;
-            const h = canvas.height;
-
-            // Cari bounding box dari coretan (bukan putih)
+            const w = canvas.width,
+                h = canvas.height;
             let top = h,
                 left = w,
                 right = 0,
@@ -547,86 +797,225 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                 }
             }
-
-            // Padding biar gak mepet
-            const padding = 20;
-            left = Math.max(0, left - padding);
-            top = Math.max(0, top - padding);
-            right = Math.min(w, right + padding);
-            bottom = Math.min(h, bottom + padding);
-
-            const cropW = right - left;
-            const cropH = bottom - top;
-
-            // Kalau kosong, return original
-            if (cropW <= 0 || cropH <= 0) {
-                return canvas.toDataURL('image/png');
-            }
-
-            const trimmedCanvas = document.createElement('canvas');
-            trimmedCanvas.width = cropW;
-            trimmedCanvas.height = cropH;
-            const trimmedCtx = trimmedCanvas.getContext('2d');
-            trimmedCtx.fillStyle = '#ffffff';
-            trimmedCtx.fillRect(0, 0, cropW, cropH);
-            trimmedCtx.drawImage(canvas, left, top, cropW, cropH, 0, 0, cropW, cropH);
-
-            return trimmedCanvas.toDataURL('image/png');
+            const p = 20;
+            left = Math.max(0, left - p);
+            top = Math.max(0, top - p);
+            right = Math.min(w, right + p);
+            bottom = Math.min(h, bottom + p);
+            const cw = right - left,
+                ch = bottom - top;
+            if (cw <= 0 || ch <= 0) return canvas.toDataURL('image/png');
+            const tc = document.createElement('canvas');
+            tc.width = cw;
+            tc.height = ch;
+            const tctx = tc.getContext('2d');
+            tctx.fillStyle = '#ffffff';
+            tctx.fillRect(0, 0, cw, ch);
+            tctx.drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+            return tc.toDataURL('image/png');
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // SUBMIT HANDLER - FIX: pakai sigPadPenerima (bukan Pengirim!)
-        // ═══════════════════════════════════════════════════════════
-        function submitWithSignature() {
-            // ✅ FIX: cek sigPadPenerima, BUKAN sigPadPengirim
-            const hasCanvasSignature = !sigPadPenerima.isEmpty();
-            const hasInputSignature = ttdInput.value.length > 100;
+        // ── Signature Pads ──
+        const canvasPengirim = document.getElementById('canvasPengirim');
+        const sigPadPengirim = new SignaturePad(canvasPengirim, {
+            backgroundColor: 'rgb(255,255,255)',
+            penColor: 'rgb(31,43,77)',
+            minWidth: 1,
+            maxWidth: 2.5
+        });
+        const ttdPengirimInput = document.getElementById('ttd_pengirim_input');
+        const existingTTDPengirim = ttdPengirimInput.value;
+        sigPadPengirim.addEventListener('endStroke', () => {
+            const ok = !sigPadPengirim.isEmpty();
+            updateSigStatus('pengirim', ok);
+            ttdPengirimInput.value = ok ? sigPadPengirim.toDataURL('image/png') : '';
+        });
 
-            if (!hasCanvasSignature && !hasInputSignature) {
-                alert('⚠️ Tanda tangan penerima wajib diisi!\n\nSilakan gambar tanda tangan di area putih.');
+        const canvasPenerima = document.getElementById('canvasPenerima');
+        const sigPadPenerima = new SignaturePad(canvasPenerima, {
+            backgroundColor: 'rgb(255,255,255)',
+            penColor: 'rgb(31,43,77)',
+            minWidth: 1,
+            maxWidth: 2.5
+        });
+        const ttdPenerimaInput = document.getElementById('ttd_penerima_input');
+        const existingTTDPenerima = ttdPenerimaInput.value;
+        sigPadPenerima.addEventListener('endStroke', () => {
+            const ok = !sigPadPenerima.isEmpty();
+            updateSigStatus('penerima', ok);
+            ttdPenerimaInput.value = ok ? sigPadPenerima.toDataURL('image/png') : '';
+        });
+
+        function resizeAll() {
+            resizeSignatureCanvas(canvasPengirim, sigPadPengirim, existingTTDPengirim);
+            resizeSignatureCanvas(canvasPenerima, sigPadPenerima, existingTTDPenerima);
+            if (existingTTDPengirim && existingTTDPengirim.length > 100) {
+                ttdPengirimInput.value = existingTTDPengirim;
+                updateSigStatus('pengirim', true);
+            }
+            if (existingTTDPenerima && existingTTDPenerima.length > 100) {
+                ttdPenerimaInput.value = existingTTDPenerima;
+                updateSigStatus('penerima', true);
+            }
+        }
+        resizeAll();
+        window.addEventListener('resize', resizeAll);
+        window.addEventListener('orientationchange', () => setTimeout(resizeAll, 200));
+
+        function clearSignature(type) {
+            if (type === 'pengirim') {
+                sigPadPengirim.clear();
+                ttdPengirimInput.value = '';
+                updateSigStatus('pengirim', false);
+            } else {
+                sigPadPenerima.clear();
+                ttdPenerimaInput.value = '';
+                updateSigStatus('penerima', false);
+            }
+        }
+
+        function updateSigStatus(type, isSigned) {
+            const cap = type === 'pengirim' ? 'Pengirim' : 'Penerima';
+            const status = document.getElementById('sigStatus' + cap);
+            const wrapper = document.getElementById('sigWrapper' + cap);
+            if (isSigned) {
+                status.className = 'sig-status done';
+                status.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Sudah ditandatangani`;
+                wrapper.classList.add('signed');
+            } else {
+                status.className = 'sig-status empty';
+                status.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Belum ditandatangani`;
+                wrapper.classList.remove('signed');
+            }
+        }
+
+        function submitWithSignature() {
+            const hasPengirimCanvas = !sigPadPengirim.isEmpty();
+            const hasPengirimInput = ttdPengirimInput.value.length > 100;
+            const hasPenerimaCanvas = !sigPadPenerima.isEmpty();
+            const hasPenerimaInput = ttdPenerimaInput.value.length > 100;
+            if (!hasPengirimCanvas && !hasPengirimInput) {
+                alert('⚠️ Tanda tangan PENGIRIM wajib diisi!');
                 return false;
             }
-
-            // ✅ FIX: gunakan trimmed version
-            if (hasCanvasSignature) {
-                ttdInput.value = getTrimmedSignature(sigPadPenerima);
+            if (!hasPenerimaCanvas && !hasPenerimaInput) {
+                alert('⚠️ Tanda tangan PENERIMA wajib diisi!');
+                return false;
             }
-
-            console.log('✅ Signature saved, length:', ttdInput.value.length);
+            if (hasPengirimCanvas) ttdPengirimInput.value = getTrimmedSignature(sigPadPengirim);
+            if (hasPenerimaCanvas) ttdPenerimaInput.value = getTrimmedSignature(sigPadPenerima);
             return true;
         }
 
-        // ============================================
-        // STATUS SELECT HANDLER
-        // ============================================
+        // ── Status select handler untuk TABEL DESKTOP ──
         function handleStatusChange(select) {
             const wrapper = select.closest('.select-wrapper');
             const val = select.value;
-            const tr = select.closest('tr');
-            const ketInput = tr.querySelector('.input-ket');
-
             wrapper.classList.remove('has-value', 'status-ada', 'status-kurang', 'status-tidak_ada');
             wrapper.querySelectorAll('.status-icon').forEach(el => el.style.display = 'none');
-
             if (val) {
                 wrapper.classList.add('has-value', 'status-' + val);
                 const icon = wrapper.querySelector('.icon-' + val);
                 if (icon) icon.style.display = 'block';
             }
-
-            if (val === 'kurang' || val === 'tidak_ada') {
-                ketInput.required = true;
-                ketInput.style.borderColor = 'var(--orange)';
-                ketInput.style.background = 'var(--orange-tint)';
-                ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
-            } else {
-                ketInput.required = false;
-                ketInput.style.borderColor = '';
-                ketInput.style.background = '';
-                ketInput.placeholder = 'Kosongkan jika lengkap';
+            const ketInput = select.closest('tr')?.querySelector('.input-ket');
+            if (ketInput) {
+                if (val === 'kurang' || val === 'tidak_ada') {
+                    ketInput.required = true;
+                    ketInput.style.borderColor = 'var(--orange)';
+                    ketInput.style.background = 'var(--orange-tint)';
+                    ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
+                } else {
+                    ketInput.required = false;
+                    ketInput.style.borderColor = '';
+                    ketInput.style.background = '';
+                    ketInput.placeholder = 'Kosongkan jika lengkap';
+                }
             }
         }
         document.querySelectorAll('.status-select').forEach(handleStatusChange);
+
+        // ── Tombol status untuk MOBILE CARDS ──
+        function pilihStatus(btn, val) {
+            const card = btn.closest('.barang-card');
+
+            // Reset semua tombol di card ini
+            card.querySelectorAll('.btn-status-pilih').forEach(b => {
+                b.classList.remove('active-ada', 'active-kurang', 'active-tidak_ada');
+            });
+
+            // Aktifkan tombol yang dipilih
+            btn.classList.add('active-' + val);
+
+            // Set nilai hidden input
+            card.querySelector('.status-hidden-input').value = val;
+
+            // Update border kiri card
+            card.classList.remove('status-ada', 'status-kurang', 'status-tidak_ada');
+            card.classList.add('status-' + val);
+
+            // Tampil/sembunyikan field keterangan
+            const fieldKet = card.querySelector('.field-keterangan');
+            const ketInput = card.querySelector('.input-ket');
+            if (fieldKet && ketInput) {
+                if (val === 'kurang' || val === 'tidak_ada') {
+                    fieldKet.style.display = '';
+                    ketInput.required = true;
+                    ketInput.style.borderColor = 'var(--orange)';
+                    ketInput.style.background = 'var(--orange-tint)';
+                    ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
+                } else {
+                    fieldKet.style.display = 'none';
+                    ketInput.required = false;
+                    ketInput.value = '';
+                    ketInput.style.borderColor = '';
+                    ketInput.style.background = '';
+                }
+            }
+        }
+
+        // Inisialisasi keterangan field untuk card yang sudah punya status (mode edit)
+        document.querySelectorAll('.barang-card').forEach(card => {
+            const hiddenInput = card.querySelector('.status-hidden-input');
+            if (hiddenInput && hiddenInput.value) {
+                const val = hiddenInput.value;
+                const fieldKet = card.querySelector('.field-keterangan');
+                const ketInput = card.querySelector('.input-ket');
+                if (fieldKet && ketInput) {
+                    if (val === 'kurang' || val === 'tidak_ada') {
+                        fieldKet.style.display = '';
+                        ketInput.required = true;
+                        ketInput.style.borderColor = 'var(--orange)';
+                        ketInput.style.background = 'var(--orange-tint)';
+                        ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
+                    } else {
+                        fieldKet.style.display = 'none';
+                        ketInput.required = false;
+                    }
+                }
+            }
+        });
+
+        // ── Validasi tambahan saat submit: pastikan semua card sudah dipilih statusnya ──
+        const origSubmit = window.submitWithSignature;
+        window.submitWithSignature = function() {
+            // Cek hanya jika cards sedang visible (mobile)
+            const cardsVisible = window.getComputedStyle(document.querySelector('.cards-pengecekan')).display !== 'none';
+            if (cardsVisible) {
+                const empties = document.querySelectorAll('.status-hidden-input');
+                for (const inp of empties) {
+                    if (!inp.value) {
+                        alert('⚠️ Semua status barang wajib dipilih!');
+                        inp.closest('.barang-card').scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                        return false;
+                    }
+                }
+            }
+            return origSubmit();
+        };
     </script>
 </body>
 

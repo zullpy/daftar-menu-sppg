@@ -10,6 +10,15 @@ function showSlide(n) {
 function changeSlide(n) { showSlide(currentSlide + n); }
 if (slides.length > 0) setInterval(() => changeSlide(1), 5000);
 
+// ===== Toast Notification =====
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toastNotif');
+    if (!toast) return;
+    toast.className = 'toast-notif toast-' + type + ' show';
+    toast.innerHTML = message;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 // ===== Modal =====
 function openModal(id) {
     document.getElementById(id).classList.add('active');
@@ -39,18 +48,11 @@ function toggleAccordion(header) {
 async function updateNoFaktur() {
     const tglInput = document.querySelector('input[name="tanggal"]');
     const fakturInput = document.querySelector('input[name="no_faktur"]');
-
     if (!tglInput.value) return;
-
-    const res = await fetch(
-        `../database/get-no-faktur.php?tanggal=${tglInput.value}`
-    );
-
+    const res = await fetch(`../database/get-no-faktur.php?tanggal=${tglInput.value}`);
     fakturInput.value = await res.text();
 }
-
-document.querySelector('input[name="tanggal"]')
-    .addEventListener('change', updateNoFaktur);
+document.querySelector('input[name="tanggal"]')?.addEventListener('change', updateNoFaktur);
 
 // ===== Dynamic Form Rows =====
 let rowIndex = 0;
@@ -63,7 +65,6 @@ function addRow() {
     KATEGORI_LIST.forEach(k => {
         kategoriOptions += `<option value="${k}">${k}</option>`;
     });
-
     tr.innerHTML = `
         <td><input type="text" name="item_barang[${rowIndex}]" placeholder="Nama barang" required></td>
         <td><select name="kategori[${rowIndex}]" class="kategori-select" required>${kategoriOptions}</select></td>
@@ -106,66 +107,45 @@ function previewFotoMenuMulti(input) {
 }
 
 // =====================================================
-// 🗜️ FUNGSI COMPRESS GAMBAR (BARU!)
+// 🗜️ FUNGSI COMPRESS GAMBAR
 // =====================================================
-/**
- * Compress gambar menggunakan Canvas API
- * @param {File} file - File gambar yang akan di-compress
- * @param {Object} options - Opsi compress
- * @returns {Promise<File>} - File yang sudah di-compress
- */
 function compressImage(file, options = {}) {
     const {
-        maxWidth = 1600,        // Max lebar (px)
-        maxHeight = 1600,       // Max tinggi (px)
-        quality = 0.7,          // Quality JPEG (0-1)
-        maxSizeKB = 800,        // Target max size dalam KB
-        minQuality = 0.4        // Quality minimum kalau masih kebesaran
+        maxWidth = 1600,
+        maxHeight = 1600,
+        quality = 0.7,
+        maxSizeKB = 800,
+        minQuality = 0.4
     } = options;
-
     return new Promise((resolve, reject) => {
-        // Skip kalau bukan gambar atau sudah kecil
         if (!file.type.startsWith('image/') || file.type === 'image/gif') {
             resolve(file);
             return;
         }
-
-        // Skip kalau sudah kecil (< 500KB)
         if (file.size < 500 * 1024) {
             resolve(file);
             return;
         }
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                // Hitung dimensi baru (maintain aspect ratio)
                 let width = img.width;
                 let height = img.height;
-
                 if (width > maxWidth || height > maxHeight) {
                     const ratio = Math.min(maxWidth / width, maxHeight / height);
                     width = Math.round(width * ratio);
                     height = Math.round(height * ratio);
                 }
-
-                // Buat canvas
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
-
-                // Background putih (untuk JPEG transparan)
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
-
-                // Gambar dengan smoothing
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
-
-                // Compress dengan quality bertahap
                 let currentQuality = quality;
                 const tryCompress = (q) => {
                     canvas.toBlob((blob) => {
@@ -173,25 +153,18 @@ function compressImage(file, options = {}) {
                             reject(new Error('Gagal compress gambar'));
                             return;
                         }
-
-                        // Kalau masih kebesaran dan quality masih di atas minimum, coba lagi
                         if (blob.size > maxSizeKB * 1024 && q > minQuality) {
                             tryCompress(q - 0.1);
                             return;
                         }
-
-                        // Convert blob ke File
                         const compressedFile = new File(
                             [blob],
                             file.name.replace(/\.[^.]+$/, '.jpg'),
                             { type: 'image/jpeg', lastModified: Date.now() }
                         );
-
-                        console.log(`🗜️ Compress: ${formatSize(file.size)} → ${formatSize(blob.size)} (${Math.round((1 - blob.size / file.size) * 100)}% reduction)`);
                         resolve(compressedFile);
                     }, 'image/jpeg', q);
                 };
-
                 tryCompress(currentQuality);
             };
             img.onerror = () => reject(new Error('Gagal memuat gambar'));
@@ -202,41 +175,23 @@ function compressImage(file, options = {}) {
     });
 }
 
-// Helper: format ukuran file
-function formatSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-}
-
 // =====================================================
-// 📤 UPLOAD INLINE PHOTO (UPDATED - DENGAN COMPRESS)
+// 📤 UPLOAD INLINE PHOTO
 // =====================================================
 function uploadInlinePhoto(input, action, id) {
     const files = input.files;
     if (!files || files.length === 0) return;
-
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
-        loading.innerHTML = `
-            <div class="spinner"></div>
-            <p id="loadingText">Mempersiapkan gambar...</p>
-        `;
+        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mempersiapkan gambar...</p>`;
         loading.classList.add('active');
     }
-
-    // Tentukan apakah perlu compress berdasarkan action
     const needCompress = (action === 'add_foto_receiving' || action === 'add_menu_photo');
-
-    // Proses semua file (compress jika perlu)
     const processFiles = async () => {
         const processedFiles = [];
         const totalFiles = files.length;
-
         for (let i = 0; i < totalFiles; i++) {
             const file = files[i];
-
-            // Update loading text
             const loadingText = document.getElementById('loadingText');
             if (loadingText) {
                 if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
@@ -245,43 +200,32 @@ function uploadInlinePhoto(input, action, id) {
                     loadingText.textContent = `Memproses file ${i + 1}/${totalFiles}...`;
                 }
             }
-
             try {
                 if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
-                    // Compress gambar
                     const compressed = await compressImage(file, {
-                        maxWidth: 1600,
-                        maxHeight: 1600,
-                        quality: 0.75,
-                        maxSizeKB: 800
+                        maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 800
                     });
                     processedFiles.push(compressed);
                 } else {
-                    // File PDF atau GIF, skip compress
                     processedFiles.push(file);
                 }
             } catch (err) {
                 console.error('Error compress:', err);
-                processedFiles.push(file); // Fallback: pakai file asli
+                processedFiles.push(file);
             }
         }
-
         return processedFiles;
     };
 
     processFiles().then(processedFiles => {
-        // Update loading text
         const loadingText = document.getElementById('loadingText');
         if (loadingText) loadingText.textContent = 'Mengupload...';
-
-        // Upload semua file yang sudah di-compress
         const promises = processedFiles.map(file => {
             const fd = new FormData();
             fd.append('action', action);
             fd.append('foto', file);
             if (action === 'add_menu_photo') fd.append('id_belanja', id);
             else fd.append('id_detail', id);
-
             return fetch('database/upload_photo.php', { method: 'POST', body: fd })
                 .then(async r => {
                     const text = await r.text();
@@ -289,15 +233,12 @@ function uploadInlinePhoto(input, action, id) {
                     catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
                 });
         });
-
         return Promise.all(promises);
     }).then(results => {
         if (loading) loading.classList.remove('active');
-        // Reset loading HTML
         if (loading) {
             loading.innerHTML = `<div class="spinner"></div><p>Memproses...</p>`;
         }
-
         const failed = results.find(r => !r.success);
         if (failed) {
             alert('❌ Gagal upload: ' + failed.message);
@@ -311,7 +252,6 @@ function uploadInlinePhoto(input, action, id) {
         }
         alert('❌ Error: ' + err.message);
     });
-
     input.value = '';
 }
 
@@ -384,7 +324,7 @@ function openEditItem(btn) {
     openModal('modalEdit');
 }
 
-// ===== Tambah Barang Susulan (item yang lupa diinput) =====
+// ===== Tambah Barang Susulan =====
 function openAddItemModal(idBelanja, judulMenu) {
     const form = document.getElementById('formAddItem');
     form.reset();
@@ -393,23 +333,20 @@ function openAddItemModal(idBelanja, judulMenu) {
     openModal('modalAddItem');
 }
 
-// ===== Upload Faktur Yang Sudah Ditandatangani =====
+// ===== Upload Faktur TTD =====
 function uploadFakturTTD(input, tanggal) {
     const file = input.files[0];
     if (!file) return;
-
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload faktur...</p>`;
         loading.classList.add('active');
     }
-
     const doUpload = (uploadFile) => {
         const fd = new FormData();
         fd.append('action', 'add_faktur_ttd');
         fd.append('tanggal', tanggal);
         fd.append('foto', uploadFile);
-
         fetch('database/upload-faktur.php', { method: 'POST', body: fd })
             .then(async r => {
                 const text = await r.text();
@@ -429,8 +366,6 @@ function uploadFakturTTD(input, tanggal) {
                 alert('❌ Error: ' + err.message);
             });
     };
-
-    // Compress dulu kalau file-nya gambar, biar tidak berat (PDF dilewati)
     if (file.type.startsWith('image/') && file.type !== 'image/gif') {
         compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
             .then(doUpload)
@@ -438,8 +373,115 @@ function uploadFakturTTD(input, tanggal) {
     } else {
         doUpload(file);
     }
-
     input.value = '';
+}
+
+// =====================================================
+// ✅ FITUR: STATUS PER ITEM (OPERATOR)
+// =====================================================
+
+/**
+ * Set status item (Lengkap / Tidak Ada) - langsung simpan
+ */
+async function setStatus(idDetail, status, btnEl) {
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) {
+        loading.innerHTML = `<div class="spinner"></div><p>Menyimpan status...</p>`;
+        loading.classList.add('active');
+    }
+
+    try {
+        const fd = new FormData();
+        fd.append('update_status_item', '1');
+        fd.append('id_detail', idDetail);
+        fd.append('status_item', status);
+
+        const res = await fetch('menu.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (loading) loading.classList.remove('active');
+
+        if (data.success) {
+            // Update UI tombol
+            const group = btnEl.closest('.status-toggle-group');
+            group.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+            btnEl.classList.add('active');
+
+            // Hapus keterangan lama kalau ada
+            const itemRow = btnEl.closest('.item-row');
+            const ketBox = itemRow.querySelector('.keterangan-kurang-box');
+            if (ketBox) ketBox.remove();
+
+            const statusLabel = status === 'lengkap' ? 'Lengkap ✓' : 'Tidak Ada ✗';
+            showToast(`Status diubah ke: <strong>${statusLabel}</strong>. Ringkasan akan terupdate otomatis.`, 'success');
+
+            // Reload untuk update ringkasan otomatis
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('❌ ' + (data.message || 'Gagal menyimpan status'));
+        }
+    } catch (err) {
+        if (loading) loading.classList.remove('active');
+        alert('❌ Error: ' + err.message);
+    }
+}
+
+/**
+ * Handle klik tombol "Kurang" - buka modal untuk isi keterangan
+ */
+function handleKurangClick(idDetail, btnEl) {
+    const modal = document.getElementById('modalKeterangan');
+    modal.dataset.idDetail = idDetail;
+    modal.dataset.btnElement = Array.from(btnEl.parentNode.children).indexOf(btnEl);
+    document.getElementById('keteranganInput').value = '';
+    openModal('modalKeterangan');
+    setTimeout(() => document.getElementById('keteranganInput').focus(), 200);
+}
+
+/**
+ * Submit keterangan kurang
+ */
+async function submitKeteranganKurang() {
+    const modal = document.getElementById('modalKeterangan');
+    const idDetail = modal.dataset.idDetail;
+    const keterangan = document.getElementById('keteranganInput').value.trim();
+
+    if (keterangan.length < 5) {
+        alert('⚠️ Keterangan minimal 5 karakter!');
+        document.getElementById('keteranganInput').focus();
+        return;
+    }
+
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) {
+        loading.innerHTML = `<div class="spinner"></div><p>Menyimpan status & keterangan...</p>`;
+        loading.classList.add('active');
+    }
+
+    try {
+        const fd = new FormData();
+        fd.append('update_status_item', '1');
+        fd.append('id_detail', idDetail);
+        fd.append('status_item', 'kurang');
+        fd.append('keterangan_kurang', keterangan);
+
+        const res = await fetch('menu.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (loading) loading.classList.remove('active');
+
+        if (data.success) {
+            closeModal('modalKeterangan');
+            showToast(`Status <strong>Kurang</strong> tersimpan. Ringkasan akan terupdate otomatis.`, 'success');
+            // Reload untuk update ringkasan otomatis
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('❌ ' + (data.message || 'Gagal menyimpan'));
+        }
+    } catch (err) {
+        if (loading) loading.classList.remove('active');
+        alert('❌ Error: ' + err.message);
+    }
 }
 
 // ===== Form Submit Validation =====
@@ -485,14 +527,11 @@ function filterMenu(query) {
     const resultInfo = document.getElementById('searchResult');
     const q = query.trim().toLowerCase();
     clearBtn.classList.toggle('visible', q.length > 0);
-
     const dateGroups = document.querySelectorAll('.date-group');
     let totalVisible = 0;
-
     dateGroups.forEach(group => {
         const cards = group.querySelectorAll('.menu-card');
         let visibleInGroup = 0;
-
         cards.forEach(card => {
             const title = card.querySelector('.menu-title');
             const namaMenu = title ? title.textContent.toLowerCase() : '';
@@ -500,10 +539,8 @@ function filterMenu(query) {
             card.style.display = match ? '' : 'none';
             if (match) visibleInGroup++;
         });
-
         const isGroupVisible = q === '' || visibleInGroup > 0;
         group.style.display = isGroupVisible ? '' : 'none';
-
         if (q !== '' && isGroupVisible) {
             const header = group.querySelector('.accordion-toggle');
             const content = group.querySelector('.date-content');
@@ -512,10 +549,8 @@ function filterMenu(query) {
                 content.classList.add('active');
             }
         }
-
         totalVisible += visibleInGroup;
     });
-
     if (q === '') {
         resultInfo.innerHTML = '';
     } else if (totalVisible === 0) {
@@ -531,16 +566,15 @@ function clearSearch() {
     filterMenu('');
 }
 function escapeHtml(text) {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ===== POPUP PILIHAN UPLOAD FOTO MENU =====
 function showUploadMenuOptions(idBelanja) {
-    // Hapus popup lama kalau ada
     const oldPopup = document.getElementById('uploadMenuPopup');
     if (oldPopup) oldPopup.remove();
-
-    // Buat popup baru
     const popup = document.createElement('div');
     popup.id = 'uploadMenuPopup';
     popup.className = 'upload-menu-popup';
@@ -557,26 +591,18 @@ function showUploadMenuOptions(idBelanja) {
                 <span>Pilih dari Galeri</span>
                 <small>Bisa pilih banyak foto</small>
             </button>
-            <button class="upload-menu-popup-btn btn-cancel-opt" onclick="closeUploadMenuPopup()">
-                Batal
-            </button>
+            <button class="upload-menu-popup-btn btn-cancel-opt" onclick="closeUploadMenuPopup()">Batal</button>
         </div>
     `;
     document.body.appendChild(popup);
-
-    // Animasi masuk
     setTimeout(() => popup.classList.add('active'), 10);
 }
-
 function triggerMenuPhoto(type, idBelanja) {
-    const inputId = type === 'kamera'
-        ? `menuPhotoKamera_${idBelanja}`
-        : `menuPhotoGaleri_${idBelanja}`;
+    const inputId = type === 'kamera' ? `menuPhotoKamera_${idBelanja}` : `menuPhotoGaleri_${idBelanja}`;
     const input = document.getElementById(inputId);
     if (input) input.click();
     closeUploadMenuPopup();
 }
-
 function closeUploadMenuPopup() {
     const popup = document.getElementById('uploadMenuPopup');
     if (popup) {
@@ -584,8 +610,6 @@ function closeUploadMenuPopup() {
         setTimeout(() => popup.remove(), 200);
     }
 }
-
-// Tutup popup kalau klik di luar
 document.addEventListener('click', function (e) {
     const popup = document.getElementById('uploadMenuPopup');
     if (popup && !popup.contains(e.target) && !e.target.closest('.btn-upload-menu')) {

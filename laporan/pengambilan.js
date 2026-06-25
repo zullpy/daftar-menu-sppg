@@ -1,12 +1,9 @@
 function setAutoJam() {
     const now = new Date();
-    // toTimeString() selalu return 24 jam format "15:06:30 GMT+0700..."
-    // substring(0,5) ambil "15:06"
     const jam = now.toTimeString().split(' ')[0].substring(0, 5);
     document.getElementById('jam_pengambilan').value = jam;
 }
 
-// Accordion Toggle (skrg juga toggle class 'open' di header utk animasi chevron)
 function toggleAccordion(id) {
     const el = document.getElementById(id);
     el.classList.toggle('active');
@@ -14,7 +11,6 @@ function toggleAccordion(id) {
     if (header) header.classList.toggle('open');
 }
 
-// Filter bar toggle (mobile)
 function toggleFilter() {
     const bar = document.getElementById('filterBar');
     const btn = document.getElementById('filterToggleBtn');
@@ -22,14 +18,11 @@ function toggleFilter() {
     btn.classList.toggle('open');
 }
 
-// Modal Control
 function openModal() {
     document.getElementById('modalTambah').classList.add('active');
     document.body.style.overflow = 'hidden';
     setAutoJam();
     document.getElementById('tanggal_pengambilan').value = new Date().toISOString().split('T')[0];
-
-    // Otomatis tambahkan 1 baris barang saat modal dibuka
     const container = document.getElementById('barangContainer');
     if (container.children.length === 0) {
         addBarangRow();
@@ -43,23 +36,95 @@ function closeModal() {
     document.getElementById('barangContainer').innerHTML = '';
 }
 
-// Dynamic Barang Rows
+// ============================================
+// ✅ FUNGSI TOAST NOTIFICATION (BARU)
+// ============================================
+function showToast(message, type = 'success') {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let icon = '';
+    if (type === 'success') icon = '<span class="toast-icon" style="color:#2e7d32;">✅</span>';
+    else if (type === 'warning') icon = '<span class="toast-icon" style="color:#ed6c02;">⚠️</span>';
+    else if (type === 'error') icon = '<span class="toast-icon" style="color:#d32f2f;">❌</span>';
+
+    toast.innerHTML = `${icon} <span>${message}</span>`;
+    container.appendChild(toast);
+
+    // Hilang otomatis setelah 3.5 detik
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+// ============================================
+// ✅ CEK STOK VIA TOAST (BARU)
+// ============================================
+function cekStokBarang(input) {
+    const namaBarang = input.value.trim();
+    if (!namaBarang) return;
+
+    const lokasiInput = document.querySelector('input[name="lokasi"], select[name="lokasi"]');
+    const lokasi = lokasiInput ? lokasiInput.value : 'semua';
+
+    fetch(`../database/api-cek-stok.php?nama=${encodeURIComponent(namaBarang)}&lokasi=${encodeURIComponent(lokasi)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const sisa = data.sisa_stok;
+                const satuan = data.satuan || '';
+
+                // Simpan data untuk validasi qty nanti
+                input.dataset.stok = sisa;
+                input.dataset.satuan = satuan;
+
+                if (sisa <= 0) {
+                    showToast(`Stok <strong>${namaBarang}</strong> HABIS! (Sisa: ${sisa} ${satuan})`, 'error');
+                } else if (sisa <= 10) {
+                    showToast(`Stok <strong>${namaBarang}</strong> menipis. Tersisa: ${sisa} ${satuan}`, 'warning');
+                } else {
+                    showToast(`Stok <strong>${namaBarang}</strong> tersedia: ${sisa} ${satuan}`, 'success');
+                }
+            } else {
+                showToast('Gagal mengecek stok barang.', 'error');
+            }
+        })
+        .catch(() => {
+            showToast('Error koneksi saat cek stok.', 'error');
+        });
+}
+
+// ============================================
+// DYNAMIC BARANG ROWS (DIPERBAIKI BUG NYA)
+// ============================================
 let barangIndex = 0;
 function addBarangRow() {
     const container = document.getElementById('barangContainer');
+    // Template literal yang bersih dan benar
     const html = `
         <div class="barang-row" id="barang-${barangIndex}">
             <div class="form-group">
-                <input type="text" name="nama_barang[]" placeholder="Nama Barang" required>
+                <input type="text" name="nama_barang[]" placeholder="Nama Barang" required 
+                    onblur="cekStokBarang(this)">
             </div>
-            <div class="form-group">
-                <input type="number" name="qty[]" placeholder="Qty" step="0.01" required inputmode="decimal">
-            </div>
-            <div class="form-group">
-                <input type="text" name="satuan[]" placeholder="Satuan" required>
+            <div class="barang-row-inputs">
+                <div class="form-group">
+                    <input type="number" name="qty[]" placeholder="Qty" step="0.01" required inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <input type="text" name="satuan[]" placeholder="Satuan" required>
+                </div>
             </div>
             <button type="button" class="btn btn-danger" onclick="removeBarangRow(${barangIndex})">
-                <i class="ph ph-trash"></i> <span class="only-mobile-label"></span>
+                <i class="ph ph-trash"></i>
             </button>
         </div>
     `;
@@ -68,20 +133,48 @@ function addBarangRow() {
 }
 
 function removeBarangRow(id) {
-    document.getElementById(`barang-${id}`).remove();
+    const el = document.getElementById(`barang-${id}`);
+    if (el) el.remove();
 }
 
-// Submit Form
+// ============================================
+// SUBMIT FORM
+// ============================================
 document.getElementById('formTambah').addEventListener('submit', function (e) {
     e.preventDefault();
-    const formData = new FormData(this);
 
+    // Validasi stok barang di frontend
+    const rows = document.querySelectorAll('.barang-row');
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const inputNama = row.querySelector('input[name="nama_barang[]"]');
+        const inputQty = row.querySelector('input[name="qty[]"]');
+        if (inputNama && inputQty) {
+            const nama = inputNama.value.trim();
+            const qty = parseFloat(inputQty.value) || 0;
+            const stok = parseFloat(inputNama.dataset.stok);
+            const satuan = inputNama.dataset.satuan || '';
+
+            if (isNaN(stok) || stok <= 0) {
+                Swal.fire('Stok Tidak Ada', `Stok untuk barang "${nama}" tidak ada atau habis!`, 'error');
+                return;
+            }
+
+            if (qty > stok) {
+                Swal.fire('Stok Tidak Cukup', `Jumlah pengambilan untuk barang "${nama}" (${qty} ${satuan}) melebihi stok yang ada! (Sisa stok: ${stok} ${satuan})`, 'error');
+                return;
+            }
+        }
+    }
+
+    const formData = new FormData(this);
     const data = {
         nama_pengambil: formData.get('nama_pengambil'),
         nama_sppg: formData.get('nama_sppg'),
         tanggal_pengambilan: formData.get('tanggal_pengambilan'),
         jam_pengambilan: formData.get('jam_pengambilan'),
         no_kontak: formData.get('no_kontak'),
+        lokasi: formData.get('lokasi'),
         barang: []
     };
 
@@ -104,6 +197,12 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
         return;
     }
 
+    Swal.fire({
+        title: 'Menyimpan...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
     fetch('../database/api-tambah-pengambilan.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,7 +211,13 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
         .then(res => res.json())
         .then(result => {
             if (result.status === 'success') {
-                Swal.fire('Berhasil', result.message, 'success').then(() => location.reload());
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: result.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => location.reload());
             } else {
                 Swal.fire('Gagal', result.message, 'error');
             }
@@ -151,7 +256,6 @@ function closeDetail() {
     document.body.style.overflow = '';
 }
 
-// Verifikasi Faktur
 function verifikasiLaporan(id) {
     Swal.fire({
         title: 'Konfirmasi',
@@ -179,7 +283,6 @@ function verifikasiLaporan(id) {
     });
 }
 
-// Close modal when clicking outside
 window.onclick = function (event) {
     if (event.target.classList.contains('modal-overlay')) {
         event.target.classList.remove('active');

@@ -860,23 +860,255 @@ footer {
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 0;
+    }
+
+    .container {
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+    }
+
     header {
         flex-direction: column;
         text-align: center;
+        padding: 16px 16px;
+        gap: 12px;
+    }
+
+    .logo {
+        gap: 10px;
+    }
+
+    .logo-text h1 {
+        font-size: 16px;
     }
 
     nav {
         justify-content: center;
         width: 100%;
+        gap: 8px;
     }
 
     nav .btn {
         flex: 1;
         justify-content: center;
+        padding: 9px 12px;
+        font-size: 13px;
     }
 
     main {
-        padding: 20px;
+        padding: 12px;
+    }
+
+    .date-header {
+        padding: 13px 14px;
+    }
+
+    .date-header h3 {
+        font-size: 14px;
+    }
+
+    .date-content {
+        padding: 10px;
+    }
+
+    /* ── Accordion header jadi 2 baris rapi ── */
+    .accordion-header {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .faktur-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .faktur-info strong {
+        font-size: 13.5px;
+    }
+
+    .faktur-info>span {
+        font-size: 12.5px;
+    }
+
+    .faktur-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    /* ── TABEL → CARD LIST di mobile ── */
+    .accordion-content {
+        padding: 12px;
+    }
+
+    .table-detail {
+        border: none;
+        margin: 8px 0;
+    }
+
+    /* Sembunyikan thead di mobile */
+    .table-detail thead {
+        display: none;
+    }
+
+    /* tfoot tetap ditampilkan tapi disederhanakan */
+    .table-detail tfoot tr {
+        display: flex;
+        background: var(--navy-tint);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        margin-top: 4px;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .table-detail tfoot th {
+        background: transparent;
+        border: none;
+        padding: 0;
+        font-size: 13px;
+        color: var(--navy);
+    }
+
+    /* Setiap baris tbody jadi card */
+    .table-detail tbody tr {
+        display: block;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--navy-soft);
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
+        padding: 12px 14px;
+        position: relative;
+    }
+
+    .table-detail tbody tr:nth-child(even) td {
+        background: transparent;
+    }
+
+    /* Setiap td jadi baris label:nilai */
+    .table-detail tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border: none;
+        padding: 4px 0;
+        font-size: 13px;
+        background: transparent;
+        gap: 10px;
+        line-height: 1.5;
+    }
+
+    /* Label dari data-label attribute */
+    .table-detail tbody td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--ink-soft);
+        flex-shrink: 0;
+        padding-top: 2px;
+        min-width: 80px;
+    }
+
+    /* Nomor urut sebagai chip kecil di pojok kanan atas */
+    .table-detail tbody td:first-child {
+        position: absolute;
+        top: 8px;
+        left: 10px;
+        padding: 0;
+        width: auto;
+        justify-content: flex-start;
+    }
+
+    .table-detail tbody td:first-child::before {
+        display: none;
+    }
+
+    .table-detail tbody td:first-child {
+        background: var(--navy);
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        font-family: var(--font-mono);
+        min-width: unset;
+        flex-shrink: 0;
+    }
+
+    /* Nama barang lebih besar dan tebal */
+    .table-detail tbody td:nth-child(2) {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--ink);
+        padding-bottom: 6px;
+        padding-left: 32px;
+        /* ruang untuk chip nomor di kanan atas */
+        border-bottom: 1.5px dashed var(--line);
+        margin-bottom: 2px;
+    }
+
+    /* Status badge rata kanan */
+    .table-detail tbody td:nth-child(5) {
+        justify-content: space-between;
+    }
+
+    /* Keterangan bisa wrap */
+    .table-detail tbody td:last-child {
+        align-items: flex-start;
+    }
+
+    /* Warna border card berdasar status */
+    .table-detail tbody tr:has(.badge-ada) {
+        border-left-color: var(--green);
+    }
+
+    .table-detail tbody tr:has(.badge-kurang) {
+        border-left-color: var(--orange);
+    }
+
+    .table-detail tbody tr:has(.badge-tidak_ada) {
+        border-left-color: var(--red);
+    }
+
+    .table-detail tbody tr:has(.badge-pending) {
+        border-left-color: var(--amber);
+    }
+
+    /* Action buttons full width */
+    .action-buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .action-buttons .btn,
+    .action-buttons .status-terima {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .status-terima {
+        justify-content: center;
+    }
+
+    .detail-info-grid {
+        grid-template-columns: 1fr;
     }
 
     .form-row {
@@ -885,26 +1117,5 @@ footer {
 
     .form-group.small {
         max-width: 100%;
-    }
-
-    .action-buttons {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .action-buttons .btn {
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-    }
-
-    .faktur-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .detail-info-grid {
-        grid-template-columns: 1fr;
     }
 }

@@ -2,33 +2,69 @@
 session_start();
 // =======================================================
 // KONFIGURASI PASSWORD
-// Sebaiknya nanti dipindah ke database / .env, ini contoh dasar
 // =======================================================
 $password_admin    = "admin123";
-$password_operator = "op123";
+$password_opsodong = "sodong123";
+$password_opsariwangi = "sariwangi123";
+$password_opmanonjaya = "manonjaya123";
+
 // =======================================================
-// PROSES VERIFIKASI PASSWORD (dipanggil via AJAX/fetch)
+// PROSES VERIFIKASI PASSWORD
 // =======================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['aksi'] === 'verifikasi') {
     header('Content-Type: application/json');
     $role     = $_POST['role'] ?? '';
     $password = $_POST['password'] ?? '';
-    $valid = false;
-    $redirect = '';
+
     if ($role === 'admin' && $password === $password_admin) {
-        $valid = true;
         $_SESSION['role'] = 'admin';
-        $redirect = 'select-bibi.php';
-    } elseif ($role === 'operator' && $password === $password_operator) {
-        $valid = true;
+        $_SESSION['lokasi'] = 'semua';
+        $_SESSION['nama_op'] = 'Admin';
+
+        echo json_encode([
+            'status' => 'sukses',
+            'redirect' => 'dashboard.php'
+        ]);
+        exit;
+    }
+
+    if ($role === 'opsodong' && $password === $password_opsodong) {
         $_SESSION['role'] = 'operator';
-        $redirect = 'select-op.php';
+        $_SESSION['lokasi'] = 'sodong';
+        $_SESSION['nama_op'] = 'Sodong';
+
+        echo json_encode([
+            'status' => 'sukses',
+            'redirect' => 'dashboard.php'
+        ]);
+        exit;
     }
-    if ($valid) {
-        echo json_encode(['status' => 'sukses', 'redirect' => $redirect]);
-    } else {
-        echo json_encode(['status' => 'gagal', 'pesan' => 'Password salah, silakan coba lagi.']);
+
+    if ($role === 'opsariwangi' && $password === $password_opsariwangi) {
+        $_SESSION['role'] = 'operator';
+        $_SESSION['lokasi'] = 'sariwangi';
+        $_SESSION['nama_op'] = 'Sariwangi';
+
+        echo json_encode([
+            'status' => 'sukses',
+            'redirect' => 'dashboard.php'
+        ]);
+        exit;
     }
+
+    if ($role === 'opmanonjaya' && $password === $password_opmanonjaya) {
+        $_SESSION['role'] = 'operator';
+        $_SESSION['lokasi'] = 'manonjaya';
+        $_SESSION['nama_op'] = 'Manonjaya';
+
+        echo json_encode([
+            'status' => 'sukses',
+            'redirect' => 'dashboard.php'
+        ]);
+        exit;
+    }
+
+    echo json_encode(['status' => 'gagal', 'pesan' => 'Password salah, silakan coba lagi.']);
     exit;
 }
 ?>
@@ -39,9 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pilih Akses - Bina Usaha Sauyunan</title>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <style>
@@ -81,17 +115,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             max-width: 760px;
         }
 
-        /* BANNER STYLES - TANPA BACKGROUND PUTIH */
         .banner-wrapper {
             margin-bottom: 32px;
             border-radius: var(--radius);
             overflow: hidden;
             background: transparent;
-            /* TIDAK ADA BACKGROUND PUTIH */
             box-shadow: none;
-            /* TIDAK ADA SHADOW PUTIH */
             border: none;
-            /* TIDAK ADA BORDER */
         }
 
         .banner-image {
@@ -99,24 +129,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             height: auto;
             display: block;
             background: transparent;
-            /* PASTIKAN TRANSPARENT */
-        }
-
-        .header-text {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .header-text h1 {
-            font-size: 28px;
-            color: var(--color-text);
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .header-text p {
-            color: var(--color-text-muted);
-            font-size: 15px;
         }
 
         .pilihan-wrapper {
@@ -217,21 +229,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             font-size: 12px;
             color: var(--color-text-muted);
         }
+
+        /* Custom select style di SweetAlert */
+        .custom-select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            color: #1e293b;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .custom-select:focus {
+            border-color: #16a34a;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <!-- BANNER SECTION - DITAMBAHKAN DI SINI -->
         <div class="banner-wrapper">
             <img src="/assets/banner.png" alt="PerMen CekeR Banner" class="banner-image">
         </div>
-        
-        <!-- <div class="header-text">
-            <h1>Bina Usaha Sauyunan</h1>
-            <p>Silakan pilih jenis akses untuk melanjutkan</p>
-        </div> -->
-        
+
         <div class="pilihan-wrapper">
             <div class="kartu-akses admin" onclick="pilihAkses('admin')">
                 <div class="icon-wrapper">
@@ -247,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                     <i class="ph-fill ph-user-gear"></i>
                 </div>
                 <h2>Operator</h2>
-                <p>Akses untuk transaksi harian &amp; input data</p>
+                <p>Pilih dapur &amp; masukkan password untuk masuk</p>
                 <span class="badge">Masuk sebagai Operator</span>
             </div>
         </div>
@@ -259,10 +283,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
 
     <script>
         function pilihAkses(role) {
-            const label = role === 'admin' ? 'Admin' : 'Operator';
-            const warna = role === 'admin' ? '#2563eb' : '#16a34a';
-            const icon = role === 'admin' ? 'ph-shield-check' : 'ph-user-gear';
+            if (role === 'admin') {
+                // Admin: langsung input password
+                tampilkanPopupPassword('admin', 'Admin', '#2563eb');
+            } else {
+                // Operator: pilih dapur dulu, baru password
+                tampilkanPopupPilihDapur();
+            }
+        }
 
+        function tampilkanPopupPilihDapur() {
+            Swal.fire({
+                title: 'Pilih Dapur',
+                html: `
+                    <div style="text-align:left; margin-top: 8px;">
+                        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:6px;">Nama Dapur</label>
+                        <select id="pilih-dapur" class="custom-select">
+                            <option value="">-- Pilih Dapur --</option>
+                            <option value="opsodong">Sodong</option>
+                            <option value="opsariwangi">Sariwangi</option>
+                            <option value="opmanonjaya">Manonjaya</option>
+                        </select>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Lanjut',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#16a34a',
+                cancelButtonColor: '#94a3b8',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const dapur = document.getElementById('pilih-dapur').value;
+                    if (!dapur) {
+                        Swal.showValidationMessage('Silakan pilih dapur terlebih dahulu');
+                        return false;
+                    }
+                    return dapur;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const dapur = result.value;
+                    const labelMap = {
+                        'opsodong': 'Sodong',
+                        'opsariwangi': 'Sariwangi',
+                        'opmanonjaya': 'Manonjaya'
+                    };
+                    tampilkanPopupPassword(dapur, 'Operator ' + labelMap[dapur], '#16a34a');
+                }
+            });
+        }
+
+        function tampilkanPopupPassword(role, label, warna) {
             Swal.fire({
                 title: `Masuk sebagai ${label}`,
                 html: `

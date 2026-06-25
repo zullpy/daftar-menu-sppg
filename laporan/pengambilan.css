@@ -619,7 +619,7 @@ body {
 
 .barang-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
+    grid-template-columns: 2fr 2fr auto;
     gap: 10px;
     margin-bottom: 10px;
     align-items: end;
@@ -634,6 +634,12 @@ body {
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
+}
+
+.barang-row-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
 }
 
 .barang-row .btn-danger {
@@ -664,11 +670,100 @@ body {
     border-bottom: 1px solid #f0f0f0;
 }
 
-/* ============================================================
-   RESPONSIVE BREAKPOINTS
-   ============================================================ */
+/* ===== TOAST NOTIFICATION (KANAN ATAS) ===== */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    /* Supaya tidak menghalangi klik di belakangnya */
+}
 
-/* Tablet & bawah */
+.toast {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 280px;
+    max-width: 350px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dark);
+    border-left: 4px solid #ccc;
+    animation: slideInRight 0.3s ease forwards;
+    pointer-events: auto;
+}
+
+.toast.hiding {
+    animation: slideOutRight 0.3s ease forwards;
+}
+
+.toast-icon {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Warna Toast */
+.toast-success {
+    border-left-color: var(--success);
+}
+
+.toast-success .toast-icon {
+    color: var(--success);
+}
+
+.toast-warning {
+    border-left-color: var(--warning);
+}
+
+.toast-warning .toast-icon {
+    color: var(--warning);
+}
+
+.toast-error {
+    border-left-color: var(--danger);
+}
+
+.toast-error .toast-icon {
+    color: var(--danger);
+}
+
+/* Animasi Masuk & Keluar */
+@keyframes slideInRight {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+}
+
+
 @media (max-width: 768px) {
     body {
         padding: 14px;
@@ -829,21 +924,49 @@ body {
 
     .barang-header {
         display: none;
-        /* terlalu sempit di hp, label dipindah ke placeholder */
     }
 
     .barang-row {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
         gap: 8px;
-        padding: 10px;
+        padding: 12px;
         background: #f8f9fa;
         border-radius: 10px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+    }
+
+    .barang-row .form-group {
+        width: 100%;
+        margin-bottom: 0;
+    }
+
+    .barang-row .form-group label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+        display: block;
+    }
+
+    .barang-row .form-group input {
+        width: 100%;
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    /* Qty dan satuan tetap horizontal di mobile */
+    .barang-row-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
     }
 
     .barang-row .btn-danger {
         width: 100%;
-        justify-content: center;
+        height: 40px;
+        margin-top: 4px;
     }
 
     .modal-footer {

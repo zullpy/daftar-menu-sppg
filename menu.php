@@ -7,6 +7,20 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operato
 }
 $role = $_SESSION['role'];
 $isAdmin = ($role === 'admin');
+$isOperator = ($role === 'operator');
+
+// ✅ AMBIL LOKASI DAPUR DARI SESSION
+$lokasiSession = $_SESSION['lokasi'] ?? 'semua';
+$namaLokasi = $_SESSION['nama_op'] ?? '';
+
+// Mapping lokasi untuk tampilan
+$LOKASI_MAP = [
+    'sodong' => 'Sodong',
+    'sariwangi' => 'Sariwangi',
+    'manonjaya' => 'Manonjaya',
+    'semua' => 'Semua Dapur'
+];
+$namaLokasiDisplay = $LOKASI_MAP[$lokasiSession] ?? $namaLokasi;
 
 // ====== LOGOUT ======
 if (isset($_GET['logout'])) {
@@ -53,6 +67,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_detail'])) {
     }
 }
 
+// ====== ✅ PROSES UPDATE STATUS PER ITEM (OPERATOR & ADMIN) ======
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status_item'])) {
+    if (!in_array($role, ['admin', 'operator'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
+    try {
+        $id = (int)$_POST['id_detail'];
+        $status = $_POST['status_item'] ?? null;
+        $keterangan = trim($_POST['keterangan_kurang'] ?? '');
+
+        if ($status === 'kurang' && empty($keterangan)) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Keterangan wajib diisi untuk status Kurang!']);
+            exit;
+        }
+
+        $keteranganFinal = ($status === 'kurang') ? $keterangan : null;
+
+        $stmt = $pdo->prepare("UPDATE belanja_detail SET status_item=?, keterangan_kurang=? WHERE id_detail=?");
+        $stmt->execute([$status, $keteranganFinal, $id]);
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'status' => $status,
+            'keterangan' => $keteranganFinal
+        ]);
+        exit;
+    } catch (Exception $e) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
+}
+
 // ====== 🔒 PROSES TAMBAH PEMBELIAN (HANYA ADMIN) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
     if (!$isAdmin) {
@@ -66,13 +117,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
     $no_kontak = $_POST['no_kontak'] ?? '';
     $alamat = $_POST['alamat'] ?? '';
     $no_faktur = $_POST['no_faktur'] ?? '';
+    $lokasi = $_POST['lokasi'] ?? 'semua'; // ✅ LOKASI DAPUR
+
     try {
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare("INSERT INTO belanja (tanggal, judul, porsi, nama_sppg, no_kontak, alamat, no_faktur) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$tanggal, $judul, $porsi, $nama_sppg, $no_kontak, $alamat, $no_faktur]);
+        // ✅ TAMBAHKAN KOLOM lokasi
+        $stmt = $pdo->prepare("INSERT INTO belanja (tanggal, judul, porsi, nama_sppg, no_kontak, alamat, no_faktur, lokasi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$tanggal, $judul, $porsi, $nama_sppg, $no_kontak, $alamat, $no_faktur, $lokasi]);
         $idBelanja = $pdo->lastInsertId();
 
-        // Handle multiple foto menu
         if (isset($_FILES['foto_menu']) && is_array($_FILES['foto_menu']['name'])) {
             $uploadDir = 'uploads/menu/';
             if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -89,7 +142,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
             }
         }
 
-        // Handle detail
         $rowIndexes = $_POST['row_index'] ?? [];
         $items = $_POST['item_barang'] ?? [];
         $qtys = $_POST['qty'] ?? [];
@@ -103,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
             $stmtDetail->execute([$idBelanja, $items[$idx], $qtys[$idx], $satuans[$idx], $hargas[$idx], $jumlahs[$idx], $kategoris[$idx] ?? 'Bahan Pokok']);
             $idDetail = $pdo->lastInsertId();
 
-            // Upload nota
             if (isset($_FILES['nota_files']['name'][$idx]) && is_array($_FILES['nota_files']['name'][$idx])) {
                 $uploadDir = 'uploads/nota/';
                 if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -118,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
                     }
                 }
             }
-            // Upload foto receiving
+
             if (isset($_FILES['foto_files']['name'][$idx]) && is_array($_FILES['foto_files']['name'][$idx])) {
                 $uploadDir = 'uploads/foto/';
                 if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -144,7 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
 }
 
 // ====== 🔒 PROSES TAMBAH BARANG SUSULAN (HANYA ADMIN) ======
-// Dipakai dari tombol "Tambah Barang" di menu-card, untuk item yang lupa diinput
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
     if (!$isAdmin) {
         header("Location: menu.php?error=unauthorized");
@@ -158,7 +208,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
         $harga = $_POST['harga_satuan'];
         $jumlah = (float)$qty * (float)$harga;
         $kategori = $_POST['kategori'] ?? 'Bahan Pokok';
-
         $stmt = $pdo->prepare("INSERT INTO belanja_detail (id_belanja, item_barang, qty, satuan, harga_satuan, jumlah, kategori) VALUES (:id_belanja, :item_barang, :qty, :satuan, :harga_satuan, :jumlah, :kategori)");
         $stmt->execute([
             ':id_belanja'    => $idBelanja,
@@ -171,7 +220,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
         ]);
         $idDetail = $pdo->lastInsertId();
 
-        // Item susulan juga bisa langsung dilampiri nota kalau ada
         if (isset($_FILES['nota_susulan']) && $_FILES['nota_susulan']['error'] === UPLOAD_ERR_OK) {
             $uploadDir = 'uploads/nota/';
             if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -182,7 +230,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
                     ->execute([':id_detail' => $idDetail, ':file_nota' => $newName]);
             }
         }
-
         header("Location: menu.php?item_added=1");
         exit;
     } catch (Exception $e) {
@@ -190,16 +237,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
     }
 }
 
-// ====== AMBIL DATA ======
-$belanjaList = $pdo->query("SELECT * FROM belanja ORDER BY tanggal DESC, created_at DESC")->fetchAll();
+// =====================================================
+// ✅ FUNGSI: GENERATE RINGKASAN OTOMATIS
+// =====================================================
+function generateRingkasanStatus($details)
+{
+    if (empty($details)) return null;
+
+    $stats = ['lengkap' => [], 'kurang' => [], 'tidak ada' => [], 'belum' => []];
+    foreach ($details as $d) {
+        $st = $d['status_item'] ?? 'belum';
+        if (!in_array($st, ['lengkap', 'kurang', 'tidak ada'])) $st = 'belum';
+        $stats[$st][] = [
+            'item' => $d['item_barang'],
+            'keterangan' => $d['keterangan_kurang'] ?? null
+        ];
+    }
+
+    $total = count($details);
+    $bagian = [];
+
+    if (count($stats['belum']) === $total) return null;
+    if (count($stats['lengkap']) === $total) {
+        return "Semua barang ({$total} item) diterima dengan lengkap dan dalam kondisi baik.";
+    }
+
+    if (!empty($stats['lengkap'])) {
+        $bagian[] = count($stats['lengkap']) . " item diterima lengkap";
+    }
+    if (!empty($stats['kurang'])) {
+        $detailKurang = [];
+        foreach ($stats['kurang'] as $k) {
+            $ket = $k['keterangan'] ? " ({$k['keterangan']})" : "";
+            $detailKurang[] = $k['item'] . $ket;
+        }
+        $bagian[] = count($stats['kurang']) . " item kurang: " . implode(', ', $detailKurang);
+    }
+    if (!empty($stats['tidak ada'])) {
+        $namaTA = array_column($stats['tidak ada'], 'item');
+        $bagian[] = count($stats['tidak ada']) . " item tidak ada: " . implode(', ', $namaTA);
+    }
+    if (!empty($stats['belum'])) {
+        $bagian[] = count($stats['belum']) . " item belum dicek";
+    }
+
+    return ucfirst(implode('. ', $bagian)) . '.';
+}
+
+// ====== AMBIL DATA - ✅ DENGAN FILTER LOKASI ======
+if ($isAdmin) {
+    // Admin: lihat semua
+    $belanjaList = $pdo->query("SELECT * FROM belanja ORDER BY tanggal DESC, created_at DESC")->fetchAll();
+} else {
+    // Operator: hanya lihat sesuai lokasi dapurnya
+    $stmt = $pdo->prepare("SELECT * FROM belanja WHERE lokasi = ? ORDER BY tanggal DESC, created_at DESC");
+    $stmt->execute([$lokasiSession]);
+    $belanjaList = $stmt->fetchAll();
+}
+
 foreach ($belanjaList as &$belanja) {
     $stmt = $pdo->prepare("SELECT foto FROM foto_menu_multiple WHERE id_belanja = ? ORDER BY uploaded_at ASC");
     $stmt->execute([$belanja['id_belanja']]);
     $belanja['fotos'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
     if (empty($belanja['fotos']) && !empty($belanja['foto_menu'])) $belanja['fotos'] = [$belanja['foto_menu']];
+
     $stmt = $pdo->prepare("SELECT * FROM belanja_detail WHERE id_belanja = ? ORDER BY FIELD(kategori,'Bahan Pokok','Bumbu','Sayuran','Buah-buahan','Tambahan'), item_barang");
     $stmt->execute([$belanja['id_belanja']]);
     $belanja['details'] = $stmt->fetchAll();
+
+    $belanja['status_stats'] = ['lengkap' => 0, 'kurang' => 0, 'tidak ada' => 0, 'belum' => 0];
     foreach ($belanja['details'] as &$detail) {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM lampiran_nota WHERE id_detail = ?");
         $stmt->execute([$detail['id_detail']]);
@@ -207,14 +313,28 @@ foreach ($belanjaList as &$belanja) {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM foto_receiving WHERE id_detail = ?");
         $stmt->execute([$detail['id_detail']]);
         $detail['jumlah_foto'] = $stmt->fetchColumn();
-    }
-    unset($detail); // PENTING: putuskan reference biar tidak "bocor" ke foreach lain
-}
-unset($belanja); // putuskan reference outer loop juga, best practice
 
-// ====== 📄 AMBIL DATA FAKTUR YANG SUDAH DITANDATANGANI (PER TANGGAL) ======
+        $st = $detail['status_item'] ?? 'belum';
+        if ($st === 'belum' || !in_array($st, ['lengkap', 'kurang', 'tidak ada'])) {
+            $belanja['status_stats']['belum']++;
+        } else {
+            $belanja['status_stats'][$st]++;
+        }
+    }
+    unset($detail);
+
+    $belanja['ringkasan_otomatis'] = generateRingkasanStatus($belanja['details']);
+}
+unset($belanja);
+
+// ====== 📄 AMBIL DATA FAKTUR - ✅ FILTER LOKASI JUGA ======
 $fakturMap = [];
-$stmtFaktur = $pdo->query("SELECT tanggal, file_faktur FROM faktur_ttd");
+if ($isAdmin) {
+    $stmtFaktur = $pdo->query("SELECT tanggal, file_faktur FROM faktur_ttd");
+} else {
+    $stmtFaktur = $pdo->prepare("SELECT ft.tanggal, ft.file_faktur FROM faktur_ttd ft JOIN belanja b ON ft.tanggal = b.tanggal WHERE b.lokasi = ? GROUP BY ft.tanggal");
+    $stmtFaktur->execute([$lokasiSession]);
+}
 foreach ($stmtFaktur->fetchAll() as $f) {
     $fakturMap[$f['tanggal']] = $f['file_faktur'];
 }
@@ -225,7 +345,6 @@ function formatTanggalIndonesia($tanggal)
     $p = explode('-', $tanggal);
     return $p[2] . ' ' . $bulan[(int)$p[1]] . ' ' . $p[0];
 }
-
 function getNamaHari($tanggal)
 {
     $hari = ['Sun' => 'Minggu', 'Mon' => 'Senin', 'Tue' => 'Selasa', 'Wed' => 'Rabu', 'Thu' => 'Kamis', 'Fri' => 'Jumat', 'Sat' => 'Sabtu'];
@@ -233,6 +352,7 @@ function getNamaHari($tanggal)
 }
 
 $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
+$LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'manonjaya' => 'Dapur Manonjaya'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -244,23 +364,71 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ✅ Tambahan style untuk info dapur operator */
+        .lokasi-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .lokasi-badge svg {
+            flex-shrink: 0;
+        }
+
+        .info-dapur-operator {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 1px solid #86efac;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #166534;
+            font-size: 14px;
+        }
+
+        .info-dapur-operator strong {
+            color: #15803d;
+        }
+    </style>
 </head>
 
 <body>
     <main>
         <!-- Navbar Role -->
         <div class="role-navbar">
-            <div class="role-badge role-<?= $role ?>">
-                <?php if ($isAdmin): ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-                    </svg>
-                    Admin
-                <?php else: ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
-                    </svg>
-                    Operator
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <div class="role-badge role-<?= $role ?>">
+                    <?php if ($isAdmin): ?>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                        </svg>
+                        Admin
+                    <?php else: ?>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
+                        </svg>
+                        Operator
+                    <?php endif; ?>
+                </div>
+                <?php if ($isOperator): ?>
+                    <!-- ✅ Badge lokasi untuk operator -->
+                    <span class="lokasi-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        Dapur <?= htmlspecialchars($namaLokasiDisplay) ?>
+                    </span>
                 <?php endif; ?>
             </div>
             <a href="?logout=1" class="btn-logout" onclick="return confirm('Yakin ingin keluar?')">
@@ -278,25 +446,36 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                 <h1 style="font-size: 24px; font-weight: 500; color:gray;">Permen Ceker</h1>
                 <span style="font-style: italic; color:gray;">Perencana Menu - Cek dan Receiving Barang</span>
                 <h2>Menu SPPG Yayasan Bina Warga Sauyunan</h2>
+
                 <?php if ($isAdmin): ?>
                     <button class="btn btn-primary" style="margin-top: 16px;" onclick="openModal('modalAdd')">
                         <?= icon('plus', 16) ?> <span>Input Daftar Menu</span>
                     </button>
                 <?php else: ?>
-                    <!-- Pesan info operator -->
-                    <div class="info-banner">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                    <!-- ✅ Info banner khusus operator dengan nama dapur -->
+                    <div class="info-dapur-operator">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21h18M3 7v14M21 7v14M6 21V10M10 21V10M14 21V10M18 21V10M12 3l9 4-9 4-9-4 9-4z" />
                         </svg>
-                        <span>Halo Operator! Anda bisa <strong>upload foto menu</strong> dan <strong>foto receiving</strong>.</span>
+                        <span>
+                            Halo Operator <strong><?= htmlspecialchars($namaLokasiDisplay) ?></strong>!
+                            Kamu hanya melihat data untuk <strong>Dapur <?= htmlspecialchars($namaLokasiDisplay) ?></strong>.
+                            Tugasmu: upload foto receiving & beri status penerimaan per-item.
+                        </span>
                     </div>
                 <?php endif; ?>
             </div>
             <div class="menu-carousel">
                 <?php
-                $carouselPhotos = $pdo->query("SELECT fm.foto, b.judul, b.tanggal FROM foto_menu_multiple fm JOIN belanja b ON fm.id_belanja = b.id_belanja ORDER BY fm.uploaded_at DESC LIMIT 10")->fetchAll();
+                // ✅ Filter carousel juga berdasarkan lokasi
+                if ($isAdmin) {
+                    $carouselPhotos = $pdo->query("SELECT fm.foto, b.judul, b.tanggal FROM foto_menu_multiple fm JOIN belanja b ON fm.id_belanja = b.id_belanja ORDER BY fm.uploaded_at DESC LIMIT 10")->fetchAll();
+                } else {
+                    $stmtCarousel = $pdo->prepare("SELECT fm.foto, b.judul, b.tanggal FROM foto_menu_multiple fm JOIN belanja b ON fm.id_belanja = b.id_belanja WHERE b.lokasi = ? ORDER BY fm.uploaded_at DESC LIMIT 10");
+                    $stmtCarousel->execute([$lokasiSession]);
+                    $carouselPhotos = $stmtCarousel->fetchAll();
+                }
+
                 if (empty($carouselPhotos)): ?>
                     <div class="slide active"><img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" alt="Menu"></div>
                 <?php else: ?>
@@ -345,7 +524,13 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                 <div style="text-align:center;padding:60px 20px;color:var(--muted);">
                     <div style="margin-bottom:16px;"><?= icon('empty', 64) ?></div>
                     <h3 style="margin-bottom:8px;color:var(--text);">Belum Ada Data Pembelian</h3>
-                    <p><?php echo $isAdmin ? 'Silakan klik tombol "Input Daftar Menu" untuk menambahkan data' : 'Belum ada data pembelian yang tersedia.'; ?></p>
+                    <p>
+                        <?php if ($isAdmin): ?>
+                            Silakan klik tombol "Input Daftar Menu" untuk menambahkan data
+                        <?php else: ?>
+                            Belum ada data pembelian untuk <strong>Dapur <?= htmlspecialchars($namaLokasiDisplay) ?></strong>.
+                        <?php endif; ?>
+                    </p>
                 </div>
             </div>
         <?php else: ?>
@@ -418,10 +603,16 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                             </svg>
                                             <?= htmlspecialchars($belanja['no_kontak'] ?? '-') ?>
                                         </span>
+                                        <?php if ($isAdmin && !empty($belanja['lokasi'])): ?>
+                                            <!-- ✅ Tampilkan badge lokasi untuk admin -->
+                                            <span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">
+                                                📍 <?= htmlspecialchars($LOKASI_MAP[$belanja['lokasi']] ?? $belanja['lokasi']) ?>
+                                            </span>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
+
                                 <div class="menu-card-header">
-                                    <!-- KIRI: info menu + tombol-tombol -->
                                     <div class="menu-card-left">
                                         <div>
                                             <h4 class="menu-title"><?= htmlspecialchars($belanja['judul']) ?></h4>
@@ -431,13 +622,12 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                                         <circle cx="12" cy="10" r="3" />
-                                                    </svg> <?= htmlspecialchars($belanja['alamat']) ?>
+                                                    </svg>
+                                                    <?= htmlspecialchars($belanja['alamat']) ?>
                                                 </p>
                                             <?php endif; ?>
                                         </div>
-                                        <!-- Tombol 2 baris -->
                                         <div class="menu-card-actions">
-                                            <!-- ✨ SATU TOMBOL UPLOAD FOTO MENU (KAMERA + GALERI) -->
                                             <button type="button" class="btn btn-primary btn-sm btn-upload-menu" onclick="showUploadMenuOptions(<?= $belanja['id_belanja'] ?>)">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -446,10 +636,8 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                                 </svg>
                                                 <span><?= !empty($belanja['fotos']) ? 'Tambah Foto' : 'Upload Foto' ?></span>
                                             </button>
-                                            <!-- Hidden inputs untuk galeri & kamera -->
                                             <input type="file" id="menuPhotoGaleri_<?= $belanja['id_belanja'] ?>" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
                                             <input type="file" id="menuPhotoKamera_<?= $belanja['id_belanja'] ?>" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_menu_photo', <?= $belanja['id_belanja'] ?>)">
-                                            <!-- ✨ TOMBOL TAMBAH BARANG SUSULAN (HANYA ADMIN) -->
                                             <?php if ($isAdmin): ?>
                                                 <button type="button" class="btn btn-secondary btn-sm" onclick="openAddItemModal(<?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($belanja['judul'])) ?>')">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -461,7 +649,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    <!-- KANAN: foto thumbnail -->
                                     <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
                                         <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>')">
                                             <img src="uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
@@ -469,7 +656,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                     <?php endif; ?>
                                 </div>
 
-                                <!-- 🔒 KOTAK KATEGORI HANYA UNTUK ADMIN -->
                                 <?php if ($isAdmin): ?>
                                     <?php
                                     $kategoriGroups = [
@@ -512,7 +698,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                     <?php
                                     $no = 1;
                                     $totalBelanja = 0;
-                                    // Pastikan $kategoriGroups ada untuk operator juga (untuk badge warna)
                                     if (!isset($kategoriGroups)) {
                                         $kategoriGroups = [
                                             'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff'],
@@ -527,8 +712,9 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                         $katColor = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['color'] ?? '#64748b';
                                         $katBg = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['bg'] ?? '#f1f5f9';
                                         $qtyDisplay = rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',');
+                                        $currentStatus = $detail['status_item'] ?? null;
                                     ?>
-                                        <div class="item-row">
+                                        <div class="item-row" data-id-detail="<?= $detail['id_detail'] ?>">
                                             <div class="item-row-main">
                                                 <div class="item-row-info">
                                                     <span class="item-row-no"><?= $no++ ?></span>
@@ -542,7 +728,68 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                                             <?php if ($isAdmin): ?>
                                                                 <span class="item-row-harga">Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?> / <?= htmlspecialchars($detail['satuan']) ?></span>
                                                             <?php endif; ?>
+
+                                                            <?php if ($isOperator): ?>
+                                                                <div class="status-toggle-group" data-id="<?= $detail['id_detail'] ?>">
+                                                                    <button type="button" class="status-btn status-lengkap <?= $currentStatus === 'lengkap' ? 'active' : '' ?>" onclick="setStatus(<?= $detail['id_detail'] ?>, 'lengkap', this)" title="Barang diterima lengkap">
+                                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <polyline points="20 6 9 17 4 12" />
+                                                                        </svg>
+                                                                        <span>Lengkap</span>
+                                                                    </button>
+                                                                    <button type="button" class="status-btn status-kurang <?= $currentStatus === 'kurang' ? 'active' : '' ?>" onclick="handleKurangClick(<?= $detail['id_detail'] ?>, this)" title="Barang kurang - wajib isi keterangan">
+                                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                                                            <line x1="12" y1="9" x2="12" y2="13" />
+                                                                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                                                                        </svg>
+                                                                        <span>Kurang</span>
+                                                                    </button>
+                                                                    <button type="button" class="status-btn status-tidakada <?= $currentStatus === 'tidak ada' ? 'active' : '' ?>" onclick="setStatus(<?= $detail['id_detail'] ?>, 'tidak ada', this)" title="Barang tidak ada / tidak dikirim">
+                                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                                                        </svg>
+                                                                        <span>Tidak Ada</span>
+                                                                    </button>
+                                                                </div>
+                                                            <?php elseif ($isAdmin): ?>
+                                                                <?php if ($currentStatus === 'lengkap'): ?>
+                                                                    <span class="status-badge status-badge-lengkap">
+                                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                                                                            <polyline points="20 6 9 17 4 12" />
+                                                                        </svg>
+                                                                        Lengkap
+                                                                    </span>
+                                                                <?php elseif ($currentStatus === 'kurang'): ?>
+                                                                    <span class="status-badge status-badge-kurang">
+                                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                                                                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                                                        </svg>
+                                                                        Kurang
+                                                                    </span>
+                                                                <?php elseif ($currentStatus === 'tidak ada'): ?>
+                                                                    <span class="status-badge status-badge-tidakada">
+                                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                                                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                                                        </svg>
+                                                                        Tidak Ada
+                                                                    </span>
+                                                                <?php else: ?>
+                                                                    <span class="status-badge status-badge-belum">Belum Dicek</span>
+                                                                <?php endif; ?>
+                                                            <?php endif; ?>
                                                         </div>
+
+                                                        <?php if ($currentStatus === 'kurang' && !empty($detail['keterangan_kurang'])): ?>
+                                                            <div class="keterangan-kurang-box">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                                                </svg>
+                                                                <span><strong>Keterangan:</strong> <?= htmlspecialchars($detail['keterangan_kurang']) ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </div>
                                                 <?php if ($isAdmin): ?>
@@ -574,7 +821,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                                     </div>
                                                 <?php endif; ?>
 
-                                                <!-- Foto Receiving: tersedia untuk semua role -->
                                                 <div class="action-group">
                                                     <?php if ($detail['jumlah_foto'] > 0): ?>
                                                         <button type="button" class="action-btn action-btn-foto" onclick="viewPhotos(<?= $detail['id_detail'] ?>, 'foto', <?= $detail['jumlah_foto'] ?>)" title="Lihat Foto Receiving (<?= $detail['jumlah_foto'] ?>)">
@@ -628,10 +874,12 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
+
                                     <?php if (empty($belanja['details'])): ?>
                                         <div class="item-list-empty">Belum ada item barang</div>
                                     <?php endif; ?>
                                 </div>
+
                                 <?php if (!empty($belanja['details'])): ?>
                                     <div class="item-list-footer">
                                         <?php if ($isAdmin): ?>
@@ -640,6 +888,54 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                                         <?php else: ?>
                                             <span>Total Item</span>
                                             <strong><?= count($belanja['details']) ?> item</strong>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="ringkasan-status-box">
+                                        <div class="ringkasan-header">
+                                            <h4>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                    <polyline points="14 2 14 8 20 8" />
+                                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                                </svg>
+                                                Ringkasan Status Penerimaan
+                                            </h4>
+                                            <div class="ringkasan-stats">
+                                                <span class="stat-chip stat-lengkap">✓ <?= $belanja['status_stats']['lengkap'] ?></span>
+                                                <span class="stat-chip stat-kurang">⚠ <?= $belanja['status_stats']['kurang'] ?></span>
+                                                <span class="stat-chip stat-tidakada">✗ <?= $belanja['status_stats']['tidak ada'] ?></span>
+                                                <span class="stat-chip stat-belum">? <?= $belanja['status_stats']['belum'] ?></span>
+                                            </div>
+                                        </div>
+
+                                        <?php if (!empty($belanja['ringkasan_otomatis'])): ?>
+                                            <div class="ringkasan-readonly">
+                                                <p><?= nl2br(htmlspecialchars($belanja['ringkasan_otomatis'])) ?></p>
+                                                <small class="ringkasan-updated">
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                                        <circle cx="12" cy="12" r="10" />
+                                                        <polyline points="12 6 12 12 16 14" />
+                                                    </svg>
+                                                    Di-generate otomatis dari status per-item
+                                                </small>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="ringkasan-empty">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                                </svg>
+                                                <span>
+                                                    <?php if ($isOperator): ?>
+                                                        Ringkasan akan muncul otomatis setelah kamu mengisi status penerimaan per-item.
+                                                    <?php else: ?>
+                                                        Operator belum mengisi status penerimaan.
+                                                    <?php endif; ?>
+                                                </span>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
@@ -662,12 +958,30 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formBelanja">
                     <div class="form-section">
-                        <h3 class="section-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                        <h3 class="section-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
                                 <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
                                 <path d="M17 18h1" />
                                 <path d="M12 18h1" />
                                 <path d="M7 18h1" />
-                            </svg>Informasi Dapur</h3>
+                            </svg>
+                            Informasi Dapur
+                        </h3>
+
+                        <!-- ✅ DROPDOWN LOKASI DAPUR (BARU!) -->
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Pilih Dapur <span class="required">*</span></label>
+                            <select name="lokasi" class="form-control" required style="font-weight:600;">
+                                <option value="">-- Pilih Dapur --</option>
+                                <?php foreach ($LOKASI_LIST as $key => $label): ?>
+                                    <option value="<?= $key ?>"><?= $label ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="color:var(--muted);font-size:11px;margin-top:4px;display:block;">
+                                Data ini hanya akan muncul untuk operator dapur yang dipilih
+                            </small>
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nama SPPG <span class="required">*</span></label>
@@ -688,11 +1002,14 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
                         </div>
                     </div>
                     <div class="form-section">
-                        <h3 class="section-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                        <h3 class="section-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
                                 <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
                                 <path d="M7 2v20" />
                                 <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-                            </svg>Informasi Menu</h3>
+                            </svg>
+                            Informasi Menu
+                        </h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Tanggal <span class="required">*</span></label>
@@ -767,7 +1084,7 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
             </div>
         </div>
 
-        <!-- Modal Edit Item -->
+        <!-- Modal Edit & Add Item (tetap sama, tidak diubah) -->
         <div class="modal-overlay" id="modalEdit">
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
@@ -816,7 +1133,6 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
             </div>
         </div>
 
-        <!-- Modal Tambah Barang Susulan -->
         <div class="modal-overlay" id="modalAddItem">
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
@@ -869,6 +1185,41 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
         </div>
     <?php endif; ?>
 
+    <!-- Modal Keterangan Kurang -->
+    <div class="modal-overlay" id="modalKeterangan">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h2 style="color:#b45309;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    Keterangan Barang Kurang
+                </h2>
+                <button class="close-modal" onclick="closeModal('modalKeterangan')"><?= icon('x', 20) ?></button>
+            </div>
+            <div class="form-section">
+                <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.5;">
+                    <strong style="color:#b45309;">Wajib diisi!</strong> Jelaskan secara singkat apa yang kurang.
+                </p>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Keterangan <span class="required">*</span></label>
+                    <textarea id="keteranganInput" class="form-control" rows="4" placeholder="Contoh: Minyak goreng kurang 2 liter..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalKeterangan')">Batal</button>
+                <button type="button" class="btn btn-warning" onclick="submitKeteranganKurang()" style="color:#000;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Simpan Status Kurang
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Photo Viewer -->
     <div class="modal-overlay" id="photoViewerModal">
         <div class="modal-content">
@@ -889,13 +1240,16 @@ $KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
 
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
-        <p>Memproses...</p>
+        <p id="loadingText">Memproses...</p>
     </div>
+
+    <div id="toastNotif" class="toast-notif"></div>
 
     <script src="script.js"></script>
     <script>
         const KATEGORI_LIST = <?= json_encode($KATEGORI_LIST) ?>;
         const USER_ROLE = '<?= $role ?>';
+        const USER_LOKASI = '<?= $lokasiSession ?>';
         document.addEventListener('DOMContentLoaded', () => {
             const tbody = document.querySelector('#tableItem tbody');
             if (tbody && tbody.children.length === 0) addRow();

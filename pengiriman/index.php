@@ -2,7 +2,6 @@
 session_start();
 require_once '../database/koneksi.php';
 
-// RBAC: Hanya Admin dan Operator
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
     header("Location: ../index.php?error=unauthorized");
     exit;
@@ -10,13 +9,15 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operato
 
 $is_admin = ($_SESSION['role'] === 'admin');
 $is_operator = ($_SESSION['role'] === 'operator');
+$lokasiSession = $_SESSION['lokasi'] ?? 'semua';
+$lokasiMap = ['sodong' => 'Sodong', 'sariwangi' => 'Sariwangi', 'manonjaya' => 'Manonjaya', 'semua' => 'Semua'];
 
 // Handle delete (Hanya Admin)
 if (isset($_GET['hapus']) && $is_admin) {
     $id = (int)$_GET['hapus'];
     $pdo->prepare("DELETE dp FROM detail_penerimaan dp
-        INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id
-        WHERE pr.pengiriman_id = ?")->execute([$id]);
+    INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id
+    WHERE pr.pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM penerimaan WHERE pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM detail_pengiriman WHERE pengiriman_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM pengiriman WHERE id = ?")->execute([$id]);
@@ -24,22 +25,35 @@ if (isset($_GET['hapus']) && $is_admin) {
     exit;
 }
 
-// Query dengan agregasi status per surat jalan
-$query = "SELECT p.*,
-    (SELECT COUNT(*) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_item,
-    (SELECT SUM(qty) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_qty,
-    (SELECT COUNT(*) FROM detail_penerimaan dpr
-        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
-        WHERE pr.pengiriman_id = p.id) as item_sudah_diterima,
-    (SELECT COUNT(*) FROM detail_penerimaan dpr
-        INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
-        WHERE pr.pengiriman_id = p.id AND dpr.status_barang IN ('kurang','tidak_ada')) as item_bermasalah,
-    pr.nama_penerima_barang, pr.tanggal_terima
-    FROM pengiriman p
-    LEFT JOIN penerimaan pr ON pr.pengiriman_id = p.id
-    ORDER BY p.tanggal_ekspedisi DESC, p.no_surat_jalan DESC";
+// ✅ QUERY DENGAN FILTER LOKASI
+$where = "";
+$params = [];
+if ($is_operator && $lokasiSession !== 'semua') {
+    $where = "WHERE p.lokasi = ?";
+    $params[] = $lokasiSession;
+}
 
-$stmt = $pdo->query($query);
+$query = "SELECT p.*,
+(SELECT COUNT(*) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_item,
+(SELECT SUM(qty) FROM detail_pengiriman WHERE pengiriman_id = p.id) as total_qty,
+(SELECT COUNT(*) FROM detail_penerimaan dpr
+INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
+WHERE pr.pengiriman_id = p.id) as item_sudah_diterima,
+(SELECT COUNT(*) FROM detail_penerimaan dpr
+INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
+WHERE pr.pengiriman_id = p.id AND dpr.status_barang IN ('kurang','tidak_ada')) as item_bermasalah,
+pr.nama_penerima_barang, pr.tanggal_terima
+FROM pengiriman p
+LEFT JOIN penerimaan pr ON pr.pengiriman_id = p.id
+$where
+ORDER BY p.tanggal_ekspedisi DESC, p.no_surat_jalan DESC";
+
+if (!empty($params)) {
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+} else {
+    $stmt = $pdo->query($query);
+}
 $all_data = $stmt->fetchAll();
 
 // Group by tanggal
@@ -96,8 +110,18 @@ foreach ($all_data as $row) {
             </nav>
         </header>
         <div class="header-stripe"></div>
-
         <main>
+            <?php if ($is_operator && $lokasiSession !== 'semua'): ?>
+                <div class="alert alert-info" style="margin-bottom: 20px; border-left: 4px solid var(--amber);">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    Anda login sebagai Operator <strong><?= htmlspecialchars($lokasiMap[$lokasiSession] ?? $lokasiSession) ?></strong>.
+                    Hanya menampilkan data pengiriman untuk dapur Anda.
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($_GET['msg'])): ?>
                 <div class="alert alert-success" id="alertMsg">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -153,20 +177,20 @@ foreach ($all_data as $row) {
                                 <?php
                                 $stmt_d = $pdo->prepare("
                                 SELECT dp.*,
-                                    dpr.status_barang AS terima_status,
-                                    dpr.keterangan AS terima_ket
+                                dpr.status_barang AS terima_status,
+                                dpr.keterangan AS terima_ket
                                 FROM detail_pengiriman dp
                                 LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
                                 LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id
-                                    AND dpr.penerimaan_id = pr.id
+                                AND dpr.penerimaan_id = pr.id
                                 WHERE dp.pengiriman_id = ?
-                            ");
+                                ");
                                 $stmt_d->execute([$item['id']]);
                                 $details = $stmt_d->fetchAll();
-
                                 $is_fully_checked = ($item['item_sudah_diterima'] == $item['total_item'] && $item['total_item'] > 0);
                                 $has_issue = ($item['item_bermasalah'] > 0);
                                 $is_partial = ($item['item_sudah_diterima'] > 0 && !$is_fully_checked);
+                                $lokasiDisplay = $lokasiMap[$item['lokasi']] ?? $item['lokasi'];
                                 ?>
                                 <div class="accordion-item">
                                     <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -178,12 +202,14 @@ foreach ($all_data as $row) {
                                                 </svg>
                                                 <?= htmlspecialchars($item['no_surat_jalan']) ?>
                                             </strong>
+                                            <!-- ✅ BADGE LOKASI DAPUR -->
+                                            <span class="badge-info" style="background: var(--amber);">📍 <?= htmlspecialchars($lokasiDisplay) ?></span>
                                             <span>
                                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                                     <path d="M3 7l9-4 9 4-9 4-9-4z" />
                                                     <path d="M3 7v10l9 4 9-4V7" />
                                                 </svg>
-                                                SPPG: <?= htmlspecialchars($item['nama_sppg']) ?>
+                                                Tujuan: <?= htmlspecialchars($item['nama_sppg']) ?>
                                             </span>
                                             <span>
                                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -192,7 +218,7 @@ foreach ($all_data as $row) {
                                                     <circle cx="5.5" cy="18.5" r="2.5" />
                                                     <circle cx="18.5" cy="18.5" r="2.5" />
                                                 </svg>
-                                                <?= htmlspecialchars($item['ekspedisi'] ?? '-') ?>
+                                                Unit: <?= htmlspecialchars($item['ekspedisi'] ?? '-') ?>
                                             </span>
                                             <span class="badge-info"><?= $item['total_qty'] ?> Item</span>
                                         </div>
@@ -237,7 +263,7 @@ foreach ($all_data as $row) {
                                                     <th>Nama Barang</th>
                                                     <th>Qty</th>
                                                     <th>Satuan</th>
-                                                    <th>Status Terima</th>
+                                                    <th>Status </th>
                                                     <th>Keterangan</th>
                                                 </tr>
                                             </thead>
@@ -286,7 +312,6 @@ foreach ($all_data as $row) {
                                             </tfoot>
                                         </table>
                                         <div class="action-buttons">
-                                            <!-- ✅ Tombol Cetak Surat Jalan SELALU muncul -->
                                             <a href="../database/export-pdf-pengiriman.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-info">
                                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                                     <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" />
@@ -295,7 +320,6 @@ foreach ($all_data as $row) {
                                                 </svg>
                                                 Cetak Surat Jalan
                                             </a>
-
                                             <?php if (!$is_fully_checked && $is_operator): ?>
                                                 <a href="../penerimaan/index.php?id=<?= $item['id'] ?>" class="btn btn-warning">
                                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -314,7 +338,6 @@ foreach ($all_data as $row) {
                                                     <?= date('d/m/Y H:i', strtotime($item['tanggal_terima'])) ?>
                                                 </div>
                                             <?php endif; ?>
-
                                             <?php if ($is_admin): ?>
                                                 <a href="tambah.php?edit=<?= $item['id'] ?>" class="btn btn-primary">
                                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -340,12 +363,10 @@ foreach ($all_data as $row) {
                 <?php endforeach; ?>
             <?php endif; ?>
         </main>
-
         <footer>
             <p>&copy; <?= date('Y') ?> Created By Muhammad Zulfahmi</p>
         </footer>
     </div>
-
     <script src="script.js"></script>
 </body>
 
