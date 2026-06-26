@@ -115,59 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konfirmasi Penerimaan - MBG</title>
     <link rel="stylesheet" href="../pengiriman/style.css">
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <style>
-        /* ── Select status wrapper ── */
-        .select-wrapper {
-            position: relative;
-        }
-
-        .select-wrapper .status-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 14px;
-            height: 14px;
-            pointer-events: none;
-            display: none;
-        }
-
-        .select-wrapper.has-value select {
-            padding-left: 32px;
-        }
-
-        .select-wrapper.has-value .status-icon {
-            display: block;
-        }
-
-        .select-wrapper.status-ada .status-icon {
-            color: var(--green);
-        }
-
-        .select-wrapper.status-kurang .status-icon {
-            color: var(--orange);
-        }
-
-        .select-wrapper.status-tidak_ada .status-icon {
-            color: var(--red);
-        }
-
-        .select-wrapper.status-ada select {
-            border-color: var(--green);
-            background: var(--green-tint);
-        }
-
-        .select-wrapper.status-kurang select {
-            border-color: var(--orange);
-            background: var(--orange-tint);
-        }
-
-        .select-wrapper.status-tidak_ada select {
-            border-color: var(--red);
-            background: var(--red-tint);
-        }
-
         /* ── Pengirim info box ── */
         .pengirim-box {
             background: var(--navy-tint);
@@ -276,6 +226,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             gap: 8px;
         }
 
+        /* ── Button status di tabel desktop ── */
+        .table-pengecekan .status-btn-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .table-pengecekan .btn-status-pilih {
+            flex: 1;
+            padding: 7px 5px;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--line-strong);
+            background: var(--surface);
+            color: var(--ink-soft);
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            line-height: 1.2;
+            min-width: 58px;
+        }
+
+        .table-pengecekan .btn-status-pilih .btn-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .table-pengecekan .btn-status-pilih:hover {
+            border-color: var(--navy-soft);
+            background: var(--navy-tint);
+        }
+
+        /* ── Keterangan placeholder teks ── */
+        .ket-placeholder {
+            font-size: 12px;
+            color: var(--ink-faint);
+            font-style: italic;
+        }
+
         /* ══════════════════════════════════════
            MOBILE: Tabel Pengecekan → Card List
            ══════════════════════════════════════ */
@@ -363,7 +357,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14.5px;
             color: var(--ink);
             padding-right: 28px;
-            /* ruang untuk nomor */
             margin-bottom: 4px;
         }
 
@@ -402,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: block;
         }
 
-        /* ── Tombol status penerimaan (mobile cards) ── */
+        /* ── Tombol status penerimaan (mobile cards & desktop table) ── */
         .status-btn-group {
             display: flex;
             gap: 8px;
@@ -544,14 +537,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <table class="table-detail table-pengecekan">
                         <thead>
                             <tr>
-                                <th style="width: 30%">Nama Barang</th>
-                                <th style="width: 10%">Qty</th>
-                                <th style="width: 25%">Status Penerimaan</th>
-                                <th style="width: 35%">Keterangan</th>
+                                <th style="width: 28%">Nama Barang</th>
+                                <th style="width: 8%">Qty</th>
+                                <th style="width: 30%">Status Penerimaan</th>
+                                <th style="width: 34%">Keterangan</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($details as $d): ?>
+                            <?php foreach ($details as $d):
+                                $existingStatus = $d['terima_status'] ?? '';
+                                $showKet = in_array($existingStatus, ['kurang', 'tidak_ada']);
+                            ?>
                                 <tr>
                                     <td>
                                         <strong><?= htmlspecialchars($d['nama_barang']) ?></strong>
@@ -564,31 +560,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </td>
                                     <td><strong><?= $d['qty'] ?></strong> <?= htmlspecialchars($d['satuan']) ?></td>
                                     <td>
-                                        <div class="select-wrapper <?= $d['terima_status'] ? 'has-value status-' . $d['terima_status'] : '' ?>">
-                                            <svg class="status-icon icon-ada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                <path d="M20 6L9 17l-5-5" />
-                                            </svg>
-                                            <svg class="status-icon icon-kurang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                                <line x1="12" y1="9" x2="12" y2="13" />
-                                                <line x1="12" y1="17" x2="12.01" y2="17" />
-                                            </svg>
-                                            <svg class="status-icon icon-tidak_ada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                <line x1="18" y1="6" x2="6" y2="18" />
-                                                <line x1="6" y1="6" x2="18" y2="18" />
-                                            </svg>
-                                            <select name="status_barang[]" class="form-control status-select" required onchange="handleStatusChange(this)">
-                                                <option value="">-- Pilih Status --</option>
-                                                <option value="ada" <?= ($d['terima_status'] ?? '') == 'ada' ? 'selected' : '' ?>>Ada (Lengkap)</option>
-                                                <option value="kurang" <?= ($d['terima_status'] ?? '') == 'kurang' ? 'selected' : '' ?>>Kurang / Rusak</option>
-                                                <option value="tidak_ada" <?= ($d['terima_status'] ?? '') == 'tidak_ada' ? 'selected' : '' ?>>Tidak Ada</option>
-                                            </select>
+                                        <input type="hidden" name="status_barang[]" class="status-hidden-input-desktop"
+                                            value="<?= htmlspecialchars($existingStatus) ?>">
+                                        <div class="status-btn-group">
+                                            <button type="button"
+                                                class="btn-status-pilih <?= $existingStatus === 'ada' ? 'active-ada' : '' ?>"
+                                                onclick="pilihStatusDesktop(this, 'ada')">
+                                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M20 6L9 17l-5-5" />
+                                                </svg>
+                                                <span>Ada<br>Lengkap</span>
+                                            </button>
+                                            <button type="button"
+                                                class="btn-status-pilih <?= $existingStatus === 'kurang' ? 'active-kurang' : '' ?>"
+                                                onclick="pilihStatusDesktop(this, 'kurang')">
+                                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                                    <line x1="12" y1="9" x2="12" y2="13" />
+                                                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                                                </svg>
+                                                <span>Kurang/<br>Rusak</span>
+                                            </button>
+                                            <button type="button"
+                                                class="btn-status-pilih <?= $existingStatus === 'tidak_ada' ? 'active-tidak_ada' : '' ?>"
+                                                onclick="pilihStatusDesktop(this, 'tidak_ada')">
+                                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                                </svg>
+                                                <span>Tidak<br>Ada</span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
                                         <input type="text" name="keterangan_status[]" class="form-control input-ket"
                                             placeholder="Wajib diisi jika kurang/tidak ada"
-                                            value="<?= htmlspecialchars($d['terima_keterangan'] ?? '') ?>">
+                                            value="<?= htmlspecialchars($d['terima_keterangan'] ?? '') ?>"
+                                            style="<?= $showKet ? '' : 'display:none;' ?>"
+                                            <?= $showKet ? 'required' : '' ?>>
+                                        <?php if (!$showKet): ?>
+                                            <span class="ket-placeholder">—</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -889,51 +901,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
-        function submitWithSignature() {
-            const hasPengirimCanvas = !sigPadPengirim.isEmpty();
-            const hasPengirimInput = ttdPengirimInput.value.length > 100;
-            const hasPenerimaCanvas = !sigPadPenerima.isEmpty();
-            const hasPenerimaInput = ttdPenerimaInput.value.length > 100;
-            if (!hasPengirimCanvas && !hasPengirimInput) {
-                alert('⚠️ Tanda tangan PENGIRIM wajib diisi!');
-                return false;
-            }
-            if (!hasPenerimaCanvas && !hasPenerimaInput) {
-                alert('⚠️ Tanda tangan PENERIMA wajib diisi!');
-                return false;
-            }
-            if (hasPengirimCanvas) ttdPengirimInput.value = getTrimmedSignature(sigPadPengirim);
-            if (hasPenerimaCanvas) ttdPenerimaInput.value = getTrimmedSignature(sigPadPenerima);
-            return true;
-        }
+        // ── Tombol status untuk DESKTOP TABLE ──
+        function pilihStatusDesktop(btn, val) {
+            const row = btn.closest('tr');
 
-        // ── Status select handler untuk TABEL DESKTOP ──
-        function handleStatusChange(select) {
-            const wrapper = select.closest('.select-wrapper');
-            const val = select.value;
-            wrapper.classList.remove('has-value', 'status-ada', 'status-kurang', 'status-tidak_ada');
-            wrapper.querySelectorAll('.status-icon').forEach(el => el.style.display = 'none');
-            if (val) {
-                wrapper.classList.add('has-value', 'status-' + val);
-                const icon = wrapper.querySelector('.icon-' + val);
-                if (icon) icon.style.display = 'block';
-            }
-            const ketInput = select.closest('tr')?.querySelector('.input-ket');
-            if (ketInput) {
-                if (val === 'kurang' || val === 'tidak_ada') {
+            // Reset semua tombol di baris ini
+            row.querySelectorAll('.btn-status-pilih').forEach(b => {
+                b.classList.remove('active-ada', 'active-kurang', 'active-tidak_ada');
+            });
+
+            // Aktifkan tombol yang dipilih
+            btn.classList.add('active-' + val);
+
+            // Set nilai hidden input
+            row.querySelector('.status-hidden-input-desktop').value = val;
+
+            // Tampil/sembunyikan field keterangan
+            const ketInput = row.querySelector('.input-ket');
+            const ketPlaceholder = row.querySelector('.ket-placeholder');
+            if (val === 'kurang' || val === 'tidak_ada') {
+                if (ketInput) {
+                    ketInput.style.display = '';
                     ketInput.required = true;
+                    ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
                     ketInput.style.borderColor = 'var(--orange)';
                     ketInput.style.background = 'var(--orange-tint)';
-                    ketInput.placeholder = 'WAJIB: Jelaskan kekurangan/kerusakan...';
-                } else {
+                }
+                if (ketPlaceholder) ketPlaceholder.style.display = 'none';
+            } else {
+                if (ketInput) {
+                    ketInput.style.display = 'none';
                     ketInput.required = false;
+                    ketInput.value = '';
                     ketInput.style.borderColor = '';
                     ketInput.style.background = '';
-                    ketInput.placeholder = 'Kosongkan jika lengkap';
                 }
+                if (ketPlaceholder) ketPlaceholder.style.display = '';
             }
         }
-        document.querySelectorAll('.status-select').forEach(handleStatusChange);
 
         // ── Tombol status untuk MOBILE CARDS ──
         function pilihStatus(btn, val) {
@@ -996,26 +1001,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         });
 
-        // ── Validasi tambahan saat submit: pastikan semua card sudah dipilih statusnya ──
-        const origSubmit = window.submitWithSignature;
-        window.submitWithSignature = function() {
-            // Cek hanya jika cards sedang visible (mobile)
+        // ── Validasi submit ──
+        function submitWithSignature() {
             const cardsVisible = window.getComputedStyle(document.querySelector('.cards-pengecekan')).display !== 'none';
+
             if (cardsVisible) {
+                // Validasi mobile cards
                 const empties = document.querySelectorAll('.status-hidden-input');
                 for (const inp of empties) {
                     if (!inp.value) {
                         alert('⚠️ Semua status barang wajib dipilih!');
-                        inp.closest('.barang-card').scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center'
-                        });
+                        inp.closest('.barang-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
+                    }
+                }
+            } else {
+                // Validasi desktop table
+                const empties = document.querySelectorAll('.status-hidden-input-desktop');
+                for (const inp of empties) {
+                    if (!inp.value) {
+                        alert('⚠️ Semua status barang wajib dipilih!');
+                        inp.closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' });
                         return false;
                     }
                 }
             }
-            return origSubmit();
-        };
+
+            const hasPengirimCanvas = !sigPadPengirim.isEmpty();
+            const hasPengirimInput = ttdPengirimInput.value.length > 100;
+            const hasPenerimaCanvas = !sigPadPenerima.isEmpty();
+            const hasPenerimaInput = ttdPenerimaInput.value.length > 100;
+
+            if (!hasPengirimCanvas && !hasPengirimInput) {
+                alert('⚠️ Tanda tangan PENGIRIM wajib diisi!');
+                return false;
+            }
+            if (!hasPenerimaCanvas && !hasPenerimaInput) {
+                alert('⚠️ Tanda tangan PENERIMA wajib diisi!');
+                return false;
+            }
+            if (hasPengirimCanvas) ttdPengirimInput.value = getTrimmedSignature(sigPadPengirim);
+            if (hasPenerimaCanvas) ttdPenerimaInput.value = getTrimmedSignature(sigPadPenerima);
+            return true;
+        }
     </script>
 </body>
 
