@@ -20,6 +20,7 @@ $role = $_SESSION['role'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <title>Pilih Menu - Bina Usaha Sauyunan</title>
 
     <link rel="stylesheet"
@@ -63,27 +64,9 @@ $role = $_SESSION['role'];
             padding: 40px 20px;
         }
 
-        .header {
-            max-width: 1000px;
-            margin: auto;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 6px;
-        }
-
-        .header p {
-            color: var(--text-muted);
-        }
-
         .topbar {
             max-width: 1000px;
-            margin: auto;
-            margin-bottom: 25px;
-
+            margin: 0 auto 25px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -108,13 +91,62 @@ $role = $_SESSION['role'];
             font-weight: 600;
         }
 
-        .menu-grid {
+        .header {
             max-width: 1000px;
-            margin: auto;
+            margin: 0 auto 36px;
+            text-align: center;
+        }
 
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 6px;
+            color: var(--text-dark);
+        }
+
+        .header p {
+            color: var(--text-muted);
+        }
+
+        /* Section wrapper */
+        .section {
+            max-width: 1000px;
+            margin: 0 auto 36px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title i {
+            font-size: 16px;
+        }
+
+        /* Pelayanan SPPG — green accent */
+        .section-sppg .section-title {
+            color: var(--primary);
+            border-color: var(--primary-light);
+        }
+
+        /* Monitoring Stok — blue accent */
+        .section-stok .section-title {
+            color: var(--secondary);
+            border-color: var(--secondary-light);
+        }
+
+        .menu-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
         }
 
         .menu-card {
@@ -122,13 +154,12 @@ $role = $_SESSION['role'];
             border-radius: 18px;
             text-decoration: none;
             color: inherit;
-            padding: 30px 20px;
+            padding: 28px 18px;
             text-align: center;
-
             border: 1px solid var(--border);
             box-shadow: var(--shadow);
-
             transition: .2s;
+            display: block;
         }
 
         .menu-card:hover {
@@ -143,44 +174,45 @@ $role = $_SESSION['role'];
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: auto;
-            margin-bottom: 15px;
+            margin: 0 auto 15px;
             font-size: 34px;
         }
 
-        .food .icon-wrap {
+        .menu-card.food .icon-wrap {
             background: var(--primary-light);
             color: var(--primary);
         }
 
-        .addcost .icon-wrap {
+        .menu-card.addcost .icon-wrap {
             background: var(--accent-light);
             color: var(--accent);
         }
 
-        .ambil .icon-wrap {
+        .menu-card.ambil .icon-wrap {
             background: var(--secondary-light);
             color: var(--secondary);
         }
 
-        .stok .icon-wrap {
+        .menu-card.stok .icon-wrap {
             background: #ecfeff;
             color: #0891b2;
         }
 
-        .pengiriman .icon-wrap,
-        .penerimaan .icon-wrap {
+        .menu-card.pengiriman .icon-wrap,
+        .menu-card.penerimaan .icon-wrap {
             background: var(--purple-light);
             color: var(--purple);
         }
 
-        h3 {
-            margin-bottom: 10px;
+        .menu-card h3 {
+            margin-bottom: 8px;
+            font-size: 16px;
+            color: var(--text-dark);
         }
 
-        p {
+        .menu-card p {
             color: var(--text-muted);
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.5;
         }
     </style>
@@ -190,10 +222,10 @@ $role = $_SESSION['role'];
 
     <div class="topbar">
         <div class="role-badge">
-            Login sebagai :
-            <strong><?= ucfirst($role) ?></strong>
+            Login sebagai: <strong><?= ucfirst($role) ?></strong>
         </div>
-        <a href="dashboard.php?logout=1" class="logout-btn" onclick="return confirm('Yakin ingin keluar?')">Logout</a>
+        <a href="dashboard.php?logout=1" class="logout-btn"
+            onclick="return confirm('Yakin ingin keluar?')">Logout</a>
     </div>
 
     <div class="header">
@@ -201,59 +233,74 @@ $role = $_SESSION['role'];
         <p>Silakan pilih menu yang ingin diakses</p>
     </div>
 
-    <div class="menu-grid">
-
-        <a href="menu.php" class="menu-card food">
-            <div class="icon-wrap">
-                <i class="ph ph-cooking-pot"></i>
-            </div>
-            <h3>Food Cost</h3>
-            <p>Kelola belanja bahan makanan.</p>
-        </a>
-
-        <a href="addcost/index.php" class="menu-card addcost">
-            <div class="icon-wrap">
-                <i class="ph ph-receipt"></i>
-            </div>
-            <h3>Add Cost</h3>
-            <p>Kelola biaya tambahan operasional.</p>
-        </a>
-
-        <a href="laporan/stok.php" class="menu-card stok">
-            <div class="icon-wrap">
-                <i class="ph ph-database"></i>
-            </div>
-            <h3>Data Stok</h3>
-            <p>Monitoring sisa stok barang.</p>
-        </a>
-
-        <a href="laporan/pengambilan.php" class="menu-card ambil">
-            <div class="icon-wrap">
-                <i class="ph ph-package"></i>
-            </div>
-            <h3>Pengambilan Barang</h3>
-            <p>Laporan pengambilan stok barang.</p>
-        </a>
-
-        <?php if ($role == 'admin'): ?>
-            <a href="pengiriman/index.php" class="menu-card pengiriman">
+    <!-- ===== SEKSI 1: Pelayanan SPPG ===== -->
+    <div class="section section-sppg">
+        <div class="section-title">
+            <i class="ph ph-fork-knife"></i>
+            Pelayanan SPPG
+        </div>
+        <div class="menu-grid">
+            <a href="menu.php" class="menu-card food">
                 <div class="icon-wrap">
-                    <i class="ph ph-truck"></i>
+                    <i class="ph ph-cooking-pot"></i>
                 </div>
-                <h3>Pengiriman Barang</h3>
-                <p>Laporan pengiriman barang.</p>
+                <h3>Food Cost</h3>
+                <p>Kelola belanja bahan makanan.</p>
             </a>
-        <?php endif; ?>
-        <?php if ($role == 'operator'): ?>
-            <a href="penerimaan/index.php" class="menu-card penerimaan">
-                <div class="icon-wrap">
-                    <i class="ph ph-archive-box"></i>
-                </div>
-                <h3>Penerimaan Barang</h3>
-                <p>Konfirmasi penerimaan barang.</p>
-            </a>
-        <?php endif; ?>
 
+            <a href="addcost/index.php" class="menu-card addcost">
+                <div class="icon-wrap">
+                    <i class="ph ph-receipt"></i>
+                </div>
+                <h3>Add Cost</h3>
+                <p>Kelola biaya tambahan operasional.</p>
+            </a>
+        </div>
+    </div>
+
+    <!-- ===== SEKSI 2: Monitoring Stok ===== -->
+    <div class="section section-stok">
+        <div class="section-title">
+            <i class="ph ph-chart-bar"></i>
+            Monitoring Stok Barang Koperasi di Gudang Transit
+        </div>
+        <div class="menu-grid">
+            <a href="laporan/stok.php" class="menu-card stok">
+                <div class="icon-wrap">
+                    <i class="ph ph-database"></i>
+                </div>
+                <h3>Data Stok</h3>
+                <p>Monitoring sisa stok barang.</p>
+            </a>
+
+            <a href="laporan/pengambilan.php" class="menu-card ambil">
+                <div class="icon-wrap">
+                    <i class="ph ph-package"></i>
+                </div>
+                <h3>Pengambilan Barang</h3>
+                <p>Laporan pengambilan stok barang.</p>
+            </a>
+
+            <?php if ($role == 'admin'): ?>
+                <a href="pengiriman/index.php" class="menu-card pengiriman">
+                    <div class="icon-wrap">
+                        <i class="ph ph-truck"></i>
+                    </div>
+                    <h3>Pengiriman Barang</h3>
+                    <p>Laporan pengiriman barang.</p>
+                </a>
+            <?php endif; ?>
+
+            <?php if ($role == 'operator'): ?>
+                <a href="penerimaan/index.php" class="menu-card penerimaan">
+                    <div class="icon-wrap">
+                        <i class="ph ph-archive-box"></i>
+                    </div>
+                    <h3>Penerimaan Barang</h3>
+                    <p>Konfirmasi penerimaan barang.</p>
+                </a>
+            <?php endif; ?>
+        </div>
     </div>
 
 </body>
