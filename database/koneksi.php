@@ -14,6 +14,11 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
+// Additional connection for db_draft_barang
+$host2 = $host; // reuse same host
+$db2 = 'db_draft_barang';
+$dsn2 = "mysql:host=$host2;dbname=$db2;charset=$charset";
+$pdo_draft = new PDO($dsn2, $user, $pass, $options);
 } catch (\PDOException $e) {
     die("Koneksi database gagal: " . $e->getMessage());
 }

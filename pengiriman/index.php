@@ -15,14 +15,43 @@ $lokasiMap = ['sodong' => 'Sodong', 'sariwangi' => 'Sariwangi', 'manonjaya' => '
 // Handle delete (Hanya Admin)
 if (isset($_GET['hapus']) && $is_admin) {
     $id = (int)$_GET['hapus'];
-    $pdo->prepare("DELETE dp FROM detail_penerimaan dp
-    INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id
-    WHERE pr.pengiriman_id = ?")->execute([$id]);
-    $pdo->prepare("DELETE FROM penerimaan WHERE pengiriman_id = ?")->execute([$id]);
-    $pdo->prepare("DELETE FROM detail_pengiriman WHERE pengiriman_id = ?")->execute([$id]);
-    $pdo->prepare("DELETE FROM pengiriman WHERE id = ?")->execute([$id]);
-    header("Location: index.php?msg=deleted");
-    exit;
+
+    try {
+        $pdo->beginTransaction();
+        $pdo_draft->beginTransaction();
+
+        // ✅ KEMBALIKAN STOK sebelum hapus
+        $stmt_details = $pdo->prepare("SELECT nama_barang, qty FROM detail_pengiriman WHERE pengiriman_id = ?");
+        $stmt_details->execute([$id]);
+        $details_to_restore = $stmt_details->fetchAll();
+
+        foreach ($details_to_restore as $d) {
+            $stmt_cek = $pdo_draft->prepare("SELECT id_barang, stok_akhir FROM barang WHERE nama_barang = ?");
+            $stmt_cek->execute([$d['nama_barang']]);
+            $row = $stmt_cek->fetch();
+            if ($row) {
+                $new_stok = (int)$row['stok_akhir'] + (int)$d['qty'];
+                $pdo_draft->prepare("UPDATE barang SET stok_akhir = ? WHERE id_barang = ?")
+                    ->execute([$new_stok, $row['id_barang']]);
+            }
+        }
+
+        $pdo->prepare("DELETE dp FROM detail_penerimaan dp
+            INNER JOIN penerimaan pr ON pr.id = dp.penerimaan_id
+            WHERE pr.pengiriman_id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM penerimaan WHERE pengiriman_id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM detail_pengiriman WHERE pengiriman_id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM pengiriman WHERE id = ?")->execute([$id]);
+
+        $pdo->commit();
+        $pdo_draft->commit();
+        header("Location: index.php?msg=deleted");
+        exit;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $pdo_draft->rollBack();
+        die("Gagal hapus: " . $e->getMessage());
+    }
 }
 
 // ✅ QUERY DENGAN FILTER LOKASI

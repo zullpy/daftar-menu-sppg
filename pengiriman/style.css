@@ -851,6 +851,231 @@ footer {
 }
 
 /* ═══════════════════════════════════════════
+   TOAST NOTIFICATION
+═══════════════════════════════════════════ */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 380px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    box-shadow: 0 10px 30px rgba(18, 22, 31, 0.18);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    border-left: 4px solid var(--navy);
+    font-size: 13.5px;
+    color: var(--ink);
+    opacity: 0;
+    transform: translateX(400px);
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: auto;
+    line-height: 1.5;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast .icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+}
+
+.toast span {
+    flex: 1;
+    word-break: break-word;
+}
+
+.toast span strong {
+    color: var(--navy);
+}
+
+.toast-info    { border-left-color: var(--navy);  background: var(--navy-tint); }
+.toast-info .icon    { color: var(--navy); }
+
+.toast-success { border-left-color: var(--green); background: var(--green-tint); }
+.toast-success .icon { color: var(--green); }
+
+.toast-warning { border-left-color: var(--amber); background: var(--amber-tint); }
+.toast-warning .icon { color: var(--amber); }
+
+.toast-danger  { border-left-color: var(--red);   background: var(--red-tint); }
+.toast-danger .icon  { color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   AUTOCOMPLETE DROPDOWN
+═══════════════════════════════════════════ */
+.autocomplete-wrapper {
+    position: relative;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+}
+
+.autocomplete-dropdown.show {
+    display: block;
+}
+
+.autocomplete-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+    transition: background 0.15s;
+    gap: 12px;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: var(--navy-tint);
+}
+
+.ac-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ac-main strong {
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ac-main small {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ac-stok {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+    min-width: 70px;
+}
+
+.ac-stok .stok-num {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.ac-stok .stok-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    opacity: 0.8;
+    margin-top: 2px;
+}
+
+.ac-stok.stok-aman {
+    background: var(--green-tint);
+    color: var(--green);
+}
+
+.ac-stok.stok-menipis {
+    background: var(--amber-tint);
+    color: var(--amber);
+}
+
+.ac-stok.stok-habis {
+    background: var(--red-tint);
+    color: var(--red);
+}
+
+/* ═══════════════════════════════════════════
+   STOK INFO INLINE
+═══════════════════════════════════════════ */
+.stok-info {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    border-left: 3px solid var(--navy);
+    background: var(--navy-tint);
+    color: var(--navy);
+}
+
+.stok-info .icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.stok-info.stok-aman {
+    background: var(--green-tint);
+    color: var(--green);
+    border-left-color: var(--green);
+}
+
+.stok-info.stok-menipis {
+    background: var(--amber-tint);
+    color: var(--amber);
+    border-left-color: var(--amber);
+}
+
+.stok-info.stok-habis {
+    background: var(--red-tint);
+    color: var(--red);
+    border-left-color: var(--red);
+    animation: pulse-warning 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+
+/* ═══════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════ */
 @media (max-width: 992px) {
@@ -1117,5 +1342,22 @@ footer {
 
     .form-group.small {
         max-width: 100%;
+    }
+
+    .toast-container {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+    .toast {
+        font-size: 12.5px;
+        padding: 12px 14px;
+    }
+    .autocomplete-dropdown {
+        max-height: 220px;
+    }
+    .ac-main strong {
+        font-size: 12.5px;
     }
 }
