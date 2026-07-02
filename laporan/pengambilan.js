@@ -123,6 +123,12 @@ function addBarangRow() {
                     <input type="text" name="satuan[]" placeholder="Satuan" required>
                 </div>
             </div>
+            <div class="form-group">
+                <select name="jenis[]" required>
+                    <option value="foodcost">Food Cost</option>
+                    <option value="addcost">Add Cost</option>
+                </select>
+            </div>
             <button type="button" class="btn btn-danger" onclick="removeBarangRow(${barangIndex})">
                 <i class="ph ph-trash"></i>
             </button>
@@ -181,13 +187,15 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
     const namaBarangs = formData.getAll('nama_barang[]');
     const qtys = formData.getAll('qty[]');
     const satuans = formData.getAll('satuan[]');
+    const jenisList = formData.getAll('jenis[]');
 
     for (let i = 0; i < namaBarangs.length; i++) {
         if (namaBarangs[i]) {
             data.barang.push({
                 nama_barang: namaBarangs[i],
                 qty: qtys[i],
-                satuan: satuans[i]
+                satuan: satuans[i],
+                jenis: jenisList[i] || 'foodcost'
             });
         }
     }
@@ -239,15 +247,16 @@ function lihatDetail(id, noPengambilan, sppg) {
             if (data.status === 'success' && data.detail.length > 0) {
                 let html = '';
                 data.detail.forEach(d => {
-                    html += `<tr><td>${d.nama_barang}</td><td>${parseFloat(d.qty)}</td><td>${d.satuan}</td></tr>`;
+                    const jenisLabel = d.jenis === 'addcost' ? 'Add Cost' : 'Food Cost';
+                    html += `<tr><td>${d.nama_barang}</td><td>${parseFloat(d.qty)}</td><td>${d.satuan}</td><td>${jenisLabel}</td></tr>`;
                 });
                 document.getElementById('detailBody').innerHTML = html;
             } else {
-                document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">Tidak ada item.</td></tr>';
+                document.getElementById('detailBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Tidak ada item.</td></tr>';
             }
         })
         .catch(() => {
-            document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#d32f2f;">Gagal memuat data.</td></tr>';
+            document.getElementById('detailBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#d32f2f;">Gagal memuat data.</td></tr>';
         });
 }
 

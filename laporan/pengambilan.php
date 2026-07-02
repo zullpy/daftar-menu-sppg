@@ -327,6 +327,7 @@ while ($row = $stmt->fetch()) {
                     <span>Nama Barang</span>
                     <span>Qty</span>
                     <span>Satuan</span>
+                    <span>Jenis</span>
                     <span></span>
                 </div>
                 <div id="barangContainer"></div>
@@ -350,11 +351,12 @@ while ($row = $stmt->fetch()) {
                         <th>Nama Barang</th>
                         <th>Qty</th>
                         <th>Satuan</th>
+                        <th>Jenis</th>
                     </tr>
                 </thead>
                 <tbody id="detailBody">
                     <tr>
-                        <td colspan="3" style="text-align:center; color:#999;">Memuat...</td>
+                        <td colspan="4" style="text-align:center; color:#999;">Memuat...</td>
                     </tr>
                 </tbody>
             </table>

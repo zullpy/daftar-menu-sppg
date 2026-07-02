@@ -11,7 +11,7 @@ if ($id_pengambilan <= 0) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT nama_barang, qty, satuan
+    $stmt = $pdo->prepare("SELECT nama_barang, qty, satuan, jenis
                             FROM pengambilan_barang_detail
                             WHERE id_pengambilan = :id
                             ORDER BY id_detail ASC");
