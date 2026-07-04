@@ -2,6 +2,7 @@
 session_start();
 date_default_timezone_set('Asia/Jakarta');
 require_once '../database/koneksi.php';
+require_once '../database/stok_helper.php';
 
 if (!isset($_SESSION['role'])) {
     header("Location: ../index.php");
@@ -34,7 +35,7 @@ if ($is_operator && $lokasiSession !== 'semua') {
 }
 
 $stmt_d = $pdo->prepare("
-SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan
+SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan, dpr.qty_diterima AS terima_qty_diterima
 FROM detail_pengiriman dp
 LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
 LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
@@ -75,10 +76,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             throw new Exception("Tanda tangan penerima wajib diisi!");
         }
 
+        // Lokasi tujuan untuk stok, dan peta detail_pengiriman_id => [nama_barang, satuan, qty]
+        $lokasiStok = $pengiriman['lokasi'] ?? 'semua';
+        $dpMap = [];
+        foreach ($details as $d) {
+            $dpMap[$d['id']] = [
+                'nama_barang' => $d['nama_barang'],
+                'satuan'      => $d['satuan'],
+                'qty'         => $d['qty'],
+            ];
+        }
+
+        // Helper: tambah/kurangi stok grosir + auto-sync mirror eceran (delta bisa negatif untuk koreksi/reversal)
+        $upsertStok = function ($nama_barang, $satuan, $lokasi, $delta) use ($pdo) {
+            if ($delta == 0) return;
+            stok_upsertGrosir($pdo, $nama_barang, $satuan, $lokasi, $delta);
+        };
+
         if ($penerimaan_exist) {
             $pdo->prepare("UPDATE penerimaan SET nama_penerima_barang = ?, tanggal_terima = ?, tanda_tangan_penerima = ? WHERE id = ?")
                 ->execute([$nama_penerima_barang, $tanggal_terima_mysql, $ttd_penerima, $penerimaan_exist['id']]);
             $penerimaan_id = $penerimaan_exist['id'];
+
+            // Ambil detail penerimaan LAMA dulu untuk membalik (reversal) stok yang sudah pernah masuk,
+            // supaya kalau operator ubah status/qty, stok tidak numpuk/dobel.
+            $stmt_old = $pdo->prepare("SELECT * FROM detail_penerimaan WHERE penerimaan_id = ?");
+            $stmt_old->execute([$penerimaan_id]);
+            $oldRows = $stmt_old->fetchAll();
+            foreach ($oldRows as $old) {
+                if ($old['qty_diterima'] === null) continue;
+                $info = $dpMap[$old['detail_pengiriman_id']] ?? null;
+                if ($info) {
+                    $upsertStok($info['nama_barang'], $info['satuan'], $lokasiStok, -1 * $old['qty_diterima']);
+                }
+            }
+
             $pdo->prepare("DELETE FROM detail_penerimaan WHERE penerimaan_id = ?")->execute([$penerimaan_id]);
         } else {
             $pdo->prepare("INSERT INTO penerimaan (pengiriman_id, nama_penerima_barang, tanggal_terima, tanda_tangan_penerima)
@@ -87,15 +119,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $penerimaan_id = $pdo->lastInsertId();
         }
 
-        $detail_ids  = $_POST['detail_id'];
-        $statuses    = $_POST['status_barang'];
-        $keterangans = $_POST['keterangan_status'];
-        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, keterangan) VALUES (?, ?, ?, ?)");
+        $detail_ids    = $_POST['detail_id'];
+        $statuses      = $_POST['status_barang'];
+        $keterangans   = $_POST['keterangan_status'];
+        $qty_diterimas = $_POST['qty_diterima'] ?? [];
+        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, qty_diterima, keterangan) VALUES (?, ?, ?, ?, ?)");
         for ($i = 0; $i < count($detail_ids); $i++) {
             $status = $statuses[$i] ?? null;
             $ket = trim($keterangans[$i] ?? '');
-            if ($status) {
-                $stmt_insert->execute([$penerimaan_id, (int)$detail_ids[$i], $status, $ket ?: null]);
+            $detailPengirimanId = (int)$detail_ids[$i];
+            if (!$status) continue;
+
+            $info = $dpMap[$detailPengirimanId] ?? null;
+
+            // Tentukan qty yang benar-benar masuk stok sesuai status
+            if ($status === 'ada') {
+                $qtyMasuk = $info['qty'] ?? 0;
+            } elseif ($status === 'tidak_ada') {
+                $qtyMasuk = 0;
+            } else { // kurang -> wajib input manual dari operator
+                $qtyRaw = $qty_diterimas[$i] ?? '';
+                if ($qtyRaw === '' || !is_numeric($qtyRaw)) {
+                    throw new Exception("Qty diterima wajib diisi untuk barang dengan status Kurang/Rusak!");
+                }
+                $qtyMasuk = (float)$qtyRaw;
+            }
+
+            $stmt_insert->execute([$penerimaan_id, $detailPengirimanId, $status, $qtyMasuk, $ket ?: null]);
+
+            if ($info && $qtyMasuk > 0) {
+                $upsertStok($info['nama_barang'], $info['satuan'], $lokasiStok, $qtyMasuk);
             }
         }
         $pdo->commit();
@@ -537,10 +590,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <table class="table-detail table-pengecekan">
                         <thead>
                             <tr>
-                                <th style="width: 28%">Nama Barang</th>
+                                <th style="width: 24%">Nama Barang</th>
                                 <th style="width: 8%">Qty</th>
-                                <th style="width: 30%">Status Penerimaan</th>
-                                <th style="width: 34%">Keterangan</th>
+                                <th style="width: 26%">Status Penerimaan</th>
+                                <th style="width: 14%">Qty Diterima</th>
+                                <th style="width: 28%">Keterangan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -591,6 +645,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                                 <span>Tidak<br>Ada</span>
                                             </button>
                                         </div>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" name="qty_diterima[]" class="form-control input-qty-diterima"
+                                            placeholder="Wajib jika kurang"
+                                            value="<?= htmlspecialchars($d['terima_qty_diterima'] ?? '') ?>"
+                                            style="<?= $existingStatus === 'kurang' ? '' : 'display:none;' ?>"
+                                            <?= $existingStatus === 'kurang' ? 'required' : '' ?>>
+                                        <?php if ($existingStatus !== 'kurang'): ?>
+                                            <span class="ket-placeholder qty-diterima-placeholder">—</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <input type="text" name="keterangan_status[]" class="form-control input-ket"
@@ -659,6 +723,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <span>Tidak<br>Ada</span>
                                         </button>
                                     </div>
+                                </div>
+
+                                <div class="barang-card-field field-qty-diterima" style="<?= ($d['terima_status'] ?? '') === 'kurang' ? '' : 'display:none;' ?>">
+                                    <label>Qty Diterima *</label>
+                                    <input type="number" step="0.01" min="0" name="qty_diterima[]" class="form-control input-qty-diterima"
+                                        placeholder="Jumlah yang benar-benar diterima"
+                                        value="<?= htmlspecialchars($d['terima_qty_diterima'] ?? '') ?>">
                                 </div>
 
                                 <div class="barang-card-field field-keterangan" style="<?= in_array($d['terima_status'] ?? '', ['kurang', 'tidak_ada']) ? '' : 'display:none;' ?>">
@@ -916,6 +987,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Set nilai hidden input
             row.querySelector('.status-hidden-input-desktop').value = val;
 
+            // Tampil/sembunyikan field qty diterima (wajib untuk 'kurang')
+            const qtyInput = row.querySelector('.input-qty-diterima');
+            const qtyPlaceholder = row.querySelector('.qty-diterima-placeholder');
+            if (val === 'kurang') {
+                if (qtyInput) {
+                    qtyInput.style.display = '';
+                    qtyInput.required = true;
+                }
+                if (qtyPlaceholder) qtyPlaceholder.style.display = 'none';
+            } else {
+                if (qtyInput) {
+                    qtyInput.style.display = 'none';
+                    qtyInput.required = false;
+                    qtyInput.value = '';
+                }
+                if (qtyPlaceholder) qtyPlaceholder.style.display = '';
+            }
+
             // Tampil/sembunyikan field keterangan
             const ketInput = row.querySelector('.input-ket');
             const ketPlaceholder = row.querySelector('.ket-placeholder');
@@ -959,6 +1048,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             card.classList.remove('status-ada', 'status-kurang', 'status-tidak_ada');
             card.classList.add('status-' + val);
 
+            // Tampil/sembunyikan field qty diterima (wajib untuk 'kurang')
+            const fieldQty = card.querySelector('.field-qty-diterima');
+            const qtyInput = card.querySelector('.input-qty-diterima');
+            if (fieldQty && qtyInput) {
+                if (val === 'kurang') {
+                    fieldQty.style.display = '';
+                    qtyInput.required = true;
+                } else {
+                    fieldQty.style.display = 'none';
+                    qtyInput.required = false;
+                    qtyInput.value = '';
+                }
+            }
+
             // Tampil/sembunyikan field keterangan
             const fieldKet = card.querySelector('.field-keterangan');
             const ketInput = card.querySelector('.input-ket');
@@ -984,6 +1087,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const hiddenInput = card.querySelector('.status-hidden-input');
             if (hiddenInput && hiddenInput.value) {
                 const val = hiddenInput.value;
+                const fieldQty = card.querySelector('.field-qty-diterima');
+                const qtyInput = card.querySelector('.input-qty-diterima');
+                if (fieldQty && qtyInput) {
+                    if (val === 'kurang') {
+                        fieldQty.style.display = '';
+                        qtyInput.required = true;
+                    } else {
+                        fieldQty.style.display = 'none';
+                        qtyInput.required = false;
+                    }
+                }
                 const fieldKet = card.querySelector('.field-keterangan');
                 const ketInput = card.querySelector('.input-ket');
                 if (fieldKet && ketInput) {
@@ -1011,7 +1125,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 for (const inp of empties) {
                     if (!inp.value) {
                         alert('⚠️ Semua status barang wajib dipilih!');
-                        inp.closest('.barang-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        inp.closest('.barang-card').scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
                         return false;
                     }
                 }
@@ -1021,7 +1138,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 for (const inp of empties) {
                     if (!inp.value) {
                         alert('⚠️ Semua status barang wajib dipilih!');
-                        inp.closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        inp.closest('tr').scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
                         return false;
                     }
                 }

@@ -2,6 +2,7 @@
 session_start();
 require_once '../database/koneksi.php';
 require_once '../database/helper-stok.php';
+require_once '../database/stok_helper.php';
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../index.php?error=unauthorized");
     exit;
@@ -142,11 +143,43 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         if ($edit_id) {
-            // ── MODE EDIT: kembalikan stok lama dulu ──
+            // ── MODE EDIT: kembalikan stok Gudang Pusat lama dulu ──
             $old_details = $pdo->prepare("SELECT nama_barang, qty FROM detail_pengiriman WHERE pengiriman_id = ?");
             $old_details->execute([$edit_id]);
             foreach ($old_details->fetchAll() as $old) {
                 kembalikanStokGudangPusat($pdo_draft, $old['nama_barang'], $old['qty'], "Edit ulang pengiriman No. $no_surat_jalan - stok lama dikembalikan");
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // ✅ FIX BUG: kalau pengiriman ini SUDAH pernah dikonfirmasi
+            // diterima, batalkan dulu efek stoknya di `stok_barang`
+            // (gudang tujuan) & hapus data penerimaan lama tsb.
+            // Wajib dilakukan SEBELUM detail_pengiriman lama dihapus,
+            // karena detail_pengiriman akan dibuat ulang dengan id baru
+            // (DELETE + INSERT di bawah), sehingga detail_penerimaan lama
+            // yang masih menunjuk ke id lama jadi basi/orphan dan stok
+            // yang sudah masuk tidak akan pernah dibalik.
+            // ═══════════════════════════════════════════════════════
+            $lokasi_lama = $pengiriman['lokasi'] ?? 'semua';
+            $stmt_pr_check = $pdo->prepare("SELECT id FROM penerimaan WHERE pengiriman_id = ? LIMIT 1");
+            $stmt_pr_check->execute([$edit_id]);
+            $penerimaan_lama = $stmt_pr_check->fetch();
+
+            if ($penerimaan_lama) {
+                $penerimaan_id_lama = $penerimaan_lama['id'];
+                $stmt_dp_lama = $pdo->prepare("SELECT dpr.qty_diterima, dp.nama_barang, dp.satuan
+                    FROM detail_penerimaan dpr
+                    JOIN detail_pengiriman dp ON dp.id = dpr.detail_pengiriman_id
+                    WHERE dpr.penerimaan_id = ?");
+                $stmt_dp_lama->execute([$penerimaan_id_lama]);
+                foreach ($stmt_dp_lama->fetchAll() as $dp_lama) {
+                    if ($dp_lama['qty_diterima'] === null || (float)$dp_lama['qty_diterima'] == 0) continue;
+                    // Balikin (kurangi) stok tujuan yang sudah pernah ditambah waktu konfirmasi
+                    stok_upsertGrosir($pdo, $dp_lama['nama_barang'], $dp_lama['satuan'], $lokasi_lama, -1 * $dp_lama['qty_diterima']);
+                }
+                // Hapus data penerimaan lama -> operator WAJIB konfirmasi ulang setelah pengiriman diedit
+                $pdo->prepare("DELETE FROM detail_penerimaan WHERE penerimaan_id = ?")->execute([$penerimaan_id_lama]);
+                $pdo->prepare("DELETE FROM penerimaan WHERE id = ?")->execute([$penerimaan_id_lama]);
             }
 
             $stmt = $pdo->prepare("UPDATE pengiriman SET
@@ -285,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-row">
                     <div class="form-group">
                         <label>No. Surat Jalan *</label>
-                        <input type="text" name="no_surat_jalan" id="no_sj" class="form-control" required
+                        <input type="text" name="no_surat_jalan" id="no_sj" class="form-control" required readonly
                             pattern="SP\d{4}-\d{8}" title="Format: SP0001-20260623"
                             value="<?= $pengiriman ? htmlspecialchars($pengiriman['no_surat_jalan']) : $no_sj_default ?>">
                     </div>
@@ -384,6 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <div class="form-group">
                                         <label>Keterangan</label>
                                         <input type="text" name="keterangan[]" class="form-control"
+                                            placeholder="1 dus isi 24"
                                             value="<?= htmlspecialchars($detail['keterangan']) ?>">
                                     </div>
                                 </div>
@@ -447,6 +481,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </main>
     </div>
 
+    <!-- CONFIRM MODAL (pengganti confirm() bawaan browser) -->
+    <div id="confirmModalOverlay" class="modal-overlay" data-type="warning">
+        <div class="modal-box">
+            <div class="modal-icon-wrap"></div>
+            <h3 id="confirmModalTitle" class="modal-title">Perhatian</h3>
+            <div id="confirmModalBody" class="modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" id="confirmModalCancel" class="btn btn-outline">Batal</button>
+                <button type="button" id="confirmModalOk" class="btn btn-warning">Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div id="toastContainer" class="toast-container"></div>
 
@@ -476,6 +523,66 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 400);
             }, duration);
+        }
+
+        // ============================================
+        // CONFIRM MODAL (pengganti confirm() bawaan)
+        // ============================================
+        function showConfirmModal(bodyHtml, opts = {}) {
+            const {
+                title = 'Perhatian', type = 'warning', okText = 'Lanjutkan', cancelText = 'Batal'
+            } = opts;
+            const overlay = document.getElementById('confirmModalOverlay');
+            const iconWrap = overlay.querySelector('.modal-icon-wrap');
+            const okBtn = document.getElementById('confirmModalOk');
+            const cancelBtn = document.getElementById('confirmModalCancel');
+
+            const icons = {
+                warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+                danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+                info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            };
+
+            overlay.setAttribute('data-type', type);
+            iconWrap.innerHTML = icons[type] || icons.warning;
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalBody').innerHTML = bodyHtml;
+            okBtn.textContent = okText;
+            cancelBtn.textContent = cancelText;
+
+            return new Promise(resolve => {
+                function cleanup(result) {
+                    overlay.classList.remove('show');
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    overlay.removeEventListener('click', onOverlay);
+                    document.removeEventListener('keydown', onKey);
+                    resolve(result);
+                }
+
+                function onOk() {
+                    cleanup(true);
+                }
+
+                function onCancel() {
+                    cleanup(false);
+                }
+
+                function onOverlay(e) {
+                    if (e.target === overlay) cleanup(false);
+                }
+
+                function onKey(e) {
+                    if (e.key === 'Escape') cleanup(false);
+                }
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                overlay.addEventListener('click', onOverlay);
+                document.addEventListener('keydown', onKey);
+
+                overlay.classList.add('show');
+            });
         }
 
         // ============================================
@@ -660,6 +767,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // VALIDASI SEBELUM SUBMIT
         // ============================================
         document.getElementById('formPengiriman').addEventListener('submit', function(e) {
+            const form = this;
+
+            // Sudah dikonfirmasi lewat modal sebelumnya -> lanjutkan submit normal
+            if (form.dataset.confirmedStok === 'true') {
+                return;
+            }
+
             let warnings = [];
             document.querySelectorAll('.barang-item').forEach((item, idx) => {
                 const namaInput = item.querySelector('.input-nama-barang');
@@ -676,10 +790,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             });
 
             if (warnings.length > 0) {
-                const msg = `⚠️ <strong>Perhatian:</strong> Qty melebihi stok gudang pusat:<br>${warnings.join('<br>')}<br><br>Lanjutkan pengiriman?`;
-                if (!confirm(msg)) {
-                    e.preventDefault();
-                }
+                e.preventDefault();
+                const msg = `Qty melebihi stok gudang pusat:<br>${warnings.join('<br>')}<br><br>Lanjutkan pengiriman?`;
+                showConfirmModal(msg, {
+                        title: 'Perhatian',
+                        type: 'warning',
+                        okText: 'Lanjutkan',
+                        cancelText: 'Batal'
+                    })
+                    .then(ok => {
+                        if (ok) {
+                            form.dataset.confirmedStok = 'true';
+                            if (form.requestSubmit) {
+                                form.requestSubmit();
+                            } else {
+                                form.submit();
+                            }
+                        }
+                    });
             }
         });
     </script>

@@ -125,7 +125,7 @@ while ($row = $stmt->fetch()) {
     <div class="page-header">
         <div class="header-top">
             <div class="header-left">
-                <a href="?logout=1" class="btn-back" onclick="return confirm('Yakin ingin keluar?')">
+                <a href="../dashboard.php" class="btn-back">
                     <i class="ph ph-arrow-left"></i>
                     <span class="full">Kembali</span>
                 </a>

@@ -66,12 +66,128 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================
+// ✅ AUTOCOMPLETE NAMA BARANG DARI STOK (BARU)
+// ============================================
+let debounceTimerStok = null;
+
+function cariBarangStok(input) {
+    const keyword = input.value.trim();
+    const wrap = input.closest('.autocomplete-wrap');
+    const dropdown = wrap.querySelector('.autocomplete-dropdown');
+    const infoEl = wrap.querySelector('.stok-info');
+
+    // Reset stok tersimpan & tampilan info tiap kali user ngetik ulang (belum pilih dari list lagi)
+    delete input.dataset.stok;
+    delete input.dataset.satuan;
+    infoEl.innerHTML = '';
+    infoEl.className = 'stok-info';
+
+    if (keyword.length < 2) {
+        dropdown.innerHTML = '';
+        dropdown.classList.remove('show');
+        return;
+    }
+
+    clearTimeout(debounceTimerStok);
+    debounceTimerStok = setTimeout(() => {
+        const lokasiInput = document.querySelector('input[name="lokasi"], select[name="lokasi"]');
+        const lokasi = lokasiInput ? lokasiInput.value : 'semua';
+
+        fetch(`../database/api-search-stok.php?q=${encodeURIComponent(keyword)}&lokasi=${encodeURIComponent(lokasi)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    renderDropdownStok(input, dropdown, data.data);
+                }
+            })
+            .catch(() => {
+                dropdown.innerHTML = '';
+                dropdown.classList.remove('show');
+            });
+    }, 300);
+}
+
+function renderDropdownStok(input, dropdown, items) {
+    if (!items || items.length === 0) {
+        dropdown.innerHTML = `<div class="autocomplete-empty">Tidak ada barang di stok yang cocok</div>`;
+        dropdown.classList.add('show');
+        return;
+    }
+
+    dropdown.innerHTML = items.map(item => `
+        <div class="autocomplete-item" 
+             onmousedown="event.preventDefault(); pilihBarangStok(this)"
+             data-nama="${item.nama_barang.replace(/"/g, '&quot;')}"
+             data-satuan="${item.satuan.replace(/"/g, '&quot;')}"
+             data-stok="${item.sisa_stok}">
+            <span class="ai-nama">${item.nama_barang}</span>
+            <span class="ai-stok">${item.sisa_stok} ${item.satuan}</span>
+        </div>
+    `).join('');
+    dropdown.classList.add('show');
+}
+
+// Update tampilan sisa stok yang PERSISTEN di bawah input (misal "📦 Susu — 10 dus")
+function tampilkanInfoStok(wrap, nama, stok, satuan) {
+    const infoEl = wrap.querySelector('.stok-info');
+    let level = 'aman';
+    if (stok <= 0) level = 'habis';
+    else if (stok <= 10) level = 'menipis';
+
+    const label = stok <= 0 ? 'Stok habis' : `Sisa stok: <strong>${stok} ${satuan}</strong>`;
+    infoEl.className = 'stok-info stok-' + level;
+    infoEl.innerHTML = `<i class="ph-fill ph-package"></i> ${label}`;
+}
+
+function pilihBarangStok(el) {
+    const wrap = el.closest('.autocomplete-wrap');
+    const input = wrap.querySelector('.input-nama-barang');
+    const row = wrap.closest('.barang-row');
+    const dropdown = wrap.querySelector('.autocomplete-dropdown');
+
+    const nama = el.dataset.nama;
+    const satuan = el.dataset.satuan;
+    const stok = parseFloat(el.dataset.stok);
+
+    input.value = nama;
+    input.dataset.stok = stok;
+    input.dataset.satuan = satuan;
+
+    // Auto-isi satuan di baris yang sama
+    const satuanInput = row.querySelector('input[name="satuan[]"]');
+    if (satuanInput) satuanInput.value = satuan;
+
+    dropdown.innerHTML = '';
+    dropdown.classList.remove('show');
+
+    tampilkanInfoStok(wrap, nama, stok, satuan);
+
+    if (stok <= 0) {
+        showToast(`Stok <strong>${nama}</strong> HABIS! (Sisa: ${stok} ${satuan})`, 'error');
+    } else if (stok <= 10) {
+        showToast(`Stok <strong>${nama}</strong> menipis. Tersisa: ${stok} ${satuan}`, 'warning');
+    } else {
+        showToast(`Stok <strong>${nama}</strong> tersedia: ${stok} ${satuan}`, 'success');
+    }
+}
+
+function sembunyikanDropdown(input) {
+    const dropdown = input.closest('.autocomplete-wrap').querySelector('.autocomplete-dropdown');
+    dropdown.innerHTML = '';
+    dropdown.classList.remove('show');
+}
+
+// ============================================
 // ✅ CEK STOK VIA TOAST (BARU)
 // ============================================
 function cekStokBarang(input) {
+    // Kalau sudah dipilih dari dropdown, dataset.stok sudah ada — tidak perlu fetch ulang
+    if (input.dataset.stok !== undefined) return;
+
     const namaBarang = input.value.trim();
     if (!namaBarang) return;
 
+    const wrap = input.closest('.autocomplete-wrap');
     const lokasiInput = document.querySelector('input[name="lokasi"], select[name="lokasi"]');
     const lokasi = lokasiInput ? lokasiInput.value : 'semua';
 
@@ -85,6 +201,8 @@ function cekStokBarang(input) {
                 // Simpan data untuk validasi qty nanti
                 input.dataset.stok = sisa;
                 input.dataset.satuan = satuan;
+
+                tampilkanInfoStok(wrap, namaBarang, sisa, satuan);
 
                 if (sisa <= 0) {
                     showToast(`Stok <strong>${namaBarang}</strong> HABIS! (Sisa: ${sisa} ${satuan})`, 'error');
@@ -111,9 +229,14 @@ function addBarangRow() {
     // Template literal yang bersih dan benar
     const html = `
         <div class="barang-row" id="barang-${barangIndex}">
-            <div class="form-group">
-                <input type="text" name="nama_barang[]" placeholder="Nama Barang" required 
-                    onblur="cekStokBarang(this)">
+            <div class="form-group autocomplete-wrap">
+                <input type="text" name="nama_barang[]" class="input-nama-barang" placeholder="Nama Barang" required
+                    autocomplete="off"
+                    oninput="cariBarangStok(this)"
+                    onfocus="cariBarangStok(this)"
+                    onblur="setTimeout(() => { sembunyikanDropdown(this); cekStokBarang(this); }, 200)">
+                <div class="autocomplete-dropdown"></div>
+                <div class="stok-info"></div>
             </div>
             <div class="barang-row-inputs">
                 <div class="form-group">

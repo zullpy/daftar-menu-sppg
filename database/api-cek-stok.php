@@ -11,53 +11,33 @@ if (empty($nama_barang)) {
 }
 
 try {
-    // Hitung stok masuk (dari pengiriman)
-    $sqlMasuk = "SELECT 
-        COALESCE(SUM(CASE WHEN dpr.status_barang = 'tidak_ada' THEN 0 ELSE dp.qty END), 0) as total_masuk,
-        dp.satuan
-    FROM detail_pengiriman dp
-    JOIN pengiriman p ON dp.pengiriman_id = p.id
-    LEFT JOIN penerimaan pr ON pr.pengiriman_id = p.id
-    LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
-    WHERE (:lokasi1 = 'semua' OR p.lokasi = :lokasi2)
-    AND TRIM(UPPER(dp.nama_barang)) = TRIM(UPPER(:nama))
-    GROUP BY dp.satuan";
+    // Ambil langsung dari tabel stok_barang (sudah otomatis ke-update
+    // saat penerimaan dikonfirmasi dan saat pengambilan disimpan).
+    if ($lokasi === 'semua') {
+        // Gabungkan stok dari semua lokasi
+        $sql = "SELECT COALESCE(SUM(qty), 0) as sisa_stok, MAX(satuan) as satuan
+                FROM stok_barang
+                WHERE TRIM(UPPER(nama_barang)) = TRIM(UPPER(:nama))";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':nama' => $nama_barang]);
+    } else {
+        $sql = "SELECT COALESCE(SUM(qty), 0) as sisa_stok, MAX(satuan) as satuan
+                FROM stok_barang
+                WHERE TRIM(UPPER(nama_barang)) = TRIM(UPPER(:nama))
+                AND lokasi = :lokasi";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':nama' => $nama_barang, ':lokasi' => $lokasi]);
+    }
 
-    $stmtMasuk = $pdo->prepare($sqlMasuk);
-    $stmtMasuk->execute([
-        ':lokasi1' => $lokasi,
-        ':lokasi2' => $lokasi,
-        ':nama' => $nama_barang
-    ]);
-    $resultMasuk = $stmtMasuk->fetch();
-
-    $totalMasuk = (float)($resultMasuk['total_masuk'] ?? 0);
-    $satuan = $resultMasuk['satuan'] ?? '';
-
-    // Hitung stok keluar (dari pengambilan)
-    $sqlKeluar = "SELECT COALESCE(SUM(pbd.qty), 0) as total_keluar
-    FROM pengambilan_barang_detail pbd
-    JOIN pengambilan_barang pb ON pbd.id_pengambilan = pb.id_pengambilan
-    WHERE (:lokasi = 'semua' OR pb.lokasi = :lokasi_exact)
-    AND TRIM(UPPER(pbd.nama_barang)) = TRIM(UPPER(:nama))";
-
-    $stmtKeluar = $pdo->prepare($sqlKeluar);
-    $stmtKeluar->execute([
-        ':lokasi' => $lokasi,
-        ':lokasi_exact' => $lokasi,
-        ':nama' => $nama_barang
-    ]);
-    $totalKeluar = (float)$stmtKeluar->fetchColumn();
-
-    $sisaStok = $totalMasuk - $totalKeluar;
+    $result = $stmt->fetch();
+    $sisaStok = (float)($result['sisa_stok'] ?? 0);
+    $satuan = $result['satuan'] ?? '';
 
     echo json_encode([
         'status' => 'success',
         'nama_barang' => $nama_barang,
-        'stok_masuk' => $totalMasuk,
-        'stok_keluar' => $totalKeluar,
         'sisa_stok' => $sisaStok,
-        'satuan' => $satuan // ✅ TAMBAHKAN SATUAN
+        'satuan' => $satuan
     ]);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);

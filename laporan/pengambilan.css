@@ -617,6 +617,107 @@ body {
     border-color: var(--primary);
 }
 
+/* ── Autocomplete nama barang (stok) ── */
+.autocomplete-wrap {
+    position: relative;
+}
+
+.autocomplete-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 50;
+}
+
+.autocomplete-dropdown.show {
+    display: block;
+}
+
+.autocomplete-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--border);
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: var(--primary-light);
+}
+
+.autocomplete-item .ai-nama {
+    color: var(--text-dark);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.autocomplete-item .ai-stok {
+    color: var(--primary-dark);
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.autocomplete-empty {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ── Info sisa stok persisten di bawah input nama barang ── */
+.stok-info {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 4px;
+    padding: 3px 0;
+}
+
+.stok-info:empty {
+    display: none;
+}
+
+.stok-info:not(:empty) {
+    display: flex;
+}
+
+.stok-info i {
+    font-size: 13px;
+}
+
+.stok-info.stok-aman {
+    color: #2e7d32;
+}
+
+.stok-info.stok-menipis {
+    color: #ed6c02;
+}
+
+.stok-info.stok-habis {
+    color: #d32f2f;
+}
+
 .barang-row {
     display: grid;
     grid-template-columns: 2fr 2fr 1.3fr auto;

@@ -147,15 +147,64 @@ foreach ($visibleLokasi as $lokasi) {
     }
 }
 
-// ===== 3. KUMPULKAN SEMUA ITEM YANG MUNCUL DI LOKASI MANAPUN (yang visible) =====
+// ===== 3. STOK AKHIR RIIL DARI stok_barang & stok_barang_eceran (bukan hasil hitung masuk-keluar) =====
+// Ini tabel sumber kebenaran (source of truth) stok akhir per lokasi, biar
+// nggak meleset kalau ada koreksi/penyesuaian stok manual di luar pengiriman/pengambilan.
+$stokGrosirPerLokasi = []; // [lokasi][item_key] = qty
+$stokEceranPerLokasi = []; // [lokasi][item_key] = qty
+$namaFromStok = [];        // item_key => nama tampilan (fallback kalau item cuma ada di stok_barang)
+$satuanFromStok = [];      // item_key => satuan asli dari stok_barang (fallback)
+
+foreach ($visibleLokasi as $lokasi) {
+    $stmtSG = $pdo->prepare(
+        "SELECT TRIM(nama_barang) AS item_nama_raw, TRIM(UPPER(nama_barang)) AS item_key, satuan, qty
+         FROM stok_barang WHERE lokasi = :lokasi"
+    );
+    $stmtSG->execute([':lokasi' => $lokasi]);
+    foreach ($stmtSG->fetchAll() as $r) {
+        $key = $r['item_key'];
+        // += (bukan =): stok_barang unique key-nya (nama_barang, satuan, lokasi) — jadi
+        // secara teori bisa ada >1 baris untuk barang+lokasi yang sama kalau satuannya beda
+        // penulisan antar transaksi. Dijumlah semua biar stok tidak "hilang" kalau itu terjadi.
+        if (!isset($stokGrosirPerLokasi[$lokasi][$key])) $stokGrosirPerLokasi[$lokasi][$key] = 0.0;
+        $stokGrosirPerLokasi[$lokasi][$key] += (float)$r['qty'];
+        if (!isset($namaFromStok[$key])) $namaFromStok[$key] = $r['item_nama_raw'];
+        if (!isset($satuanFromStok[$key])) $satuanFromStok[$key] = $r['satuan'];
+    }
+
+    $stmtSE = $pdo->prepare(
+        "SELECT TRIM(nama_barang) AS item_nama_raw, TRIM(UPPER(nama_barang)) AS item_key, satuan, qty
+         FROM stok_barang_eceran WHERE lokasi = :lokasi"
+    );
+    $stmtSE->execute([':lokasi' => $lokasi]);
+    foreach ($stmtSE->fetchAll() as $r) {
+        $key = $r['item_key'];
+        // Kalau stok_barang_eceran (unique key: nama_barang+lokasi saja, tanpa satuan)
+        // seharusnya cuma 1 baris per barang+lokasi, tapi tetap dijumlah untuk konsisten & aman.
+        if (!isset($stokEceranPerLokasi[$lokasi][$key])) $stokEceranPerLokasi[$lokasi][$key] = 0.0;
+        $stokEceranPerLokasi[$lokasi][$key] += (float)$r['qty'];
+        if (!isset($namaFromStok[$key])) $namaFromStok[$key] = $r['item_nama_raw'];
+    }
+}
+
+// ===== 4a. KUMPULKAN SEMUA ITEM YANG MUNCUL DI LOKASI MANAPUN (yang visible) =====
+// Gabungan dari: riwayat masuk/keluar (pengiriman/pengambilan) DAN stok_barang/stok_barang_eceran,
+// supaya barang yang stoknya sudah ada di stok_barang tapi belum pernah tercatat pengiriman/pengambilan
+// (misal stok awal/opname) tetap muncul di tabel.
 $allKeys = []; // item_key => nama tampilan
 foreach ($visibleLokasi as $lokasi) {
     foreach (($stockPerLokasi[$lokasi] ?? []) as $key => $v) {
         if (!isset($allKeys[$key])) $allKeys[$key] = $v['nama'];
     }
+    foreach (($stokGrosirPerLokasi[$lokasi] ?? []) as $key => $v) {
+        if (!isset($allKeys[$key])) $allKeys[$key] = $namaFromStok[$key] ?? $key;
+    }
+    foreach (($stokEceranPerLokasi[$lokasi] ?? []) as $key => $v) {
+        if (!isset($allKeys[$key])) $allKeys[$key] = $namaFromStok[$key] ?? $key;
+    }
 }
 
-// ===== 4. SUSUN LAPORAN STOK FINAL (per item, per lokasi, grosir & eceran) =====
+// ===== 4b. SUSUN LAPORAN STOK FINAL (per item, per lokasi, grosir & eceran) =====
 $stockReport = [];
 foreach ($allKeys as $key => $namaTampil) {
     $bMap = $barangMap[strtolower(trim($namaTampil))] ?? null;
@@ -182,15 +231,23 @@ foreach ($allKeys as $key => $namaTampil) {
         $d = $stockPerLokasi[$lokasi][$key] ?? null;
         $masuk  = $d['masuk'] ?? 0.0;
         $keluar = $d['keluar'] ?? 0.0;
-        $stokGrosir = $masuk - $keluar;
 
+        // Stok akhir SEKARANG diambil langsung dari stok_barang / stok_barang_eceran
+        // (bukan hasil hitung masuk-keluar lagi), jadi ini source of truth-nya.
+        $stokGrosir = $stokGrosirPerLokasi[$lokasi][$key] ?? 0.0;
+        $stokEceran = $stokEceranPerLokasi[$lokasi][$key] ?? 0.0;
+
+        // masuk_eceran/keluar_eceran cuma buat info di rincian (konversi pakai isi_per_satuan),
+        // tidak dipakai lagi untuk menentukan stok_eceran.
         $masukEceran  = $isi ? $masuk * $isi : $masuk;
         $keluarEceran = $isi ? $keluar * $isi : $keluar;
-        $stokEceran   = $isi ? round($stokGrosir * $isi, 2) : $stokGrosir;
 
         // Fallback satuan kalau barang ini tidak ketemu di db_draft_barang
         if (!$row['satuan'] && $d) {
             $row['satuan'] = $d['satuan_asli'];
+        }
+        if (!$row['satuan'] && isset($satuanFromStok[$key])) {
+            $row['satuan'] = $satuanFromStok[$key];
         }
 
         $row['lokasi'][$lokasi] = [

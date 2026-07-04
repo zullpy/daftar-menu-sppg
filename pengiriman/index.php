@@ -2,6 +2,7 @@
 session_start();
 require_once '../database/koneksi.php';
 require_once '../database/helper-stok.php';
+require_once '../database/stok_helper.php';
 
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
     header("Location: ../index.php?error=unauthorized");
@@ -21,13 +22,36 @@ if (isset($_GET['hapus']) && $is_admin) {
         $pdo->beginTransaction();
         $pdo_draft->beginTransaction();
 
-        // ✅ KEMBALIKAN STOK sebelum hapus
+        $stmt_pengiriman_row = $pdo->prepare("SELECT lokasi FROM pengiriman WHERE id = ?");
+        $stmt_pengiriman_row->execute([$id]);
+        $pengiriman_row = $stmt_pengiriman_row->fetch();
+
+        // ✅ KEMBALIKAN STOK GUDANG PUSAT sebelum hapus
         $stmt_details = $pdo->prepare("SELECT nama_barang, qty FROM detail_pengiriman WHERE pengiriman_id = ?");
         $stmt_details->execute([$id]);
         $details_to_restore = $stmt_details->fetchAll();
 
         foreach ($details_to_restore as $d) {
             kembalikanStokGudangPusat($pdo_draft, $d['nama_barang'], $d['qty'], "Hapus pengiriman ID #$id - stok dikembalikan");
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ FIX BUG: kalau pengiriman ini SUDAH dikonfirmasi diterima,
+        // balikin dulu (kurangi) stok tujuan di `stok_barang` sesuai
+        // qty_diterima, SEBELUM detail_penerimaan/penerimaan dihapus.
+        // Tanpa ini, qty yang sudah pernah masuk ke stok_barang akan
+        // nyangkut selamanya walau pengirimannya sudah dihapus.
+        // ═══════════════════════════════════════════════════════
+        $lokasi_hapus = $pengiriman_row['lokasi'] ?? 'semua';
+        $stmt_dp_confirmed = $pdo->prepare("SELECT dpr.qty_diterima, dp.nama_barang, dp.satuan
+            FROM detail_penerimaan dpr
+            INNER JOIN penerimaan pr ON pr.id = dpr.penerimaan_id
+            INNER JOIN detail_pengiriman dp ON dp.id = dpr.detail_pengiriman_id
+            WHERE pr.pengiriman_id = ?");
+        $stmt_dp_confirmed->execute([$id]);
+        foreach ($stmt_dp_confirmed->fetchAll() as $dc) {
+            if ($dc['qty_diterima'] === null || (float)$dc['qty_diterima'] == 0) continue;
+            stok_upsertGrosir($pdo, $dc['nama_barang'], $dc['satuan'], $lokasi_hapus, -1 * $dc['qty_diterima']);
         }
 
         $pdo->prepare("DELETE dp FROM detail_penerimaan dp
@@ -115,7 +139,7 @@ foreach ($all_data as $row) {
                 </div>
             </div>
             <nav>
-                <a href="../index.php" class="btn btn-secondary">
+                <a href="../dashboard.php" class="btn btn-secondary">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 11l9-7 9 7" />
                         <path d="M5 10v9a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1v-9" />

@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require 'koneksi.php';
+require 'stok_helper.php';
 
 // Baca input JSON
 $input = json_decode(file_get_contents('php://input'), true);
@@ -56,56 +57,23 @@ try {
     $stmtDetail = $pdo->prepare($sqlDetail);
     foreach ($barang as $b) {
         $nama_barang = $b['nama_barang'] ?? '';
+        $satuan = $b['satuan'] ?? '';
         $qty_ambil = (float)($b['qty'] ?? 0);
 
-        // Cek stok masuk
-        $sqlMasuk = "SELECT 
-            COALESCE(SUM(CASE WHEN dpr.status_barang = 'tidak_ada' THEN 0 ELSE dp.qty END), 0) as total_masuk
-        FROM detail_pengiriman dp
-        JOIN pengiriman p ON dp.pengiriman_id = p.id
-        LEFT JOIN penerimaan pr ON pr.pengiriman_id = p.id
-        LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
-        WHERE (:lokasi1 = 'semua' OR p.lokasi = :lokasi2)
-        AND TRIM(UPPER(dp.nama_barang)) = TRIM(UPPER(:nama))";
-        
-        $stmtMasuk = $pdo->prepare($sqlMasuk);
-        $stmtMasuk->execute([
-            ':lokasi1' => $lokasi,
-            ':lokasi2' => $lokasi,
-            ':nama' => $nama_barang
-        ]);
-        $totalMasuk = (float)$stmtMasuk->fetchColumn();
-
-        // Cek stok keluar
-        $sqlKeluar = "SELECT COALESCE(SUM(pbd.qty), 0) as total_keluar
-        FROM pengambilan_barang_detail pbd
-        JOIN pengambilan_barang pb ON pbd.id_pengambilan = pb.id_pengambilan
-        WHERE (:lokasi = 'semua' OR pb.lokasi = :lokasi_exact)
-        AND TRIM(UPPER(pbd.nama_barang)) = TRIM(UPPER(:nama))";
-
-        $stmtKeluar = $pdo->prepare($sqlKeluar);
-        $stmtKeluar->execute([
-            ':lokasi' => $lokasi,
-            ':lokasi_exact' => $lokasi,
-            ':nama' => $nama_barang
-        ]);
-        $totalKeluar = (float)$stmtKeluar->fetchColumn();
-
-        $sisaStok = $totalMasuk - $totalKeluar;
-
-        if ($sisaStok <= 0) {
-            throw new Exception("Stok untuk barang '$nama_barang' tidak ada!");
+        if ($qty_ambil <= 0) {
+            throw new Exception("Qty pengambilan untuk barang '$nama_barang' tidak valid!");
         }
 
-        if ($qty_ambil > $sisaStok) {
-            throw new Exception("Jumlah pengambilan untuk barang '$nama_barang' ($qty_ambil) melebihi stok yang tersedia ($sisaStok)!");
-        }
+        // Cek & potong stok (otomatis deteksi satuan grosir/eceran, konversi kalau perlu,
+        // lalu sinkronkan mirror stok_barang_eceran). Row locking di dalam fungsi ini
+        // supaya aman kalau ada 2 pengambilan bersamaan.
+        stok_kurangiUntukPengambilan($pdo, $nama_barang, $satuan, $lokasi, $qty_ambil);
 
         $stmtDetail->execute([
             ':id'    => $id_pengambilan,
             ':nama'  => $nama_barang,
             ':qty'   => $qty_ambil,
-            ':satuan' => $b['satuan']
+            ':satuan' => $satuan
         ]);
     }
 
