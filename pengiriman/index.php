@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../database/koneksi.php';
+require_once '../database/helper-stok.php';
 
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
     header("Location: ../index.php?error=unauthorized");
@@ -26,14 +27,7 @@ if (isset($_GET['hapus']) && $is_admin) {
         $details_to_restore = $stmt_details->fetchAll();
 
         foreach ($details_to_restore as $d) {
-            $stmt_cek = $pdo_draft->prepare("SELECT id_barang, stok_akhir FROM barang WHERE nama_barang = ?");
-            $stmt_cek->execute([$d['nama_barang']]);
-            $row = $stmt_cek->fetch();
-            if ($row) {
-                $new_stok = (int)$row['stok_akhir'] + (int)$d['qty'];
-                $pdo_draft->prepare("UPDATE barang SET stok_akhir = ? WHERE id_barang = ?")
-                    ->execute([$new_stok, $row['id_barang']]);
-            }
+            kembalikanStokGudangPusat($pdo_draft, $d['nama_barang'], $d['qty'], "Hapus pengiriman ID #$id - stok dikembalikan");
         }
 
         $pdo->prepare("DELETE dp FROM detail_penerimaan dp
