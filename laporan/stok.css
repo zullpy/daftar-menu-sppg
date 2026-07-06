@@ -523,6 +523,18 @@ table.stok-table {
     font-weight: 500;
 }
 
+.num-nilai {
+    color: #15803d;
+    font-weight: 700;
+    font-size: 12.5px;
+    font-family: 'Courier New', monospace;
+}
+
+.s-rendah {
+    background: #fef9c3;
+    color: #a16207;
+}
+
 .c-sodong {
     color: var(--sodong);
 }

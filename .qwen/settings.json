@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mysql *)",
+      "Bash(php *)"
+    ]
+  },
+  "$version": 4
+}
