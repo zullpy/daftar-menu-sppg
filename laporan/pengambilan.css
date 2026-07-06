@@ -723,7 +723,13 @@ body {
     grid-template-columns: 2fr 2fr 1.3fr auto;
     gap: 10px;
     margin-bottom: 10px;
-    align-items: end;
+    align-items: start;
+}
+
+.barang-row .barang-row-inputs,
+.barang-row>.form-group,
+.barang-row .btn-danger {
+    margin-top: 0;
 }
 
 .barang-header {

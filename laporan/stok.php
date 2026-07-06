@@ -147,48 +147,45 @@ foreach ($visibleLokasi as $lokasi) {
     }
 }
 
-// ===== 3. STOK AKHIR RIIL DARI stok_barang & stok_barang_eceran (bukan hasil hitung masuk-keluar) =====
+// ===== 3. STOK AKHIR RIIL DARI stok_barang (kolom qty_grosir & qty_eceran) =====
 // Ini tabel sumber kebenaran (source of truth) stok akhir per lokasi, biar
 // nggak meleset kalau ada koreksi/penyesuaian stok manual di luar pengiriman/pengambilan.
-$stokGrosirPerLokasi = []; // [lokasi][item_key] = qty
-$stokEceranPerLokasi = []; // [lokasi][item_key] = qty
-$namaFromStok = [];        // item_key => nama tampilan (fallback kalau item cuma ada di stok_barang)
-$satuanFromStok = [];      // item_key => satuan asli dari stok_barang (fallback)
+$stokGrosirPerLokasi  = []; // [lokasi][item_key] = qty_grosir
+$stokEceranPerLokasi  = []; // [lokasi][item_key] = qty_eceran
+$namaFromStok         = []; // item_key => nama tampilan (fallback kalau item cuma ada di stok_barang)
+$satuanFromStok       = []; // item_key => satuan grosir asli dari stok_barang (fallback)
+$satuanEceranFromStok = []; // item_key => satuan eceran asli dari stok_barang (fallback)
 
 foreach ($visibleLokasi as $lokasi) {
+    // stok_barang SEKARANG sudah punya kolom qty_grosir & qty_eceran sekaligus
+    // (tidak lagi pakai tabel terpisah stok_barang_eceran), jadi cukup 1 query per lokasi.
     $stmtSG = $pdo->prepare(
-        "SELECT TRIM(nama_barang) AS item_nama_raw, TRIM(UPPER(nama_barang)) AS item_key, satuan, qty
+        "SELECT TRIM(nama_barang) AS item_nama_raw, TRIM(UPPER(nama_barang)) AS item_key,
+                satuan, satuan_eceran, qty_grosir, qty_eceran
          FROM stok_barang WHERE lokasi = :lokasi"
     );
     $stmtSG->execute([':lokasi' => $lokasi]);
     foreach ($stmtSG->fetchAll() as $r) {
         $key = $r['item_key'];
-        // += (bukan =): stok_barang unique key-nya (nama_barang, satuan, lokasi) — jadi
+        // += (bukan =): unique key stok_barang (nama_barang, satuan, lokasi) — jadi
         // secara teori bisa ada >1 baris untuk barang+lokasi yang sama kalau satuannya beda
         // penulisan antar transaksi. Dijumlah semua biar stok tidak "hilang" kalau itu terjadi.
         if (!isset($stokGrosirPerLokasi[$lokasi][$key])) $stokGrosirPerLokasi[$lokasi][$key] = 0.0;
-        $stokGrosirPerLokasi[$lokasi][$key] += (float)$r['qty'];
+        $stokGrosirPerLokasi[$lokasi][$key] += (float)$r['qty_grosir'];
+
+        if (!isset($stokEceranPerLokasi[$lokasi][$key])) $stokEceranPerLokasi[$lokasi][$key] = 0.0;
+        $stokEceranPerLokasi[$lokasi][$key] += (float)$r['qty_eceran'];
+
         if (!isset($namaFromStok[$key])) $namaFromStok[$key] = $r['item_nama_raw'];
         if (!isset($satuanFromStok[$key])) $satuanFromStok[$key] = $r['satuan'];
-    }
-
-    $stmtSE = $pdo->prepare(
-        "SELECT TRIM(nama_barang) AS item_nama_raw, TRIM(UPPER(nama_barang)) AS item_key, satuan, qty
-         FROM stok_barang_eceran WHERE lokasi = :lokasi"
-    );
-    $stmtSE->execute([':lokasi' => $lokasi]);
-    foreach ($stmtSE->fetchAll() as $r) {
-        $key = $r['item_key'];
-        // Kalau stok_barang_eceran (unique key: nama_barang+lokasi saja, tanpa satuan)
-        // seharusnya cuma 1 baris per barang+lokasi, tapi tetap dijumlah untuk konsisten & aman.
-        if (!isset($stokEceranPerLokasi[$lokasi][$key])) $stokEceranPerLokasi[$lokasi][$key] = 0.0;
-        $stokEceranPerLokasi[$lokasi][$key] += (float)$r['qty'];
-        if (!isset($namaFromStok[$key])) $namaFromStok[$key] = $r['item_nama_raw'];
+        if (!isset($satuanEceranFromStok[$key]) && trim((string)$r['satuan_eceran']) !== '') {
+            $satuanEceranFromStok[$key] = trim($r['satuan_eceran']);
+        }
     }
 }
 
 // ===== 4a. KUMPULKAN SEMUA ITEM YANG MUNCUL DI LOKASI MANAPUN (yang visible) =====
-// Gabungan dari: riwayat masuk/keluar (pengiriman/pengambilan) DAN stok_barang/stok_barang_eceran,
+// Gabungan dari: riwayat masuk/keluar (pengiriman/pengambilan) DAN stok_barang,
 // supaya barang yang stoknya sudah ada di stok_barang tapi belum pernah tercatat pengiriman/pengambilan
 // (misal stok awal/opname) tetap muncul di tabel.
 $allKeys = []; // item_key => nama tampilan
@@ -210,7 +207,7 @@ foreach ($allKeys as $key => $namaTampil) {
     $bMap = $barangMap[strtolower(trim($namaTampil))] ?? null;
 
     $satuanGrosir  = $bMap['satuan_grosir'] ?? null;
-    $satuanEceran  = $bMap['satuan_eceran'] ?? null;
+    $satuanEceran  = $satuanEceranFromStok[$key] ?? ($bMap['satuan_eceran'] ?? null);
     $isi           = $bMap['isi_per_satuan'] ?? null;
 
     $row = [
@@ -232,7 +229,7 @@ foreach ($allKeys as $key => $namaTampil) {
         $masuk  = $d['masuk'] ?? 0.0;
         $keluar = $d['keluar'] ?? 0.0;
 
-        // Stok akhir SEKARANG diambil langsung dari stok_barang / stok_barang_eceran
+        // Stok akhir diambil langsung dari stok_barang (qty_grosir & qty_eceran)
         // (bukan hasil hitung masuk-keluar lagi), jadi ini source of truth-nya.
         $stokGrosir = $stokGrosirPerLokasi[$lokasi][$key] ?? 0.0;
         $stokEceran = $stokEceranPerLokasi[$lokasi][$key] ?? 0.0;
