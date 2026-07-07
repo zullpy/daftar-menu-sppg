@@ -42,3 +42,35 @@ document.addEventListener('DOMContentLoaded', function () {
     // Inject labels for any tables already visible
     document.querySelectorAll('.table-detail').forEach(injectTableLabels);
 });
+
+// ── Modal Foto Kemasan ──
+function bukaFotoModal(src, namaBarang, keterangan) {
+    const overlay = document.getElementById('fotoModalOverlay');
+    const img = document.getElementById('fotoModalImg');
+    const title = document.getElementById('fotoModalTitle');
+    const caption = document.getElementById('fotoModalCaption');
+    if (!overlay || !img) return;
+
+    img.src = src;
+    title.textContent = namaBarang ? 'Foto Kemasan — ' + namaBarang : 'Foto Kemasan';
+    if (keterangan) {
+        caption.textContent = keterangan;
+        caption.style.display = '';
+    } else {
+        caption.textContent = '';
+        caption.style.display = 'none';
+    }
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function tutupFotoModal() {
+    const overlay = document.getElementById('fotoModalOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') tutupFotoModal();
+});

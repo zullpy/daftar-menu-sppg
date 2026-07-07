@@ -225,7 +225,9 @@ foreach ($all_data as $row) {
                                 $stmt_d = $pdo->prepare("
                                 SELECT dp.*,
                                 dpr.status_barang AS terima_status,
-                                dpr.keterangan AS terima_ket
+                                dpr.keterangan AS terima_ket,
+                                dpr.keterangan_kemasan AS terima_ket_kemasan,
+                                dpr.foto_kemasan AS terima_foto_kemasan
                                 FROM detail_pengiriman dp
                                 LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
                                 LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id
@@ -311,6 +313,7 @@ foreach ($all_data as $row) {
                                                     <th>Qty</th>
                                                     <th>Satuan</th>
                                                     <th>Status </th>
+                                                    <th>Foto</th>
                                                     <th>Keterangan</th>
                                                 </tr>
                                             </thead>
@@ -332,6 +335,21 @@ foreach ($all_data as $row) {
                                                             <?php endif; ?>
                                                         </td>
                                                         <td>
+                                                            <?php if ($detail['terima_foto_kemasan']): ?>
+                                                                <button type="button" class="btn-foto"
+                                                                    onclick="bukaFotoModal('../uploads/foto-perkemasan/<?= htmlspecialchars($detail['terima_foto_kemasan']) ?>', <?= htmlspecialchars(json_encode($detail['nama_barang']), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($detail['terima_ket_kemasan'] ?: ''), ENT_QUOTES) ?>)">
+                                                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                                                                        <circle cx="8.5" cy="10.5" r="1.5" />
+                                                                        <path d="M21 15l-5-5L5 19" />
+                                                                    </svg>
+                                                                    Lihat
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <span style="color:var(--ink-faint); font-size:12px;">-</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
                                                             <?php if ($detail['terima_ket']): ?>
                                                                 <span class="keterangan-warning">
                                                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -340,6 +358,10 @@ foreach ($all_data as $row) {
                                                                         <line x1="12" y1="17" x2="12.01" y2="17" />
                                                                     </svg>
                                                                     <?= htmlspecialchars($detail['terima_ket']) ?>
+                                                                </span>
+                                                            <?php elseif ($detail['terima_ket_kemasan']): ?>
+                                                                <span style="color:var(--ink-soft); font-size:12px;">
+                                                                    <?= htmlspecialchars($detail['terima_ket_kemasan']) ?>
                                                                 </span>
                                                             <?php else: ?>
                                                                 <span style="color:var(--ink-faint); font-size:12px;">
@@ -354,7 +376,7 @@ foreach ($all_data as $row) {
                                                 <tr>
                                                     <th colspan="2">Total</th>
                                                     <th><?= $item['total_qty'] ?></th>
-                                                    <th colspan="3">Item</th>
+                                                    <th colspan="4">Item</th>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -384,6 +406,15 @@ foreach ($all_data as $row) {
                                                     <?= htmlspecialchars($item['nama_penerima_barang']) ?> |
                                                     <?= date('d/m/Y H:i', strtotime($item['tanggal_terima'])) ?>
                                                 </div>
+                                                <?php if ($is_operator): ?>
+                                                    <a href="../penerimaan/index.php?id=<?= $item['id'] ?>" class="btn btn-primary">
+                                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M4 20l4-1 11-11-3-3L5 16l-1 4z" />
+                                                            <path d="M14 4l3 3" />
+                                                        </svg>
+                                                        Edit Penerimaan
+                                                    </a>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                             <?php if ($is_admin): ?>
                                                 <a href="tambah.php?edit=<?= $item['id'] ?>" class="btn btn-primary">
@@ -414,6 +445,21 @@ foreach ($all_data as $row) {
             <p>&copy; <?= date('Y') ?> Created By Muhammad Zulfahmi</p>
         </footer>
     </div>
+
+    <!-- Modal Foto Kemasan -->
+    <div class="foto-modal-overlay" id="fotoModalOverlay" onclick="if(event.target===this) tutupFotoModal()">
+        <div class="foto-modal-box">
+            <button type="button" class="foto-modal-close" onclick="tutupFotoModal()" aria-label="Tutup">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="foto-modal-title" id="fotoModalTitle">Foto Kemasan</div>
+            <img src="" alt="Foto Kemasan" id="fotoModalImg">
+            <div class="foto-modal-caption" id="fotoModalCaption"></div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 

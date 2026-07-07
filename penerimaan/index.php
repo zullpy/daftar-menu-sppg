@@ -35,7 +35,7 @@ if ($is_operator && $lokasiSession !== 'semua') {
 }
 
 $stmt_d = $pdo->prepare("
-SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan, dpr.qty_diterima AS terima_qty_diterima
+SELECT dp.*, dpr.status_barang AS terima_status, dpr.keterangan AS terima_keterangan, dpr.qty_diterima AS terima_qty_diterima, dpr.keterangan_kemasan AS terima_keterangan_kemasan, dpr.foto_kemasan AS terima_foto_kemasan
 FROM detail_pengiriman dp
 LEFT JOIN penerimaan pr ON pr.pengiriman_id = dp.pengiriman_id
 LEFT JOIN detail_penerimaan dpr ON dpr.detail_pengiriman_id = dp.id AND dpr.penerimaan_id = pr.id
@@ -57,6 +57,59 @@ if ($penerimaan_exist && !empty($penerimaan_exist['tanggal_terima'])) {
 
 $ttd_pengirim_existing = $pengiriman['tanda_tangan_pengirim'] ?? '';
 $ttd_penerima_existing = $penerimaan_exist['tanda_tangan_penerima'] ?? '';
+
+// Folder penyimpanan foto per kemasan
+$fotoKemasanDir = __DIR__ . '/../uploads/foto-perkemasan/';
+if (!is_dir($fotoKemasanDir)) {
+    @mkdir($fotoKemasanDir, 0775, true);
+}
+
+/**
+ * Simpan file foto kemasan yang diupload dan kembalikan nama filenya.
+ * Return null jika tidak ada file yang diupload.
+ */
+function simpanFotoKemasan($fileArray, $index, $dir, $detailPengirimanId)
+{
+    if (
+        !isset($fileArray['error'][$index]) ||
+        $fileArray['error'][$index] === UPLOAD_ERR_NO_FILE
+    ) {
+        return null; // tidak ada file diupload untuk item ini
+    }
+    if ($fileArray['error'][$index] !== UPLOAD_ERR_OK) {
+        throw new Exception("Gagal mengupload foto kemasan (kode error: " . $fileArray['error'][$index] . ")");
+    }
+
+    $tmpName  = $fileArray['tmp_name'][$index];
+    $origName = $fileArray['name'][$index];
+    $size     = $fileArray['size'][$index];
+
+    $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+    $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExt)) {
+        throw new Exception("Format foto kemasan tidak didukung. Gunakan JPG, PNG, atau WEBP.");
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($size > $maxSize) {
+        throw new Exception("Ukuran foto kemasan maksimal 5MB.");
+    }
+
+    // Validasi tambahan: pastikan file yang diupload benar-benar gambar
+    $checkImage = @getimagesize($tmpName);
+    if ($checkImage === false) {
+        throw new Exception("File yang diupload bukan gambar yang valid.");
+    }
+
+    $fileName = 'kemasan_' . $detailPengirimanId . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
+    $destPath = $dir . $fileName;
+
+    if (!move_uploaded_file($tmpName, $destPath)) {
+        throw new Exception("Gagal menyimpan foto kemasan ke server.");
+    }
+
+    return $fileName;
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!$is_operator) die("Hanya operator yang dapat melakukan konfirmasi.");
@@ -103,6 +156,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt_old = $pdo->prepare("SELECT * FROM detail_penerimaan WHERE penerimaan_id = ?");
             $stmt_old->execute([$penerimaan_id]);
             $oldRows = $stmt_old->fetchAll();
+
+            // Simpan foto/keterangan kemasan lama supaya tidak hilang kalau operator tidak upload ulang
+            $oldKemasanMap = [];
+            foreach ($oldRows as $old) {
+                $oldKemasanMap[$old['detail_pengiriman_id']] = [
+                    'foto_kemasan'       => $old['foto_kemasan'] ?? null,
+                    'keterangan_kemasan' => $old['keterangan_kemasan'] ?? null,
+                ];
+            }
+
             foreach ($oldRows as $old) {
                 if ($old['qty_diterima'] === null) continue;
                 $info = $dpMap[$old['detail_pengiriman_id']] ?? null;
@@ -113,17 +176,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             $pdo->prepare("DELETE FROM detail_penerimaan WHERE penerimaan_id = ?")->execute([$penerimaan_id]);
         } else {
+            $oldKemasanMap = [];
             $pdo->prepare("INSERT INTO penerimaan (pengiriman_id, nama_penerima_barang, tanggal_terima, tanda_tangan_penerima)
             VALUES (?, ?, ?, ?)")
                 ->execute([$id, $nama_penerima_barang, $tanggal_terima_mysql, $ttd_penerima]);
             $penerimaan_id = $pdo->lastInsertId();
         }
 
-        $detail_ids    = $_POST['detail_id'];
-        $statuses      = $_POST['status_barang'];
-        $keterangans   = $_POST['keterangan_status'];
-        $qty_diterimas = $_POST['qty_diterima'] ?? [];
-        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, qty_diterima, keterangan) VALUES (?, ?, ?, ?, ?)");
+        $detail_ids         = $_POST['detail_id'];
+        $statuses           = $_POST['status_barang'];
+        $keterangans        = $_POST['keterangan_status'];
+        $qty_diterimas      = $_POST['qty_diterima'] ?? [];
+        $keterangan_kemasans = $_POST['keterangan_kemasan'] ?? [];
+        $fotoKemasanFiles    = $_FILES['foto_kemasan'] ?? null;
+
+        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, qty_diterima, keterangan, keterangan_kemasan, foto_kemasan) VALUES (?, ?, ?, ?, ?, ?, ?)");
         for ($i = 0; $i < count($detail_ids); $i++) {
             $status = $statuses[$i] ?? null;
             $ket = trim($keterangans[$i] ?? '');
@@ -145,7 +212,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $qtyMasuk = (float)$qtyRaw;
             }
 
-            $stmt_insert->execute([$penerimaan_id, $detailPengirimanId, $status, $qtyMasuk, $ket ?: null]);
+            // Keterangan isi kemasan (mis. "1 dus isi 14 box, 1 box isi 50pcs")
+            $ketKemasan = trim($keterangan_kemasans[$i] ?? '');
+
+            // Foto per kemasan: upload baru jika ada, kalau tidak pertahankan foto lama
+            $fotoKemasanName = null;
+            if ($fotoKemasanFiles) {
+                $fotoKemasanName = simpanFotoKemasan($fotoKemasanFiles, $i, $fotoKemasanDir, $detailPengirimanId);
+            }
+            if ($fotoKemasanName === null) {
+                $fotoKemasanName = $oldKemasanMap[$detailPengirimanId]['foto_kemasan'] ?? null;
+            }
+            if ($ketKemasan === '') {
+                $ketKemasanOld = $oldKemasanMap[$detailPengirimanId]['keterangan_kemasan'] ?? null;
+                if ($ketKemasanOld) $ketKemasan = $ketKemasanOld;
+            }
+
+            $stmt_insert->execute([
+                $penerimaan_id,
+                $detailPengirimanId,
+                $status,
+                $qtyMasuk,
+                $ket ?: null,
+                $ketKemasan ?: null,
+                $fotoKemasanName
+            ]);
 
             if ($info && $qtyMasuk > 0) {
                 $upsertStok($info['nama_barang'], $info['satuan'], $lokasiStok, $qtyMasuk);
@@ -502,6 +593,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-color: var(--red);
             color: var(--red);
         }
+
+        /* ── Isi Kemasan & Foto Kemasan ── */
+        .input-ket-kemasan {
+            font-size: 12.5px;
+        }
+
+        .foto-kemasan-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .foto-kemasan-thumb {
+            width: 100%;
+            max-width: 90px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--line-strong);
+            display: block;
+        }
+
+        .foto-kemasan-thumb-mobile {
+            max-width: 140px;
+            height: 90px;
+            margin-bottom: 6px;
+        }
+
+        .foto-kemasan-preview-link {
+            display: inline-block;
+        }
+
+        .input-foto-kemasan {
+            font-size: 11.5px;
+            padding: 6px 4px;
+        }
     </style>
 </head>
 
@@ -571,7 +698,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </div>
 
-            <form method="POST" onsubmit="return submitWithSignature()">
+            <form method="POST" enctype="multipart/form-data" onsubmit="return submitWithSignature()">
                 <input type="hidden" name="tanda_tangan_pengirim" id="ttd_pengirim_input" value="<?= htmlspecialchars($ttd_pengirim_existing) ?>">
                 <input type="hidden" name="tanda_tangan_penerima" id="ttd_penerima_input" value="<?= htmlspecialchars($ttd_penerima_existing) ?>">
 
@@ -590,11 +717,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <table class="table-detail table-pengecekan">
                         <thead>
                             <tr>
-                                <th style="width: 24%">Nama Barang</th>
-                                <th style="width: 8%">Qty</th>
-                                <th style="width: 26%">Status Penerimaan</th>
-                                <th style="width: 14%">Qty Diterima</th>
-                                <th style="width: 28%">Keterangan</th>
+                                <th style="width: 16%">Nama Barang</th>
+                                <th style="width: 6%">Qty</th>
+                                <th style="width: 18%">Status Penerimaan</th>
+                                <th style="width: 10%">Qty Diterima</th>
+                                <th style="width: 16%">Keterangan</th>
+                                <th style="width: 17%">Isi Kemasan</th>
+                                <th style="width: 17%">Foto Kemasan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -665,6 +794,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <?php if (!$showKet): ?>
                                             <span class="ket-placeholder">—</span>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="keterangan_kemasan[]" class="form-control input-ket-kemasan"
+                                            placeholder="1 dus isi 14 box, 1 box isi 50pcs"
+                                            value="<?= htmlspecialchars($d['terima_keterangan_kemasan'] ?? '') ?>">
+                                    </td>
+                                    <td>
+                                        <div class="foto-kemasan-wrap">
+                                            <?php if (!empty($d['terima_foto_kemasan'])): ?>
+                                                <a href="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" target="_blank" class="foto-kemasan-preview-link">
+                                                    <img src="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" class="foto-kemasan-thumb" alt="Foto kemasan">
+                                                </a>
+                                            <?php endif; ?>
+                                            <input type="file" name="foto_kemasan[]" class="form-control input-foto-kemasan" accept="image/*" capture="environment">
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -737,6 +881,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <input type="text" name="keterangan_status[]" class="form-control input-ket"
                                         placeholder="Wajib diisi jika kurang/tidak ada"
                                         value="<?= htmlspecialchars($d['terima_keterangan'] ?? '') ?>">
+                                </div>
+
+                                <div class="barang-card-field">
+                                    <label>Keterangan Isi Kemasan</label>
+                                    <input type="text" name="keterangan_kemasan[]" class="form-control input-ket-kemasan"
+                                        placeholder="1 dus isi 14 box, 1 box isi 50pcs"
+                                        value="<?= htmlspecialchars($d['terima_keterangan_kemasan'] ?? '') ?>">
+                                </div>
+
+                                <div class="barang-card-field">
+                                    <label>Foto Kemasan</label>
+                                    <?php if (!empty($d['terima_foto_kemasan'])): ?>
+                                        <a href="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" target="_blank" class="foto-kemasan-preview-link">
+                                            <img src="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" class="foto-kemasan-thumb foto-kemasan-thumb-mobile" alt="Foto kemasan">
+                                        </a>
+                                    <?php endif; ?>
+                                    <input type="file" name="foto_kemasan[]" class="form-control input-foto-kemasan" accept="image/*" capture="environment">
                                 </div>
 
                                 <!-- hidden id untuk form submit -->
@@ -1113,6 +1274,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                 }
             }
+        });
+
+        // ── Live preview foto kemasan saat dipilih ──
+        document.querySelectorAll('.input-foto-kemasan').forEach(function(input) {
+            input.addEventListener('change', function() {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    alert('⚠️ File yang dipilih bukan gambar.');
+                    input.value = '';
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('⚠️ Ukuran foto kemasan maksimal 5MB.');
+                    input.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const wrap = input.closest('.foto-kemasan-wrap') || input.closest('.barang-card-field');
+                    let img = wrap.querySelector('.foto-kemasan-thumb');
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.className = 'foto-kemasan-thumb';
+                        if (wrap.classList.contains('barang-card-field')) {
+                            img.classList.add('foto-kemasan-thumb-mobile');
+                        }
+                        wrap.insertBefore(img, input);
+                    }
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
         });
 
         // ── Validasi submit ──
