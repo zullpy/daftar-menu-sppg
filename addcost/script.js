@@ -75,40 +75,56 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
 
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
-        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload foto ${type}...</p>`;
+        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
         loading.classList.add('active');
     }
 
-    const fd = new FormData();
-    fd.append('action', action);
-    fd.append('id_detail', idDetail);
-    fd.append('foto', file);
+    const doUpload = (uploadFile) => {
+        if (loading) {
+            loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload foto ${type}...</p>`;
+        }
+        const fd = new FormData();
+        fd.append('action', action);
+        fd.append('id_detail', idDetail);
+        fd.append('foto', uploadFile);
 
-    fetch('addcost.php', {
-        method: 'POST',
-        body: fd
-    })
-        .then(async r => {
-            const text = await r.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                throw new Error('Server error: ' + text.substring(0, 100));
-            }
+        fetch('addcost.php', {
+            method: 'POST',
+            body: fd
         })
-        .then(result => {
-            if (loading) loading.classList.remove('active');
-            if (!result.success) {
-                alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
-            } else {
-                // Reload page to show new photo
-                window.location.href = 'addcost.php?foto_uploaded=1';
-            }
-        })
-        .catch(err => {
-            if (loading) loading.classList.remove('active');
-            alert('❌ Error: ' + err.message);
-        });
+            .then(async r => {
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server error: ' + text.substring(0, 100));
+                }
+            })
+            .then(result => {
+                if (loading) loading.classList.remove('active');
+                if (!result.success) {
+                    alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
+                } else {
+                    // Reload page to show new photo
+                    window.location.href = 'addcost.php?foto_uploaded=1';
+                }
+            })
+            .catch(err => {
+                if (loading) loading.classList.remove('active');
+                alert('❌ Error: ' + err.message);
+            });
+    };
+
+    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+        compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1024 })
+            .then(doUpload)
+            .catch(err => {
+                console.error('Gagal mengompres gambar:', err);
+                doUpload(file);
+            });
+    } else {
+        doUpload(file);
+    }
 
     input.value = '';
 }

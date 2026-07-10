@@ -629,6 +629,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 11.5px;
             padding: 6px 4px;
         }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--line);
+            border-top-color: var(--navy);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -698,7 +733,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </div>
 
-            <form method="POST" enctype="multipart/form-data" onsubmit="return submitWithSignature()">
+            <form id="formPenerimaan" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="tanda_tangan_pengirim" id="ttd_pengirim_input" value="<?= htmlspecialchars($ttd_pengirim_existing) ?>">
                 <input type="hidden" name="tanda_tangan_penerima" id="ttd_penerima_input" value="<?= htmlspecialchars($ttd_penerima_existing) ?>">
 
@@ -1005,6 +1040,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </main>
     </div>
 
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p id="loadingText">Memproses...</p>
+    </div>
+
     <script>
         // ── Resize canvas ──
         function resizeSignatureCanvas(canvas, pad, existingData) {
@@ -1020,7 +1060,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // ── Trim whitespace dari TTD ──
         function getTrimmedSignature(pad) {
-            const canvas = pad.toCanvas();
+            const canvas = pad.canvas;
             const ctx = canvas.getContext('2d');
             const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imgData.data;
@@ -1357,6 +1397,131 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if (hasPengirimCanvas) ttdPengirimInput.value = getTrimmedSignature(sigPadPengirim);
             if (hasPenerimaCanvas) ttdPenerimaInput.value = getTrimmedSignature(sigPadPenerima);
             return true;
+        }
+
+        // ── Fungsi compress gambar ──
+        function compressImage(file, options = {}) {
+            const {
+                maxWidth = 1800,
+                maxHeight = 1800,
+                quality = 0.8,
+                maxSizeKB = 1024,
+                minQuality = 0.5
+            } = options;
+            return new Promise((resolve, reject) => {
+                if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+                    resolve(file);
+                    return;
+                }
+                if (file.size < 250 * 1024) {
+                    resolve(file);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = Math.round(width * ratio);
+                            height = Math.round(height * ratio);
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, width, height);
+                        let currentQuality = quality;
+                        const tryCompress = (q) => {
+                            canvas.toBlob((blob) => {
+                                if (!blob) {
+                                    reject(new Error('Gagal compress gambar'));
+                                    return;
+                                }
+                                if (blob.size > maxSizeKB * 1024 && q > minQuality) {
+                                    tryCompress(q - 0.1);
+                                    return;
+                                }
+                                const compressedFile = new File(
+                                    [blob],
+                                    file.name.replace(/\.[^.]+$/, '.jpg'),
+                                    { type: 'image/jpeg', lastModified: Date.now() }
+                                );
+                                resolve(compressedFile);
+                            }, 'image/jpeg', q);
+                        };
+                        tryCompress(currentQuality);
+                    };
+                    img.onerror = () => reject(new Error('Gagal memuat gambar'));
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject(new Error('Gagal membaca file'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ── Async Submit Listener dengan Kompresi Gambar ──
+        const form = document.getElementById('formPenerimaan');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault(); // Stop normal form submission
+
+                // Jalankan validasi tanda tangan & input terlebih dahulu
+                if (!submitWithSignature()) {
+                    return; // Validasi gagal
+                }
+
+                // Tampilkan loading overlay
+                const loading = document.getElementById('loadingOverlay');
+                if (loading) {
+                    loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+                    loading.classList.add('active');
+                }
+
+                try {
+                    const fileInputs = form.querySelectorAll('input[type="file"]');
+                    for (const input of fileInputs) {
+                        if (input.files && input.files.length > 0) {
+                            const dataTransfer = new DataTransfer();
+                            for (let i = 0; i < input.files.length; i++) {
+                                const file = input.files[i];
+                                if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                                    const loadingText = document.getElementById('loadingText');
+                                    if (loadingText) {
+                                        loadingText.textContent = `Mengompres ${file.name}...`;
+                                    }
+                                    const compressed = await compressImage(file, {
+                                        maxWidth: 1800,
+                                        maxHeight: 1800,
+                                        quality: 0.8,
+                                        maxSizeKB: 1024
+                                    });
+                                    dataTransfer.items.add(compressed);
+                                } else {
+                                    dataTransfer.items.add(file);
+                                }
+                            }
+                            input.files = dataTransfer.files;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error compress:', err);
+                }
+
+                if (loading) {
+                    const loadingText = document.getElementById('loadingText');
+                    if (loadingText) loadingText.textContent = 'Menyimpan data...';
+                }
+
+                // Submit form secara terprogram (mengabaikan event listener submit)
+                form.submit();
+            });
         }
     </script>
 </body>

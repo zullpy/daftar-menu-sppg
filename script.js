@@ -111,18 +111,18 @@ function previewFotoMenuMulti(input) {
 // =====================================================
 function compressImage(file, options = {}) {
     const {
-        maxWidth = 1600,
-        maxHeight = 1600,
-        quality = 0.7,
-        maxSizeKB = 800,
-        minQuality = 0.4
+        maxWidth = 1800,
+        maxHeight = 1800,
+        quality = 0.8,
+        maxSizeKB = 1024,
+        minQuality = 0.5
     } = options;
     return new Promise((resolve, reject) => {
         if (!file.type.startsWith('image/') || file.type === 'image/gif') {
             resolve(file);
             return;
         }
-        if (file.size < 500 * 1024) {
+        if (file.size < 250 * 1024) {
             resolve(file);
             return;
         }
@@ -186,7 +186,7 @@ function uploadInlinePhoto(input, action, id) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mempersiapkan gambar...</p>`;
         loading.classList.add('active');
     }
-    const needCompress = (action === 'add_foto_receiving' || action === 'add_menu_photo');
+    const needCompress = true;
     const processFiles = async () => {
         const processedFiles = [];
         const totalFiles = files.length;
@@ -488,8 +488,9 @@ async function submitKeteranganKurang() {
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('formBelanja');
     if (form) {
-        form.addEventListener('submit', e => {
-            const loading = document.getElementById('loadingOverlay');
+        form.addEventListener('submit', async e => {
+            e.preventDefault(); // Stop normal form submission
+
             let valid = true;
             form.querySelectorAll('[required]').forEach(f => {
                 if (!f.value.trim()) {
@@ -500,13 +501,105 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (!valid) {
-                e.preventDefault();
                 alert('Lengkapi semua field!');
                 return;
             }
-            loading.classList.add('active');
+
+            const loading = document.getElementById('loadingOverlay');
+            if (loading) {
+                loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+                loading.classList.add('active');
+            }
+
+            try {
+                const fileInputs = form.querySelectorAll('input[type="file"]');
+                for (const input of fileInputs) {
+                    if (input.files && input.files.length > 0) {
+                        const dataTransfer = new DataTransfer();
+                        for (let i = 0; i < input.files.length; i++) {
+                            const file = input.files[i];
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                                const loadingText = document.getElementById('loadingText');
+                                if (loadingText) {
+                                    loadingText.textContent = `Mengompres ${file.name}...`;
+                                }
+                                const compressed = await compressImage(file, {
+                                    maxWidth: 1800,
+                                    maxHeight: 1800,
+                                    quality: 0.8,
+                                    maxSizeKB: 1024
+                                });
+                                dataTransfer.items.add(compressed);
+                            } else {
+                                dataTransfer.items.add(file);
+                            }
+                        }
+                        input.files = dataTransfer.files;
+                    }
+                }
+            } catch (err) {
+                console.error('Error compress sebelum submit:', err);
+            }
+
+            if (loading) {
+                const loadingText = document.getElementById('loadingText');
+                if (loadingText) loadingText.textContent = 'Menyimpan data...';
+            }
+
+            form.submit();
         });
     }
+
+    const formAddItem = document.getElementById('formAddItem');
+    if (formAddItem) {
+        formAddItem.addEventListener('submit', async e => {
+            e.preventDefault(); // Stop normal form submission
+
+            const loading = document.getElementById('loadingOverlay');
+            if (loading) {
+                loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+                loading.classList.add('active');
+            }
+
+            try {
+                const fileInputs = formAddItem.querySelectorAll('input[type="file"]');
+                for (const input of fileInputs) {
+                    if (input.files && input.files.length > 0) {
+                        const dataTransfer = new DataTransfer();
+                        for (let i = 0; i < input.files.length; i++) {
+                            const file = input.files[i];
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                                const loadingText = document.getElementById('loadingText');
+                                if (loadingText) {
+                                    loadingText.textContent = `Mengompres ${file.name}...`;
+                                }
+                                const compressed = await compressImage(file, {
+                                    maxWidth: 1800,
+                                    maxHeight: 1800,
+                                    quality: 0.8,
+                                    maxSizeKB: 1024
+                                });
+                                dataTransfer.items.add(compressed);
+                            } else {
+                                dataTransfer.items.add(file);
+                            }
+                        }
+                        input.files = dataTransfer.files;
+                    }
+                }
+            } catch (err) {
+                console.error('Error compress sebelum submit:', err);
+            }
+
+            if (loading) {
+                const loadingText = document.getElementById('loadingText');
+                if (loadingText) loadingText.textContent = 'Menyimpan data...';
+            }
+
+            formAddItem.submit();
+        });
+    }
+
     if (document.querySelector('#tableItem tbody') && document.querySelector('#tableItem tbody').children.length === 0) {
         addRow();
     }
