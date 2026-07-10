@@ -73,6 +73,12 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
     const file = input.files[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+        alert('⚠️ Ukuran file maksimal 10MB.');
+        input.value = '';
+        return;
+    }
+
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
@@ -116,7 +122,7 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
     };
 
     if (file.type.startsWith('image/') && file.type !== 'image/gif') {
-        compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1024 })
+        compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
             .then(doUpload)
             .catch(err => {
                 console.error('Gagal mengompres gambar:', err);

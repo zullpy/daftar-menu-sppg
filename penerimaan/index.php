@@ -90,9 +90,9 @@ function simpanFotoKemasan($fileArray, $index, $dir, $detailPengirimanId)
         throw new Exception("Format foto kemasan tidak didukung. Gunakan JPG, PNG, atau WEBP.");
     }
 
-    $maxSize = 5 * 1024 * 1024; // 5MB
+    $maxSize = 10 * 1024 * 1024; // 10MB
     if ($size > $maxSize) {
-        throw new Exception("Ukuran foto kemasan maksimal 5MB.");
+        throw new Exception("Ukuran foto kemasan maksimal 10MB.");
     }
 
     // Validasi tambahan: pastikan file yang diupload benar-benar gambar
@@ -1326,8 +1326,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     input.value = '';
                     return;
                 }
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('⚠️ Ukuran foto kemasan maksimal 5MB.');
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('⚠️ Ukuran foto kemasan maksimal 10MB.');
                     input.value = '';
                     return;
                 }
@@ -1405,7 +1405,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 maxWidth = 1800,
                 maxHeight = 1800,
                 quality = 0.8,
-                maxSizeKB = 1024,
+                maxSizeKB = 1000,
                 minQuality = 0.5
             } = options;
             return new Promise((resolve, reject) => {
@@ -1491,6 +1491,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             const dataTransfer = new DataTransfer();
                             for (let i = 0; i < input.files.length; i++) {
                                 const file = input.files[i];
+                                if (file.size > 10 * 1024 * 1024) {
+                                    alert(`⚠️ File ${file.name} melebihi batas maksimal 10MB.`);
+                                    if (loading) loading.classList.remove('active');
+                                    return;
+                                }
                                 if (file.type.startsWith('image/') && file.type !== 'image/gif') {
                                     const loadingText = document.getElementById('loadingText');
                                     if (loadingText) {
@@ -1500,7 +1505,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         maxWidth: 1800,
                                         maxHeight: 1800,
                                         quality: 0.8,
-                                        maxSizeKB: 1024
+                                        maxSizeKB: 1000
                                     });
                                     dataTransfer.items.add(compressed);
                                 } else {

@@ -94,6 +94,25 @@ function calculateRow(input) {
 function previewFotoMenuMulti(input) {
     const preview = document.getElementById('fotoMenuPreview');
     preview.innerHTML = '';
+    
+    // Validasi ukuran max 10MB
+    const validFiles = [];
+    const invalidFiles = [];
+    Array.from(input.files).forEach(file => {
+        if (file.size > 10 * 1024 * 1024) {
+            invalidFiles.push(file.name);
+        } else {
+            validFiles.push(file);
+        }
+    });
+
+    if (invalidFiles.length > 0) {
+        alert(`⚠️ File berikut melebihi batas maksimal 10MB dan tidak dimasukkan:\n- ${invalidFiles.join('\n- ')}`);
+        const dataTransfer = new DataTransfer();
+        validFiles.forEach(f => dataTransfer.items.add(f));
+        input.files = dataTransfer.files;
+    }
+
     Array.from(input.files).forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
@@ -114,7 +133,7 @@ function compressImage(file, options = {}) {
         maxWidth = 1800,
         maxHeight = 1800,
         quality = 0.8,
-        maxSizeKB = 1024,
+        maxSizeKB = 1000,
         minQuality = 0.5
     } = options;
     return new Promise((resolve, reject) => {
@@ -181,6 +200,20 @@ function compressImage(file, options = {}) {
 function uploadInlinePhoto(input, action, id) {
     const files = input.files;
     if (!files || files.length === 0) return;
+
+    // Validasi ukuran max 10MB
+    const invalidFiles = [];
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].size > 10 * 1024 * 1024) {
+            invalidFiles.push(files[i].name);
+        }
+    }
+    if (invalidFiles.length > 0) {
+        alert(`⚠️ File berikut melebihi batas maksimal 10MB:\n- ${invalidFiles.join('\n- ')}`);
+        input.value = '';
+        return;
+    }
+
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mempersiapkan gambar...</p>`;
@@ -203,7 +236,7 @@ function uploadInlinePhoto(input, action, id) {
             try {
                 if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
                     const compressed = await compressImage(file, {
-                        maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 800
+                        maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 1000
                     });
                     processedFiles.push(compressed);
                 } else {
@@ -337,6 +370,11 @@ function openAddItemModal(idBelanja, judulMenu) {
 function uploadFakturTTD(input, tanggal) {
     const file = input.files[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+        alert('⚠️ Ukuran file faktur maksimal 10MB.');
+        input.value = '';
+        return;
+    }
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload faktur...</p>`;
@@ -518,6 +556,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataTransfer = new DataTransfer();
                         for (let i = 0; i < input.files.length; i++) {
                             const file = input.files[i];
+                            if (file.size > 10 * 1024 * 1024) {
+                                alert(`⚠️ File ${file.name} melebihi batas maksimal 10MB.`);
+                                if (loading) loading.classList.remove('active');
+                                return;
+                            }
                             if (file.type.startsWith('image/') && file.type !== 'image/gif') {
                                 const loadingText = document.getElementById('loadingText');
                                 if (loadingText) {
@@ -527,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     maxWidth: 1800,
                                     maxHeight: 1800,
                                     quality: 0.8,
-                                    maxSizeKB: 1024
+                                    maxSizeKB: 1000
                                 });
                                 dataTransfer.items.add(compressed);
                             } else {
@@ -568,6 +611,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataTransfer = new DataTransfer();
                         for (let i = 0; i < input.files.length; i++) {
                             const file = input.files[i];
+                            if (file.size > 10 * 1024 * 1024) {
+                                alert(`⚠️ File ${file.name} melebihi batas maksimal 10MB.`);
+                                if (loading) loading.classList.remove('active');
+                                return;
+                            }
                             if (file.type.startsWith('image/') && file.type !== 'image/gif') {
                                 const loadingText = document.getElementById('loadingText');
                                 if (loadingText) {
@@ -577,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     maxWidth: 1800,
                                     maxHeight: 1800,
                                     quality: 0.8,
-                                    maxSizeKB: 1024
+                                    maxSizeKB: 1000
                                 });
                                 dataTransfer.items.add(compressed);
                             } else {

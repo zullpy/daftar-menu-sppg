@@ -36,9 +36,9 @@ if (!isset($_FILES['foto']) || $_FILES['foto']['error'] !== UPLOAD_ERR_OK) {
     exit;
 }
 
-// Validasi ukuran (max 5MB sebelum compress)
-if ($_FILES['foto']['size'] > 5 * 1024 * 1024) {
-    echo json_encode(['success' => false, 'message' => 'Ukuran file maksimal 5MB']);
+// Validasi ukuran (max 10MB sebelum compress)
+if ($_FILES['foto']['size'] > 10 * 1024 * 1024) {
+    echo json_encode(['success' => false, 'message' => 'Ukuran file maksimal 10MB']);
     exit;
 }
 
