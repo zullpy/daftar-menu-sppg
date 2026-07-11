@@ -141,7 +141,7 @@ function compressImage(file, options = {}) {
             resolve(file);
             return;
         }
-        if (file.size < 250 * 1024) {
+        if (file.size < 1000 * 1024) {
             resolve(file);
             return;
         }
@@ -227,14 +227,14 @@ function uploadInlinePhoto(input, action, id) {
             const file = files[i];
             const loadingText = document.getElementById('loadingText');
             if (loadingText) {
-                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                     loadingText.textContent = `Mengcompress gambar ${i + 1}/${totalFiles}...`;
                 } else {
                     loadingText.textContent = `Memproses file ${i + 1}/${totalFiles}...`;
                 }
             }
             try {
-                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                     const compressed = await compressImage(file, {
                         maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 1000
                     });
@@ -404,7 +404,7 @@ function uploadFakturTTD(input, tanggal) {
                 alert('❌ Error: ' + err.message);
             });
     };
-    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+    if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
         compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
             .then(doUpload)
             .catch(() => doUpload(file));
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (loading) loading.classList.remove('active');
                                 return;
                             }
-                            if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                                 const loadingText = document.getElementById('loadingText');
                                 if (loadingText) {
                                     loadingText.textContent = `Mengompres ${file.name}...`;
@@ -616,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (loading) loading.classList.remove('active');
                                 return;
                             }
-                            if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                                 const loadingText = document.getElementById('loadingText');
                                 if (loadingText) {
                                     loadingText.textContent = `Mengompres ${file.name}...`;

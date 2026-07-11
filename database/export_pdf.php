@@ -178,27 +178,31 @@ $belanjaList = $stmt->fetchAll();
 
         .info-table td {
             border: none;
-            padding: 4px 6px;
+            padding: 2px 3px;
             font-size: 8.5pt;
             line-height: 1.4;
         }
 
         .info-table .label {
-            width: 110px;
+            width: 1%;
             white-space: nowrap;
+        }
+
+        .info-table .colon {
+            width: 1%;
+            white-space: nowrap;
+            padding-left: 2px;
+            padding-right: 2px;
         }
 
         .info-table .value {
-            min-width: 100px;
+            padding-left: 2px;
         }
 
         .info-table .label-right {
-            width: 90px;
+            width: 1%;
             white-space: nowrap;
-        }
-
-        .info-table .value-right {
-            width: 130px;
+            padding-left: 14px;
         }
 
         /* ===== SECTION PER MENU ===== */
@@ -502,19 +506,24 @@ $belanjaList = $stmt->fetchAll();
         <table class="info-table">
             <tr>
                 <td class="label">Nama SPPG</td>
-                <td class="value">: <?= htmlspecialchars($infoSppg) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoSppg) ?></td>
                 <td class="label-right">Tanggal</td>
-                <td class="value-right">: <?= getNamaHari($tanggal) ?>, <?= formatTanggalIndonesia($tanggal) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= getNamaHari($tanggal) ?>, <?= formatTanggalIndonesia($tanggal) ?></td>
             </tr>
             <tr>
                 <td class="label">No Kontak</td>
-                <td class="value">: <?= htmlspecialchars($infoKontak) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoKontak) ?></td>
                 <td class="label-right">No Faktur</td>
-                <td class="value-right">: <?= htmlspecialchars($infoNoFaktur) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoNoFaktur) ?></td>
             </tr>
             <tr>
                 <td class="label">Alamat</td>
-                <td colspan="3">: <?= htmlspecialchars($infoAlamat) ?></td>
+                <td class="colon">:</td>
+                <td colspan="4" class="value"><?= htmlspecialchars($infoAlamat) ?></td>
             </tr>
         </table>
 

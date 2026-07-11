@@ -1245,7 +1245,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
     <div id="toastNotif" class="toast-notif"></div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= time() ?>"></script>
     <script>
         const KATEGORI_LIST = <?= json_encode($KATEGORI_LIST) ?>;
         const USER_ROLE = '<?= $role ?>';

@@ -81,7 +81,10 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
 
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
-        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+        const loadingMsg = (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024)
+            ? 'Mengompres gambar...'
+            : 'Mempersiapkan gambar...';
+        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">${loadingMsg}</p>`;
         loading.classList.add('active');
     }
 
@@ -121,7 +124,7 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
             });
     };
 
-    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+    if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
         compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
             .then(doUpload)
             .catch(err => {
@@ -335,4 +338,12 @@ function openEditItemAddcost(btn) {
     document.getElementById('edit_qty').value = btn.dataset.qty;
     document.getElementById('edit_satuan').value = btn.dataset.satuan;
     openModal('modalEditAddcost');
+}
+
+// ===== CETAK FAKTUR ADDCOST =====
+function exportPDFAddcost(tanggal, id) {
+    const url = id
+        ? `export-pdf.php?tanggal=${tanggal}&id=${id}`
+        : `export-pdf.php?tanggal=${tanggal}`;
+    window.open(url, '_blank');
 }

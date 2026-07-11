@@ -1413,7 +1413,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     resolve(file);
                     return;
                 }
-                if (file.size < 250 * 1024) {
+                if (file.size < 1000 * 1024) {
                     resolve(file);
                     return;
                 }
@@ -1496,7 +1496,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     if (loading) loading.classList.remove('active');
                                     return;
                                 }
-                                if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                                if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                                     const loadingText = document.getElementById('loadingText');
                                     if (loadingText) {
                                         loadingText.textContent = `Mengompres ${file.name}...`;
