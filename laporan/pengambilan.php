@@ -62,11 +62,18 @@ $stmt->execute($params);
 // Grouping Data
 $dataGrouped = [];
 $totalLaporan = 0;
+$totalSudahAcc = 0;
+$totalBelumAcc = 0;
 while ($row = $stmt->fetch()) {
     $tgl = $row['tanggal_pengambilan'];
     $pengambil = $row['nama_pengambil'] ?: 'Tidak Diketahui';
     $dataGrouped[$tgl][$pengambil][] = $row;
     $totalLaporan++;
+    if (($row['status'] ?? '') === 'verified') {
+        $totalSudahAcc++;
+    } else {
+        $totalBelumAcc++;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -159,6 +166,37 @@ while ($row = $stmt->fetch()) {
             </span>
         </div>
     <?php endif; ?>
+
+    <!-- ✅ CARD RANGKUMAN PENGAMBILAN (Sudah ACC vs Belum ACC) -->
+    <div class="summary-cards">
+        <div class="summary-card total">
+            <div class="summary-icon">
+                <i class="ph ph-package"></i>
+            </div>
+            <div class="summary-content">
+                <span class="summary-label">Total Pengambilan</span>
+                <span class="summary-value"><?= number_format($totalLaporan, 0, ',', '.') ?></span>
+            </div>
+        </div>
+        <div class="summary-card success">
+            <div class="summary-icon">
+                <i class="ph ph-check-circle"></i>
+            </div>
+            <div class="summary-content">
+                <span class="summary-label">Sudah ACC</span>
+                <span class="summary-value"><?= number_format($totalSudahAcc, 0, ',', '.') ?></span>
+            </div>
+        </div>
+        <div class="summary-card warning">
+            <div class="summary-icon">
+                <i class="ph ph-clock-countdown"></i>
+            </div>
+            <div class="summary-content">
+                <span class="summary-label">Belum ACC</span>
+                <span class="summary-value"><?= number_format($totalBelumAcc, 0, ',', '.') ?></span>
+            </div>
+        </div>
+    </div>
 
     <button type="button" class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilter()">
         <span style="display:flex; align-items:center; gap:8px;">
@@ -367,6 +405,7 @@ while ($row = $stmt->fetch()) {
     </div>
 
     <script src="pengambilan.js"></script>
+    <script src="../assets/push-subscribe.js"></script>
 </body>
 
 </html>

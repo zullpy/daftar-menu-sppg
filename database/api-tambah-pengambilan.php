@@ -52,13 +52,14 @@ try {
     $id_pengambilan = $pdo->lastInsertId();
 
     // Insert Detail Barang
-    $sqlDetail = "INSERT INTO pengambilan_barang_detail (id_pengambilan, nama_barang, qty, satuan)
-                  VALUES (:id, :nama, :qty, :satuan)";
+    $sqlDetail = "INSERT INTO pengambilan_barang_detail (id_pengambilan, nama_barang, qty, satuan, jenis)
+                  VALUES (:id, :nama, :qty, :satuan, :jenis)";
     $stmtDetail = $pdo->prepare($sqlDetail);
     foreach ($barang as $b) {
         $nama_barang = $b['nama_barang'] ?? '';
         $satuan = $b['satuan'] ?? '';
         $qty_ambil = (float)($b['qty'] ?? 0);
+        $jenis = $b['jenis'] ?? 'foodcost';
 
         if ($qty_ambil <= 0) {
             throw new Exception("Qty pengambilan untuk barang '$nama_barang' tidak valid!");
@@ -70,14 +71,33 @@ try {
         stok_kurangiUntukPengambilan($pdo, $nama_barang, $satuan, $lokasi, $qty_ambil);
 
         $stmtDetail->execute([
-            ':id'    => $id_pengambilan,
-            ':nama'  => $nama_barang,
-            ':qty'   => $qty_ambil,
-            ':satuan' => $satuan
+            ':id'     => $id_pengambilan,
+            ':nama'   => $nama_barang,
+            ':qty'    => $qty_ambil,
+            ':satuan' => $satuan,
+            ':jenis'  => $jenis
         ]);
     }
 
     $pdo->commit();
+
+    // Trigger Push Notification (Hostinger Safe)
+    try {
+        require_once __DIR__ . '/push_helper.php';
+        $lokasi_names = [
+            'sodong' => 'Sodong',
+            'sariwangi' => 'Sariwangi',
+            'manonjaya' => 'Manonjaya',
+            'semua' => 'Semua Dapur'
+        ];
+        $dapurName = isset($lokasi_names[$lokasi]) ? $lokasi_names[$lokasi] : ucfirst($lokasi);
+        $notifTitle = "Pengambilan Barang Baru";
+        $notifBody = "Ada pengambilan barang baru dengan No. Laporan $no_pengambilan oleh $nama_pengambil ($nama_sppg) dari Dapur $dapurName.";
+        broadcast_push_notification($pdo, $notifTitle, $notifBody);
+    } catch (Exception $pushEx) {
+        // Abaikan
+    }
+
     echo json_encode([
         'status'  => 'success',
         'message' => "Laporan $no_pengambilan berhasil dibuat untuk Dapur " . strtoupper($lokasi)

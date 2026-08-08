@@ -5,14 +5,13 @@ async function updateNoFakturAddcost() {
     if (!tglInput || !tglInput.value) return;
 
     try {
-        const res = await fetch(`addcost.php?generate_no_faktur=1&tanggal=${tglInput.value}`);
+        const res = await fetch(`?generate_no_faktur=1&tanggal=${tglInput.value}`);
         fakturInput.value = await res.text();
     } catch (err) {
         console.error('Gagal generate no faktur:', err);
         fakturInput.value = 'Error generating';
     }
 }
-
 // ===== Dynamic Form Rows Addcost =====
 function addRowAddcost() {
     const rowIndex = Date.now();
@@ -23,10 +22,11 @@ function addRowAddcost() {
     tr.dataset.rowIndex = rowIndex;
     tr.innerHTML = `
         <td><input type="text" name="nama_barang[${rowIndex}]" placeholder="Nama barang" required></td>
-        <td><input type="number" name="harga[${rowIndex}]" class="input-harga" step="0.01" min="0" placeholder="0" required onchange="calculateRowAddcost(this)"></td>
-        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" placeholder="0" required onchange="calculateRowAddcost(this)"></td>
-        <td><input type="text" name="satuan[${rowIndex}]" placeholder="pcs/kg" required></td>
-        <td><input type="number" name="subtotal[${rowIndex}]" class="input-subtotal" readonly placeholder="0" style="background:#f1f5f9;font-weight:600;"></td>
+        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" placeholder="0" required></td>
+        <td><input type="text" name="satuan[${rowIndex}]" placeholder="pcs/kg" required>
+            <input type="hidden" name="harga[${rowIndex}]" class="input-harga" value="0">
+            <input type="hidden" name="subtotal[${rowIndex}]" class="input-subtotal" value="0">
+        </td>
         <td><input type="hidden" name="row_index[]" value="${rowIndex}"><button type="button" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="removeRowAddcost(this)" title="Hapus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></td>
     `;
     tbody.appendChild(tr);
@@ -73,42 +73,67 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
     const file = input.files[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+        alert('⚠️ Ukuran file maksimal 10MB.');
+        input.value = '';
+        return;
+    }
+
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
-        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload foto ${type}...</p>`;
+        const loadingMsg = (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024)
+            ? 'Mengompres gambar...'
+            : 'Mempersiapkan gambar...';
+        loading.innerHTML = `<div class="spinner"></div><p id="loadingText">${loadingMsg}</p>`;
         loading.classList.add('active');
     }
 
-    const fd = new FormData();
-    fd.append('action', action);
-    fd.append('id_detail', idDetail);
-    fd.append('foto', file);
+    const doUpload = (uploadFile) => {
+        if (loading) {
+            loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload foto ${type}...</p>`;
+        }
+        const fd = new FormData();
+        fd.append('action', action);
+        fd.append('id_detail', idDetail);
+        fd.append('foto', uploadFile);
 
-    fetch('addcost.php', {
-        method: 'POST',
-        body: fd
-    })
-        .then(async r => {
-            const text = await r.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                throw new Error('Server error: ' + text.substring(0, 100));
-            }
+        fetch('', {
+            method: 'POST',
+            body: fd
         })
-        .then(result => {
-            if (loading) loading.classList.remove('active');
-            if (!result.success) {
-                alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
-            } else {
-                // Reload page to show new photo
-                window.location.href = 'addcost.php?foto_uploaded=1';
-            }
-        })
-        .catch(err => {
-            if (loading) loading.classList.remove('active');
-            alert('❌ Error: ' + err.message);
-        });
+            .then(async r => {
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server error: ' + text.substring(0, 100));
+                }
+            })
+            .then(result => {
+                if (loading) loading.classList.remove('active');
+                if (!result.success) {
+                    alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
+                } else {
+                    // Reload page to show new photo
+                    window.location.href = '?foto_uploaded=1';
+                }
+            })
+            .catch(err => {
+                if (loading) loading.classList.remove('active');
+                alert('❌ Error: ' + err.message);
+            });
+    };
+
+    if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
+        compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
+            .then(doUpload)
+            .catch(err => {
+                console.error('Gagal mengompres gambar:', err);
+                doUpload(file);
+            });
+    } else {
+        doUpload(file);
+    }
 
     input.value = '';
 }
@@ -129,14 +154,14 @@ function deleteFoto(idDetail, type, filename) {
     fd.append('type', type);
     fd.append('filename', filename);
 
-    fetch('addcost.php', {
+    fetch('', {
         method: 'POST',
         body: fd
     })
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = 'addcost.php?foto_deleted=1';
+            window.location.href = '?foto_deleted=1';
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
@@ -158,14 +183,14 @@ function updateStatusItem(idDetail, status, btn) {
     fd.append('status', status);
     fd.append('keterangan', '');
 
-    fetch('addcost.php', {
+    fetch('', {
         method: 'POST',
         body: fd
     })
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = 'addcost.php?status_updated=1';
+            window.location.href = '?status_updated=1';
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
@@ -216,14 +241,14 @@ function submitKeterangan(idDetail) {
     fd.append('status', 'kurang');
     fd.append('keterangan', keterangan);
 
-    fetch('addcost.php', {
+    fetch('', {
         method: 'POST',
         body: fd
     })
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = 'addcost.php?status_updated=1';
+            window.location.href = '?status_updated=1';
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
@@ -313,4 +338,12 @@ function openEditItemAddcost(btn) {
     document.getElementById('edit_qty').value = btn.dataset.qty;
     document.getElementById('edit_satuan').value = btn.dataset.satuan;
     openModal('modalEditAddcost');
+}
+
+// ===== CETAK FAKTUR ADDCOST =====
+function exportPDFAddcost(tanggal, id) {
+    const url = id
+        ? `export-pdf.php?tanggal=${tanggal}&id=${id}`
+        : `export-pdf.php?tanggal=${tanggal}`;
+    window.open(url, '_blank');
 }

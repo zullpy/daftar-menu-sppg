@@ -1,0 +1,10 @@
+<?php
+define('VAPID_PUBLIC_KEY', 'BBdQPHmUJ_XnT9cpuJZn6RT7zN_T8Q6hcDnHv_JAQqsQpUSlm28QpaCwPpSbeM2Uanoc6qbmJctesdMbFATt7Q4');
+define('VAPID_PRIVATE_KEY', 'ad65r_xloBqZg1EblO7jdX-CFvvi_P2SvmHA_xT1d4c');
+define('VAPID_PRIVATE_PEM', '-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgad65r/xloBqZg1Eb
+lO7jdX+CFvvi/P2SvmHA/xT1d4ehRANCAAQXUDx5lCf150/XKbiWZ+kU+8zf0/EO
+oXA5x7/yQEKrEKVEpZtvEKWgsD6Um3jNlGp6HOqm5iXLXrHTGxQE7e0O
+-----END PRIVATE KEY-----
+');
+define('VAPID_SUBJECT', 'mailto:admin@localhost');

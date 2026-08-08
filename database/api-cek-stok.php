@@ -38,9 +38,9 @@ try {
 
     $result = $stmt->fetch();
     $sisaGrosir   = (float)($result['sisa_grosir'] ?? 0);
-    $sisaEceran   = (float)($result['sisa_eceran'] ?? 0);
     $satuan       = $result['satuan'] ?? '';
     $satuanEceran = $result['satuan_eceran'] ?? '';
+    $sisaEceran   = ($satuanEceran !== '') ? (float)($result['sisa_eceran'] ?? 0) : null;
 
     // "sisa_stok"/"satuan" dipertahankan (kompatibel dengan pemanggil lama) =
     // versi GROSIR, karena itu satuan default yang di-autofill ke form.

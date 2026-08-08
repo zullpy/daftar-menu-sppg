@@ -303,6 +303,7 @@ $role = $_SESSION['role'];
         </div>
     </div>
 
+    <script src="assets/push-subscribe.js"></script>
 </body>
 
 </html>

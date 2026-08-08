@@ -57,7 +57,7 @@ try {
             'satuan_grosir' => $r['satuan'],
             'satuan_eceran' => $r['satuan_eceran'],
             'sisa_grosir'   => (float)$r['sisa_grosir'],
-            'sisa_eceran'   => (float)$r['sisa_eceran'],
+            'sisa_eceran'   => (!empty($r['satuan_eceran'])) ? (float)$r['sisa_eceran'] : null,
         ];
     }, $rows);
 

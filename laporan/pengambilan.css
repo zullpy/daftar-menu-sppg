@@ -246,6 +246,150 @@ body {
     transform: scale(0.94);
 }
 
+/* Custom positioning for push notification FAB to prevent overlapping with .fab-add */
+#push-notif-fab {
+    position: fixed !important;
+    bottom: calc(90px + var(--safe-bottom, 0px)) !important;
+    right: 23px !important;
+    z-index: 9998 !important;
+}
+
+/* ===== CARD RANGKUMAN (SUMMARY CARDS) ===== */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card .summary-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.summary-card.total {
+    border-left: 4px solid #0284c7;
+}
+
+.summary-card.total .summary-icon {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.summary-card.success {
+    border-left: 4px solid var(--success);
+}
+
+.summary-card.success .summary-icon {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.summary-card.warning {
+    border-left: 4px solid var(--warning);
+}
+
+.summary-card.warning .summary-icon {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.summary-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.summary-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-dark);
+    line-height: 1.2;
+}
+
+@media (max-width: 768px) {
+    .summary-cards {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .summary-card {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+
+    .summary-card .summary-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+        border-radius: 10px;
+    }
+
+    .summary-label {
+        font-size: 10px;
+    }
+
+    .summary-value {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .summary-card {
+        padding: 14px 16px;
+        gap: 14px;
+    }
+
+    .summary-label {
+        font-size: 11px;
+    }
+
+    .summary-value {
+        font-size: 20px;
+    }
+}
+
 /* ===== FILTER BAR (collapsible di mobile) ===== */
 .filter-bar {
     background: var(--card-bg);

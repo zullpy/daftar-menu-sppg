@@ -244,6 +244,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $pdo->commit();
         $pdo_draft->commit();
+
+        // Trigger Push Notification (Hostinger Safe)
+        try {
+            require_once __DIR__ . '/../database/push_helper.php';
+            $lokasi_names = [
+                'sodong' => 'Sodong',
+                'sariwangi' => 'Sariwangi',
+                'manonjaya' => 'Manonjaya',
+                'semua' => 'Semua Dapur'
+            ];
+            $dapurName = isset($lokasi_names[$lokasi]) ? $lokasi_names[$lokasi] : ucfirst($lokasi);
+            if ($edit_id) {
+                $notifTitle = "Pengiriman Diperbarui";
+                $notifBody = "Pengiriman No. $no_surat_jalan tujuan Dapur $dapurName telah diperbarui.";
+            } else {
+                $notifTitle = "Pengiriman Baru";
+                $notifBody = "Ada pengiriman barang baru dengan No. Surat Jalan $no_surat_jalan tujuan Dapur $dapurName.";
+            }
+            broadcast_push_notification($pdo, $notifTitle, $notifBody);
+        } catch (Exception $pushEx) {
+            // Abaikan
+        }
+
         header("Location: index.php?msg=saved");
         exit;
     } catch (Exception $e) {
@@ -640,7 +663,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     dropdown.innerHTML = '';
                                     dropdown.classList.remove('show');
 
-                                    currentStokMap[input.name] = item.stok;
+                                    currentStokMap[item.nama_barang.toLowerCase().trim()] = item.stok;
 
                                     stokText.textContent = `Stok Gudang Pusat: ${item.stok} ${item.satuan}`;
                                     stokInfo.className = 'stok-info ' + stokClass;
@@ -676,18 +699,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         function fetchStokInfo(nama, stokInfo, stokText, input) {
+            const key = nama.toLowerCase().trim();
             fetch(`tambah.php?action=get_stok&nama=${encodeURIComponent(nama)}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.found) {
-                        currentStokMap[input.name] = data.stok;
+                        currentStokMap[key] = data.stok;
                         const stokClass = data.stok <= 0 ? 'stok-habis' : (data.stok < 20 ? 'stok-menipis' : 'stok-aman');
                         stokText.textContent = `Stok Gudang Pusat: ${data.stok} ${data.satuan}`;
                         stokInfo.className = 'stok-info ' + stokClass;
                         stokInfo.style.display = 'flex';
                     } else {
                         stokInfo.style.display = 'none';
-                        delete currentStokMap[input.name];
+                        delete currentStokMap[key];
                     }
                 });
         }
@@ -781,8 +805,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 const nama = namaInput.value.trim();
                 const qty = parseInt(qtyInput.value) || 0;
 
-                if (nama && currentStokMap[namaInput.name] !== undefined) {
-                    const stok = currentStokMap[namaInput.name];
+                const key = nama.toLowerCase().trim();
+                if (nama && currentStokMap[key] !== undefined) {
+                    const stok = currentStokMap[key];
                     if (qty > stok) {
                         warnings.push(`• <strong>${escapeHtml(nama)}</strong>: kirim ${qty}, stok hanya ${stok}`);
                     }

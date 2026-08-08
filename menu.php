@@ -152,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
         foreach ($rowIndexes as $idx) {
             if (empty($items[$idx])) continue;
             $stmtDetail = $pdo->prepare("INSERT INTO belanja_detail (id_belanja, item_barang, qty, satuan, harga_satuan, jumlah, kategori) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmtDetail->execute([$idBelanja, $items[$idx], $qtys[$idx], $satuans[$idx], $hargas[$idx], $jumlahs[$idx], $kategoris[$idx] ?? 'Bahan Pokok']);
+            $stmtDetail->execute([$idBelanja, $items[$idx], $qtys[$idx], $satuans[$idx], $hargas[$idx], $jumlahs[$idx], $kategoris[$idx] ?? 'Karbohidrat']);
             $idDetail = $pdo->lastInsertId();
 
             if (isset($_FILES['nota_files']['name'][$idx]) && is_array($_FILES['nota_files']['name'][$idx])) {
@@ -207,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
         $satuan = $_POST['satuan'];
         $harga = $_POST['harga_satuan'];
         $jumlah = (float)$qty * (float)$harga;
-        $kategori = $_POST['kategori'] ?? 'Bahan Pokok';
+        $kategori = $_POST['kategori'] ?? 'Karbohidrat';
         $stmt = $pdo->prepare("INSERT INTO belanja_detail (id_belanja, item_barang, qty, satuan, harga_satuan, jumlah, kategori) VALUES (:id_belanja, :item_barang, :qty, :satuan, :harga_satuan, :jumlah, :kategori)");
         $stmt->execute([
             ':id_belanja'    => $idBelanja,
@@ -301,7 +301,7 @@ foreach ($belanjaList as &$belanja) {
     $belanja['fotos'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
     if (empty($belanja['fotos']) && !empty($belanja['foto_menu'])) $belanja['fotos'] = [$belanja['foto_menu']];
 
-    $stmt = $pdo->prepare("SELECT * FROM belanja_detail WHERE id_belanja = ? ORDER BY FIELD(kategori,'Bahan Pokok','Bumbu','Sayuran','Buah-buahan','Tambahan'), item_barang");
+    $stmt = $pdo->prepare("SELECT * FROM belanja_detail WHERE id_belanja = ? ORDER BY FIELD(kategori,'Karbohidrat','Protein','Sayuran','Buah-buahan','Bumbu','Pelengkap/Tambahan'), item_barang");
     $stmt->execute([$belanja['id_belanja']]);
     $belanja['details'] = $stmt->fetchAll();
 
@@ -351,7 +351,7 @@ function getNamaHari($tanggal)
     return $hari[date('D', strtotime($tanggal))];
 }
 
-$KATEGORI_LIST = ['Bahan Pokok', 'Bumbu', 'Sayuran', 'Buah-buahan', 'Tambahan'];
+$KATEGORI_LIST = ['Karbohidrat', 'Protein', 'Sayuran', 'Buah-buahan', 'Bumbu', 'Pelengkap/Tambahan'];
 $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'manonjaya' => 'Dapur Manonjaya'];
 ?>
 <!DOCTYPE html>
@@ -659,15 +659,16 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                 <?php if ($isAdmin): ?>
                                     <?php
                                     $kategoriGroups = [
-                                        'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff', 'border' => '#bfdbfe'],
-                                        'Bumbu'       => ['color' => '#d97706', 'bg' => '#fffbeb', 'border' => '#fde68a'],
-                                        'Sayuran'     => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'border' => '#bbf7d0'],
-                                        'Buah-buahan' => ['color' => '#dc2626', 'bg' => '#fef2f2', 'border' => '#fecaca'],
-                                        'Tambahan'    => ['color' => '#7c3aed', 'bg' => '#f5f3ff', 'border' => '#ddd6fe'],
+                                        'Karbohidrat'        => ['color' => '#2563eb', 'bg' => '#eff6ff', 'border' => '#bfdbfe'],
+                                        'Protein'            => ['color' => '#dc2626', 'bg' => '#fef2f2', 'border' => '#fecaca'],
+                                        'Sayuran'            => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'border' => '#bbf7d0'],
+                                        'Buah-buahan'        => ['color' => '#db2777', 'bg' => '#fdf2f8', 'border' => '#fbcfe8'],
+                                        'Bumbu'              => ['color' => '#d97706', 'bg' => '#fffbeb', 'border' => '#fde68a'],
+                                        'Pelengkap/Tambahan' => ['color' => '#7c3aed', 'bg' => '#f5f3ff', 'border' => '#ddd6fe'],
                                     ];
                                     $grouped = [];
                                     foreach ($belanja['details'] as $d) {
-                                        $kat = !empty($d['kategori']) ? $d['kategori'] : 'Bahan Pokok';
+                                        $kat = !empty($d['kategori']) ? $d['kategori'] : 'Karbohidrat';
                                         $grouped[$kat][] = $d['item_barang'];
                                     }
                                     ?>
@@ -700,17 +701,18 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                     $totalBelanja = 0;
                                     if (!isset($kategoriGroups)) {
                                         $kategoriGroups = [
-                                            'Bahan Pokok' => ['color' => '#2563eb', 'bg' => '#eff6ff'],
-                                            'Bumbu'       => ['color' => '#d97706', 'bg' => '#fffbeb'],
-                                            'Sayuran'     => ['color' => '#16a34a', 'bg' => '#f0fdf4'],
-                                            'Buah-buahan' => ['color' => '#dc2626', 'bg' => '#fef2f2'],
-                                            'Tambahan'    => ['color' => '#7c3aed', 'bg' => '#f5f3ff'],
+                                            'Karbohidrat'        => ['color' => '#2563eb', 'bg' => '#eff6ff'],
+                                            'Protein'            => ['color' => '#dc2626', 'bg' => '#fef2f2'],
+                                            'Sayuran'            => ['color' => '#16a34a', 'bg' => '#f0fdf4'],
+                                            'Buah-buahan'        => ['color' => '#db2777', 'bg' => '#fdf2f8'],
+                                            'Bumbu'              => ['color' => '#d97706', 'bg' => '#fffbeb'],
+                                            'Pelengkap/Tambahan' => ['color' => '#7c3aed', 'bg' => '#f5f3ff'],
                                         ];
                                     }
                                     foreach ($belanja['details'] as $detail):
                                         $totalBelanja += $detail['jumlah'];
-                                        $katColor = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['color'] ?? '#64748b';
-                                        $katBg = $kategoriGroups[$detail['kategori'] ?? 'Bahan Pokok']['bg'] ?? '#f1f5f9';
+                                        $katColor = $kategoriGroups[$detail['kategori'] ?? 'Karbohidrat']['color'] ?? '#64748b';
+                                        $katBg = $kategoriGroups[$detail['kategori'] ?? 'Karbohidrat']['bg'] ?? '#f1f5f9';
                                         $qtyDisplay = rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',');
                                         $currentStatus = $detail['status_item'] ?? null;
                                     ?>
@@ -724,10 +726,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                             <span class="item-qty-chip"><?= $qtyDisplay ?> <?= htmlspecialchars($detail['satuan']) ?></span>
                                                         </div>
                                                         <div class="item-row-meta">
-                                                            <span class="badge-kategori" style="background: <?= $katBg ?>; color: <?= $katColor ?>;"><?= htmlspecialchars($detail['kategori'] ?? 'Bahan Pokok') ?></span>
-                                                            <?php if ($isAdmin): ?>
-                                                                <span class="item-row-harga">Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?> / <?= htmlspecialchars($detail['satuan']) ?></span>
-                                                            <?php endif; ?>
+                                                            <span class="badge-kategori" style="background: <?= $katBg ?>; color: <?= $katColor ?>;"><?= htmlspecialchars($detail['kategori'] ?? 'Karbohidrat') ?></span>
 
                                                             <?php if ($isOperator): ?>
                                                                 <div class="status-toggle-group" data-id="<?= $detail['id_detail'] ?>">
@@ -792,9 +791,6 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                         <?php endif; ?>
                                                     </div>
                                                 </div>
-                                                <?php if ($isAdmin): ?>
-                                                    <div class="item-row-subtotal">Rp <?= number_format($detail['jumlah'], 0, ',', '.') ?></div>
-                                                <?php endif; ?>
                                             </div>
 
                                             <div class="item-row-actions">
@@ -882,13 +878,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
                                 <?php if (!empty($belanja['details'])): ?>
                                     <div class="item-list-footer">
-                                        <?php if ($isAdmin): ?>
-                                            <span>Total Belanja</span>
-                                            <strong>Rp <?= number_format($totalBelanja, 0, ',', '.') ?></strong>
-                                        <?php else: ?>
-                                            <span>Total Item</span>
-                                            <strong><?= count($belanja['details']) ?> item</strong>
-                                        <?php endif; ?>
+                                        <span>Total Item</span>
+                                        <strong><?= count($belanja['details']) ?> item</strong>
                                     </div>
 
                                     <div class="ringkasan-status-box">
@@ -957,8 +948,12 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     <button class="close-modal" onclick="closeModal('modalAdd')"><?= icon('x', 20) ?></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formBelanja">
+                    <input type="hidden" name="save_belanja" value="1">
+
+                    <!-- STEP 1: Info Dapur -->
                     <div class="form-section">
                         <h3 class="section-title">
+                            <span class="form-step-number">1</span>
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
                                 <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
                                 <path d="M17 18h1" />
@@ -968,7 +963,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                             Informasi Dapur
                         </h3>
 
-                        <!-- ✅ DROPDOWN LOKASI DAPUR (BARU!) -->
+                        <!-- ✅ DROPDOWN LOKASI DAPUR -->
                         <div class="form-group" style="margin-bottom: 14px;">
                             <label>Pilih Dapur <span class="required">*</span></label>
                             <select name="lokasi" class="form-control" required style="font-weight:600;">
@@ -977,7 +972,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                     <option value="<?= $key ?>"><?= $label ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <small style="color:var(--muted);font-size:11px;margin-top:4px;display:block;">
+                            <small class="form-hint">
                                 Data ini hanya akan muncul untuk operator dapur yang dipilih
                             </small>
                         </div>
@@ -996,13 +991,16 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                             <label>Alamat Dapur</label>
                             <textarea name="alamat" class="form-control" rows="2" placeholder="Alamat lengkap dapur..."></textarea>
                         </div>
-                        <div class="form-group">
-                            <label>No Faktur <small style="color:var(--muted);">(Otomatis)</small></label>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>No Faktur <small class="form-hint-inline">(Otomatis)</small></label>
                             <input type="text" name="no_faktur" class="form-control" readonly style="background:#f1f5f9; font-weight:600; color:var(--primary);">
                         </div>
                     </div>
+
+                    <!-- STEP 2: Info Menu -->
                     <div class="form-section">
                         <h3 class="section-title">
+                            <span class="form-step-number">2</span>
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
                                 <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
                                 <path d="M7 2v20" />
@@ -1020,55 +1018,61 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                 <input type="text" name="judul" class="form-control" placeholder="Contoh: Nasi Kotak Ayam Bakar" required>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Total Porsi</label>
-                                <input type="number" name="porsi" class="form-control" value="0" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label><?= icon('camera', 14) ?> Upload Foto Menu (Bisa Banyak)</label>
-                                <div class="upload-menu-options-inline">
-                                    <button type="button" class="btn-upload-option btn-opt-kamera" onclick="document.getElementById('fotoMenuKamera').click()">
-                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                            <circle cx="12" cy="13" r="4" />
-                                        </svg>
-                                        <span>Ambil Foto</span>
-                                        <small>Kamera HP</small>
-                                    </button>
-                                    <button type="button" class="btn-upload-option btn-opt-galeri" onclick="document.getElementById('fotoMenuGaleri').click()">
-                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" />
-                                            <circle cx="8.5" cy="8.5" r="1.5" />
-                                            <polyline points="21 15 16 10 5 21" />
-                                        </svg>
-                                        <span>Pilih dari Galeri</span>
-                                        <small>Multiple foto</small>
-                                    </button>
-                                </div>
-                                <input type="file" id="fotoMenuGaleri" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
-                                <input type="file" id="fotoMenuKamera" name="foto_menu[]" class="file-input" accept="image/*" capture="environment" onchange="previewFotoMenuMulti(this)">
-                                <div id="fotoMenuPreview" class="image-preview"></div>
-                            </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Total Porsi</label>
+                            <input type="number" name="porsi" class="form-control" value="0" min="0" style="max-width:220px;">
                         </div>
                     </div>
+
+                    <!-- STEP 3: Foto Menu -->
                     <div class="form-section">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                            <h3 class="section-title" style="margin-bottom:0;border:none;padding:0;">Detail Item Barang</h3>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="addRow()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
+                        <h3 class="section-title">
+                            <span class="form-step-number">3</span>
+                            <?= icon('camera', 15) ?> Foto Menu <small class="form-hint-inline">(Opsional, bisa banyak)</small>
+                        </h3>
+                        <div class="upload-menu-options-inline">
+                            <button type="button" class="btn-upload-option btn-opt-kamera" onclick="document.getElementById('fotoMenuKamera').click()">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <span>Ambil Foto</span>
+                                <small>Kamera HP</small>
+                            </button>
+                            <button type="button" class="btn-upload-option btn-opt-galeri" onclick="document.getElementById('fotoMenuGaleri').click()">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
+                                </svg>
+                                <span>Pilih dari Galeri</span>
+                                <small>Multiple foto</small>
+                            </button>
                         </div>
+                        <input type="file" id="fotoMenuGaleri" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
+                        <input type="file" id="fotoMenuKamera" name="foto_menu[]" class="file-input" accept="image/*" capture="environment" onchange="previewFotoMenuMulti(this)">
+                        <div id="fotoMenuPreview" class="image-preview"></div>
+                    </div>
+
+                    <!-- STEP 4: Detail Item Barang -->
+                    <div class="form-section">
+                        <h3 class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                            <span><span class="form-step-number">4</span> Detail Item Barang</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="addRow()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
+                        </h3>
+                        <p class="form-hint" style="margin-bottom:12px;">
+                            Pilih kategori yang sesuai untuk tiap barang agar mudah dicari dan dikelompokkan otomatis.
+                        </p>
                         <div class="table-responsive">
                             <table class="form-table" id="tableItem">
                                 <thead>
                                     <tr>
-                                        <th style="width:20%">Item Barang</th>
-                                        <th style="width:12%">Kategori</th>
-                                        <th style="width:8%">QTY</th>
-                                        <th style="width:8%">Satuan</th>
-                                        <th style="width:12%">Harga</th>
-                                        <th style="width:12%">Jumlah</th>
-                                        <th style="width:10%">Nota</th>
-                                        <th style="width:10%">Foto</th>
+                                        <th style="width:25%">Item Barang</th>
+                                        <th style="width:18%">Kategori</th>
+                                        <th style="width:12%">QTY</th>
+                                        <th style="width:12%">Satuan</th>
+                                        <th style="width:13%">Nota</th>
+                                        <th style="width:12%">Foto</th>
                                         <th style="width:8%">Aksi</th>
                                     </tr>
                                 </thead>
@@ -1119,10 +1123,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                 <label>QTY</label>
                                 <input type="number" name="qty" id="edit_qty" class="form-control" step="0.01" min="0" required>
                             </div>
-                            <div class="form-group">
-                                <label>Harga Satuan</label>
-                                <input type="number" name="harga_satuan" id="edit_harga" class="form-control" step="0.01" min="0" required>
-                            </div>
+                                <input type="hidden" name="harga_satuan" id="edit_harga" value="0">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1140,6 +1141,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     <button class="close-modal" onclick="closeModal('modalAddItem')"><?= icon('x', 20) ?></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formAddItem">
+                    <input type="hidden" name="add_single_item" value="1">
                     <input type="hidden" name="id_belanja" id="additem_id_belanja">
                     <div class="form-section">
                         <p id="additem_judul_menu" style="margin-bottom:14px;color:var(--muted);font-size:13px;"></p>
@@ -1166,10 +1168,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                 <label>QTY <span class="required">*</span></label>
                                 <input type="number" name="qty" class="form-control" step="0.01" min="0" required>
                             </div>
-                            <div class="form-group">
-                                <label>Harga Satuan <span class="required">*</span></label>
-                                <input type="number" name="harga_satuan" class="form-control" step="0.01" min="0" required>
-                            </div>
+                                <input type="hidden" name="harga_satuan" value="0">
                         </div>
                         <div class="form-group">
                             <label><?= icon('camera', 14) ?> Lampiran Nota (Opsional)</label>
@@ -1256,6 +1255,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
             updateNoFaktur();
         });
     </script>
+    <script src="assets/push-subscribe.js"></script>
 </body>
 
 </html>

@@ -3,7 +3,8 @@ session_start();
 // =======================================================
 // KONFIGURASI PASSWORD
 // =======================================================
-$password_admin    = "admin123";
+$password_admin    = "evinkbus2026";
+$password_admin_alt = "amiw";
 $password_opsodong = "sodong123";
 $password_opsariwangi = "sariwangi123";
 $password_opmanonjaya = "manonjaya123";
@@ -16,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     $role     = $_POST['role'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    if ($role === 'admin' && $password === $password_admin) {
+    if ($role === 'admin' && ($password === $password_admin || $password === $password_admin_alt)) {
         $_SESSION['role'] = 'admin';
         $_SESSION['lokasi'] = 'semua';
         $_SESSION['nama_op'] = 'Admin';

@@ -27,7 +27,7 @@ require_once '../assets/icons.php';
 // ====== 🔒 PROSES HAPUS DETAIL ADDCOST (HANYA ADMIN) ======
 if (isset($_GET['delete_detail'])) {
     if (!$isAdmin) {
-        header("Location: addcost.php?error=unauthorized");
+        header("Location: ?error=unauthorized");
         exit;
     }
     $id = (int)$_GET['delete_detail'];
@@ -41,27 +41,27 @@ if (isset($_GET['delete_detail'])) {
         $newTotal = $stmt->fetchColumn();
         $pdo->prepare("UPDATE pembelian_addcost SET total = ? WHERE id = ?")->execute([$newTotal, $pembelianAddId]);
     }
-    header("Location: addcost.php?deleted=1");
+    header("Location: ?deleted=1");
     exit;
 }
 
 // ====== 🔒 PROSES HAPUS ADDCOST (HANYA ADMIN) ======
 if (isset($_GET['delete_addcost'])) {
     if (!$isAdmin) {
-        header("Location: addcost.php?error=unauthorized");
+        header("Location: ?error=unauthorized");
         exit;
     }
     $id = (int)$_GET['delete_addcost'];
     $pdo->prepare("DELETE FROM pembelian_addcost_detail WHERE pembelian_add_id = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM pembelian_addcost WHERE id = ?")->execute([$id]);
-    header("Location: addcost.php?deleted=1");
+    header("Location: ?deleted=1");
     exit;
 }
 
 // ====== 🔒 PROSES UPDATE DETAIL ADDCOST (HANYA ADMIN) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_detail'])) {
     if (!$isAdmin) {
-        header("Location: addcost.php?error=unauthorized");
+        header("Location: ?error=unauthorized");
         exit;
     }
     try {
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_detail'])) {
         $stmt->execute([$pembelian_add_id]);
         $newTotal = $stmt->fetchColumn();
         $pdo->prepare("UPDATE pembelian_addcost SET total = ? WHERE id = ?")->execute([$newTotal, $pembelian_add_id]);
-        header("Location: addcost.php?updated=1");
+        header("Location: ?updated=1");
         exit;
     } catch (Exception $e) {
         $error = $e->getMessage();
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_detail'])) {
 // ====== 🔄 PROSES UPDATE STATUS ITEM (HANYA OPERATOR) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status_item'])) {
     if ($isAdmin) {
-        header("Location: addcost.php?error=unauthorized");
+        header("Location: ?error=unauthorized");
         exit;
     }
     try {
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status_item'])
         $status = $_POST['status'];
         $keterangan = trim($_POST['keterangan'] ?? '');
         if ($status === 'kurang' && empty($keterangan)) {
-            header("Location: addcost.php?error=keterangan_wajib");
+            header("Location: ?error=keterangan_wajib");
             exit;
         }
         if ($status !== 'kurang') {
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status_item'])
         }
         $stmt = $pdo->prepare("UPDATE pembelian_addcost_detail SET status = ?, keterangan = ? WHERE id = ?");
         $stmt->execute([$status, $keterangan, $id]);
-        header("Location: addcost.php?status_updated=1");
+        header("Location: ?status_updated=1");
         exit;
     } catch (Exception $e) {
         $error = $e->getMessage();
@@ -199,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // ====== 🔒 PROSES TAMBAH ADDCOST BARU (HANYA ADMIN) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_addcost'])) {
     if (!$isAdmin) {
-        header("Location: addcost.php?error=unauthorized");
+        header("Location: ?error=unauthorized");
         exit;
     }
     $no_faktur = $_POST['no_faktur'];
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_addcost'])) {
     $total = 0;
 
     if (empty($no_faktur)) {
-        header("Location: addcost.php?error=no_faktur");
+        header("Location: ?error=no_faktur");
         exit;
     }
     try {
@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_addcost'])) {
         $total = $stmt->fetchColumn();
         $pdo->prepare("UPDATE pembelian_addcost SET total = ? WHERE id = ?")->execute([$total, $pembelianAddId]);
         $pdo->commit();
-        header("Location: addcost.php?success=1");
+        header("Location: ?success=1");
         exit;
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -250,6 +250,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_addcost'])) {
 // ====== GENERATE NO FAKTUR ADDCOST ======
 if (isset($_GET['generate_no_faktur'])) {
     $tanggal = $_GET['tanggal'] ?? date('Ymd');
+    $tanggal = str_replace('-', '', $tanggal); // 2026-07-10 -> 20260710
+
     $stmt = $pdo->prepare("SELECT MAX(CAST(SUBSTRING_INDEX(no_faktur, 'AC-', 1) AS UNSIGNED)) as max_no FROM pembelian_addcost WHERE no_faktur LIKE '%AC-%'");
     $stmt->execute();
     $maxNo = $stmt->fetchColumn();
@@ -258,7 +260,6 @@ if (isset($_GET['generate_no_faktur'])) {
     echo $noFaktur;
     exit;
 }
-
 // ====== AMBIL DATA ADDCOST - ✅ DENGAN FILTER LOKASI ======
 if ($isAdmin) {
     $addcostList = $pdo->query("SELECT * FROM pembelian_addcost ORDER BY tanggal DESC, created_at DESC")->fetchAll();
@@ -601,13 +602,23 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                         <?php endif; ?>
                                     </div>
                                     <?php if ($isAdmin): ?>
-                                        <a href="?delete_addcost=<?= $addcost['id'] ?>" class="btn btn-secondary btn-sm" onclick="return confirm('Yakin ingin menghapus add cost ini? Semua item akan terhapus!')" style="margin-left:auto;">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polyline points="3 6 5 6 21 6" />
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                            </svg>
-                                            <span>Hapus</span>
-                                        </a>
+                                                                                <div style="display:flex; gap:6px; margin-left:auto; align-items:center;">
+                                            <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); exportPDFAddcost('<?= $addcost['tanggal'] ?>', <?= $addcost['id'] ?>)">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="6 9 6 2 18 2 18 9" />
+                                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                                                    <rect x="6" y="14" width="12" height="8" />
+                                                </svg>
+                                                <span>Cetak Faktur</span>
+                                            </button>
+                                            <a href="?delete_addcost=<?= $addcost['id'] ?>" class="btn btn-secondary btn-sm" onclick="return confirm('Yakin ingin menghapus add cost ini? Semua item akan terhapus!')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                                <span>Hapus</span>
+                                            </a>
+                                        </div>
                                     <?php endif; ?>
                                 </div>
                                 <div class="item-list">
@@ -627,14 +638,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                 <div class="item-row-number"><?= $no++ ?></div>
                                                 <div class="item-row-name"><?= htmlspecialchars($detail['nama_barang']) ?></div>
                                                 <span class="item-qty-chip"><?= $detail['qty'] ?> <?= htmlspecialchars($detail['satuan']) ?></span>
-                                                <?php if ($isAdmin): ?>
-                                                    <div class="item-row-subtotal">Rp <?= number_format($detail['subtotal'], 0, ',', '.') ?></div>
-                                                <?php endif; ?>
                                             </div>
                                             <div class="item-row-meta-row">
-                                                <?php if ($isAdmin): ?>
-                                                    <span class="item-row-harga">Rp <?= number_format($detail['harga'], 0, ',', '.') ?> / <?= htmlspecialchars($detail['satuan']) ?></span>
-                                                <?php endif; ?>
                                                 <?php if (!$isAdmin): ?>
                                                     <div class="status-btn-group">
                                                         <button type="button" class="status-btn btn-lengkap <?= $currentStatus === 'lengkap' ? 'active' : '' ?>" onclick="updateStatusItem(<?= $detail['id'] ?>, 'lengkap', this)">✓ Lengkap</button>
@@ -717,7 +722,6 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                         <button type="button" class="action-btn action-btn-edit" onclick="openEditItemAddcost(this)"
                                                             data-id="<?= $detail['id'] ?>"
                                                             data-nama="<?= htmlspecialchars($detail['nama_barang']) ?>"
-                                                            data-harga="<?= $detail['harga'] ?>"
                                                             data-qty="<?= $detail['qty'] ?>"
                                                             data-satuan="<?= htmlspecialchars($detail['satuan']) ?>"
                                                             data-pembelian-add-id="<?= $detail['pembelian_add_id'] ?>"
@@ -745,13 +749,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                 </div>
                                 <?php if (!empty($addcost['details'])): ?>
                                     <div class="item-list-footer">
-                                        <?php if ($isAdmin): ?>
-                                            <span>Total Add Cost</span>
-                                            <strong>Rp <?= number_format($totalAddcost, 0, ',', '.') ?></strong>
-                                        <?php else: ?>
-                                            <span>Total Item</span>
-                                            <strong><?= count($addcost['details']) ?> item</strong>
-                                        <?php endif; ?>
+                                        <span>Total Item</span>
+                                        <strong><?= count($addcost['details']) ?> item</strong>
                                     </div>
                                     <div class="ringkasan-status-box">
                                         <div class="ringkasan-status-header">
@@ -873,11 +872,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                             <table class="form-table" id="tableAddcostItem">
                                 <thead>
                                     <tr>
-                                        <th style="width:35%">Nama Barang</th>
-                                        <th style="width:15%">Harga</th>
-                                        <th style="width:12%">QTY</th>
-                                        <th style="width:12%">Satuan</th>
-                                        <th style="width:16%">Subtotal</th>
+                                        <th style="width:50%">Nama Barang</th>
+                                        <th style="width:20%">QTY</th>
+                                        <th style="width:20%">Satuan</th>
                                         <th style="width:10%">Aksi</th>
                                     </tr>
                                 </thead>
@@ -908,10 +905,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                             <input type="text" name="nama_barang" id="edit_nama_barang" class="form-control" required>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Harga</label>
-                                <input type="number" name="harga" id="edit_harga" class="form-control" step="0.01" min="0" required>
-                            </div>
+                                <input type="hidden" name="harga" id="edit_harga" value="0">
                             <div class="form-group">
                                 <label>Satuan</label>
                                 <input type="text" name="satuan" id="edit_satuan" class="form-control" required>
@@ -940,8 +934,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
         <p id="loadingText">Memproses...</p>
     </div>
 
-    <script src="../script.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>"></script>
+    <script src="../script.js?v=<?= filemtime(__DIR__ . '/../script.js') ?>"></script>
+    <script src="../assets/push-subscribe.js"></script>
 </body>
 
 </html>

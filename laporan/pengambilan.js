@@ -196,7 +196,7 @@ function pilihBarangStok(el) {
 
     tampilkanInfoStok(wrap, nama, stok, satuan, sisaEceran, satuanEceran);
 
-    const acuan = sisaEceran !== null ? sisaEceran : stok;
+    const acuan = (sisaEceran !== null && satuanEceran !== '') ? sisaEceran : stok;
     if (acuan <= 0) {
         showToast(`Stok <strong>${nama}</strong> HABIS! (Sisa: ${stok} ${satuan})`, 'error');
     } else if (acuan <= 10) {
@@ -233,7 +233,7 @@ function cekStokBarang(input) {
                 const sisa = data.sisa_stok;
                 const satuan = data.satuan || '';
                 const satuanEceran = data.satuan_eceran || '';
-                const sisaEceran = (data.sisa_eceran !== undefined && data.sisa_eceran !== null) ? data.sisa_eceran : null;
+                const sisaEceran = (data.sisa_eceran !== undefined && data.sisa_eceran !== null && satuanEceran !== '') ? data.sisa_eceran : null;
 
                 // Simpan data untuk validasi qty nanti (grosir & eceran)
                 input.dataset.stok = sisa;
@@ -245,7 +245,7 @@ function cekStokBarang(input) {
 
                 tampilkanInfoStok(wrap, namaBarang, sisa, satuan, sisaEceran, satuanEceran);
 
-                const acuan = sisaEceran !== null ? sisaEceran : sisa;
+                const acuan = (sisaEceran !== null && satuanEceran !== '') ? sisaEceran : sisa;
                 if (acuan <= 0) {
                     showToast(`Stok <strong>${namaBarang}</strong> HABIS! (Sisa: ${sisa} ${satuan})`, 'error');
                 } else if (acuan <= 10) {
@@ -332,7 +332,7 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
             const satuanGrosir = inputNama.dataset.satuanGrosir || inputNama.dataset.satuan || '';
             const satuanEceran = inputNama.dataset.satuanEceran || '';
             const sisaGrosir = parseFloat(inputNama.dataset.sisaGrosir ?? inputNama.dataset.stok);
-            const sisaEceran = inputNama.dataset.sisaEceran !== '' && inputNama.dataset.sisaEceran !== undefined
+            const sisaEceran = (inputNama.dataset.sisaEceran !== '' && inputNama.dataset.sisaEceran !== undefined && satuanEceran !== '')
                 ? parseFloat(inputNama.dataset.sisaEceran) : null;
 
             // Deteksi mode: satuan yang diketik cocok satuan eceran (dan beda dari grosir)?
@@ -421,7 +421,7 @@ function lihatDetail(id, noPengambilan, sppg) {
     document.body.style.overflow = 'hidden';
     document.getElementById('detailTitle').innerText = noPengambilan;
     document.getElementById('detailMeta').innerText = 'SPPG: ' + sppg;
-    document.getElementById('detailBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">Memuat...</td></tr>';
+    document.getElementById('detailBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Memuat...</td></tr>';
 
     fetch('../database/get-pengambilan-detail.php?id=' + id)
         .then(res => res.json())

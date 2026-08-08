@@ -50,8 +50,17 @@ function fmtStok(d, lokasi) {
 
 function totalStokEceran(d) {
     let total = 0;
+    const isi = d.isi_per_satuan || 0;
     VISIBLE_LOKASI.forEach(lok => {
-        if (d.lokasi[lok]) total += (d.lokasi[lok].stok_eceran || 0);
+        if (d.lokasi[lok]) {
+            const eceran = d.lokasi[lok].stok_eceran || 0;
+            const grosir = d.lokasi[lok].stok_grosir || 0;
+            if (!isi || isi <= 0) {
+                total += (eceran > 0 ? eceran : grosir);
+            } else {
+                total += eceran;
+            }
+        }
     });
     return total;
 }

@@ -68,10 +68,11 @@ function addRow() {
     tr.innerHTML = `
         <td><input type="text" name="item_barang[${rowIndex}]" placeholder="Nama barang" required></td>
         <td><select name="kategori[${rowIndex}]" class="kategori-select" required>${kategoriOptions}</select></td>
-        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" placeholder="0" required onchange="calculateRow(this)"></td>
-        <td><input type="text" name="satuan[${rowIndex}]" placeholder="pcs/kg" required></td>
-        <td><input type="number" name="harga_satuan[${rowIndex}]" class="input-harga" step="0.01" min="0" placeholder="0" required onchange="calculateRow(this)"></td>
-        <td><input type="number" name="jumlah[${rowIndex}]" class="input-jumlah" readonly placeholder="0" style="background:#f1f5f9;font-weight:600;"></td>
+        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" placeholder="0" required></td>
+        <td><input type="text" name="satuan[${rowIndex}]" placeholder="pcs/kg" required>
+            <input type="hidden" name="harga_satuan[${rowIndex}]" class="input-harga" value="0">
+            <input type="hidden" name="jumlah[${rowIndex}]" class="input-jumlah" value="0">
+        </td>
         <td><input type="file" name="nota_files[${rowIndex}][]" class="file-input-multi" multiple accept="image/*,.pdf" style="font-size:10px;"></td>
         <td><input type="file" name="foto_files[${rowIndex}][]" class="file-input-multi" multiple accept="image/*" style="font-size:10px;"></td>
         <td><input type="hidden" name="row_index[]" value="${rowIndex}"><button type="button" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="removeRow(this)" title="Hapus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></td>
@@ -94,6 +95,25 @@ function calculateRow(input) {
 function previewFotoMenuMulti(input) {
     const preview = document.getElementById('fotoMenuPreview');
     preview.innerHTML = '';
+
+    // Validasi ukuran max 10MB
+    const validFiles = [];
+    const invalidFiles = [];
+    Array.from(input.files).forEach(file => {
+        if (file.size > 10 * 1024 * 1024) {
+            invalidFiles.push(file.name);
+        } else {
+            validFiles.push(file);
+        }
+    });
+
+    if (invalidFiles.length > 0) {
+        alert(`⚠️ File berikut melebihi batas maksimal 10MB dan tidak dimasukkan:\n- ${invalidFiles.join('\n- ')}`);
+        const dataTransfer = new DataTransfer();
+        validFiles.forEach(f => dataTransfer.items.add(f));
+        input.files = dataTransfer.files;
+    }
+
     Array.from(input.files).forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
@@ -111,18 +131,18 @@ function previewFotoMenuMulti(input) {
 // =====================================================
 function compressImage(file, options = {}) {
     const {
-        maxWidth = 1600,
-        maxHeight = 1600,
-        quality = 0.7,
-        maxSizeKB = 800,
-        minQuality = 0.4
+        maxWidth = 1800,
+        maxHeight = 1800,
+        quality = 0.8,
+        maxSizeKB = 1000,
+        minQuality = 0.5
     } = options;
     return new Promise((resolve, reject) => {
         if (!file.type.startsWith('image/') || file.type === 'image/gif') {
             resolve(file);
             return;
         }
-        if (file.size < 500 * 1024) {
+        if (file.size < 1000 * 1024) {
             resolve(file);
             return;
         }
@@ -181,12 +201,26 @@ function compressImage(file, options = {}) {
 function uploadInlinePhoto(input, action, id) {
     const files = input.files;
     if (!files || files.length === 0) return;
+
+    // Validasi ukuran max 10MB
+    const invalidFiles = [];
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].size > 10 * 1024 * 1024) {
+            invalidFiles.push(files[i].name);
+        }
+    }
+    if (invalidFiles.length > 0) {
+        alert(`⚠️ File berikut melebihi batas maksimal 10MB:\n- ${invalidFiles.join('\n- ')}`);
+        input.value = '';
+        return;
+    }
+
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mempersiapkan gambar...</p>`;
         loading.classList.add('active');
     }
-    const needCompress = (action === 'add_foto_receiving' || action === 'add_menu_photo');
+    const needCompress = true;
     const processFiles = async () => {
         const processedFiles = [];
         const totalFiles = files.length;
@@ -194,16 +228,16 @@ function uploadInlinePhoto(input, action, id) {
             const file = files[i];
             const loadingText = document.getElementById('loadingText');
             if (loadingText) {
-                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                     loadingText.textContent = `Mengcompress gambar ${i + 1}/${totalFiles}...`;
                 } else {
                     loadingText.textContent = `Memproses file ${i + 1}/${totalFiles}...`;
                 }
             }
             try {
-                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                if (needCompress && file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
                     const compressed = await compressImage(file, {
-                        maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 800
+                        maxWidth: 1600, maxHeight: 1600, quality: 0.75, maxSizeKB: 1000
                     });
                     processedFiles.push(compressed);
                 } else {
@@ -337,6 +371,11 @@ function openAddItemModal(idBelanja, judulMenu) {
 function uploadFakturTTD(input, tanggal) {
     const file = input.files[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+        alert('⚠️ Ukuran file faktur maksimal 10MB.');
+        input.value = '';
+        return;
+    }
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
         loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengupload faktur...</p>`;
@@ -366,7 +405,7 @@ function uploadFakturTTD(input, tanggal) {
                 alert('❌ Error: ' + err.message);
             });
     };
-    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+    if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
         compressImage(file, { maxWidth: 1800, maxHeight: 1800, quality: 0.8, maxSizeKB: 1000 })
             .then(doUpload)
             .catch(() => doUpload(file));
@@ -488,8 +527,9 @@ async function submitKeteranganKurang() {
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('formBelanja');
     if (form) {
-        form.addEventListener('submit', e => {
-            const loading = document.getElementById('loadingOverlay');
+        form.addEventListener('submit', async e => {
+            e.preventDefault(); // Stop normal form submission
+
             let valid = true;
             form.querySelectorAll('[required]').forEach(f => {
                 if (!f.value.trim()) {
@@ -500,13 +540,115 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (!valid) {
-                e.preventDefault();
                 alert('Lengkapi semua field!');
                 return;
             }
-            loading.classList.add('active');
+
+            const loading = document.getElementById('loadingOverlay');
+            if (loading) {
+                loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+                loading.classList.add('active');
+            }
+
+            try {
+                const fileInputs = form.querySelectorAll('input[type="file"]');
+                for (const input of fileInputs) {
+                    if (input.files && input.files.length > 0) {
+                        const dataTransfer = new DataTransfer();
+                        for (let i = 0; i < input.files.length; i++) {
+                            const file = input.files[i];
+                            if (file.size > 10 * 1024 * 1024) {
+                                alert(`⚠️ File ${file.name} melebihi batas maksimal 10MB.`);
+                                if (loading) loading.classList.remove('active');
+                                return;
+                            }
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
+                                const loadingText = document.getElementById('loadingText');
+                                if (loadingText) {
+                                    loadingText.textContent = `Mengompres ${file.name}...`;
+                                }
+                                const compressed = await compressImage(file, {
+                                    maxWidth: 1800,
+                                    maxHeight: 1800,
+                                    quality: 0.8,
+                                    maxSizeKB: 1000
+                                });
+                                dataTransfer.items.add(compressed);
+                            } else {
+                                dataTransfer.items.add(file);
+                            }
+                        }
+                        input.files = dataTransfer.files;
+                    }
+                }
+            } catch (err) {
+                console.error('Error compress sebelum submit:', err);
+            }
+
+            if (loading) {
+                const loadingText = document.getElementById('loadingText');
+                if (loadingText) loadingText.textContent = 'Menyimpan data...';
+            }
+
+            form.submit();
         });
     }
+
+    const formAddItem = document.getElementById('formAddItem');
+    if (formAddItem) {
+        formAddItem.addEventListener('submit', async e => {
+            e.preventDefault(); // Stop normal form submission
+
+            const loading = document.getElementById('loadingOverlay');
+            if (loading) {
+                loading.innerHTML = `<div class="spinner"></div><p id="loadingText">Mengompres gambar...</p>`;
+                loading.classList.add('active');
+            }
+
+            try {
+                const fileInputs = formAddItem.querySelectorAll('input[type="file"]');
+                for (const input of fileInputs) {
+                    if (input.files && input.files.length > 0) {
+                        const dataTransfer = new DataTransfer();
+                        for (let i = 0; i < input.files.length; i++) {
+                            const file = input.files[i];
+                            if (file.size > 10 * 1024 * 1024) {
+                                alert(`⚠️ File ${file.name} melebihi batas maksimal 10MB.`);
+                                if (loading) loading.classList.remove('active');
+                                return;
+                            }
+                            if (file.type.startsWith('image/') && file.type !== 'image/gif' && file.size > 1000 * 1024) {
+                                const loadingText = document.getElementById('loadingText');
+                                if (loadingText) {
+                                    loadingText.textContent = `Mengompres ${file.name}...`;
+                                }
+                                const compressed = await compressImage(file, {
+                                    maxWidth: 1800,
+                                    maxHeight: 1800,
+                                    quality: 0.8,
+                                    maxSizeKB: 1000
+                                });
+                                dataTransfer.items.add(compressed);
+                            } else {
+                                dataTransfer.items.add(file);
+                            }
+                        }
+                        input.files = dataTransfer.files;
+                    }
+                }
+            } catch (err) {
+                console.error('Error compress sebelum submit:', err);
+            }
+
+            if (loading) {
+                const loadingText = document.getElementById('loadingText');
+                if (loadingText) loadingText.textContent = 'Menyimpan data...';
+            }
+
+            formAddItem.submit();
+        });
+    }
+
     if (document.querySelector('#tableItem tbody') && document.querySelector('#tableItem tbody').children.length === 0) {
         addRow();
     }

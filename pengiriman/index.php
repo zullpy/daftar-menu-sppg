@@ -461,6 +461,7 @@ foreach ($all_data as $row) {
     </div>
 
     <script src="script.js"></script>
+    <script src="../assets/push-subscribe.js"></script>
 </body>
 
 </html>

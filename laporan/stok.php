@@ -20,7 +20,7 @@ if (isset($_GET['logout'])) {
 
 // ===== KONEKSI TAMBAHAN KE db_draft_barang =====
 try {
-    $pdoBarang = new PDO('mysql:host=localhost;dbname=db_draft_barang;charset=utf8mb4', 'root', '');
+    $pdoBarang = new PDO('mysql:host=localhost;dbname=u673037475_db_barang;charset=utf8mb4', 'u673037475_dbkbus', 'Kbus2026');
     $pdoBarang->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     $pdoBarang = null;
@@ -121,7 +121,7 @@ foreach ($allItemKeys as $key => $namaTampil) {
             'stok_eceran' => $eceran,
         ];
 
-        $itemTotalEceran += $eceran;
+        $itemTotalEceran += ($isi && $isi > 0) ? $eceran : ($eceran > 0 ? $eceran : $grosir);
         if ($grosir > 0 || $eceran > 0) $hasStock = true;
     }
 
@@ -258,5 +258,6 @@ const LOKASI_LABEL = <?= $lokasiLabelJson ?>;
 const SHOW_TOTAL_COLUMN = <?= $showTotalColumn ?>;
 </script>
 <script src="stok.js"></script>
+<script src="../assets/push-subscribe.js"></script>
 </body>
 </html>

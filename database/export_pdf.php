@@ -178,27 +178,33 @@ $belanjaList = $stmt->fetchAll();
 
         .info-table td {
             border: none;
-            padding: 4px 6px;
+            padding: 2px 3px;
             font-size: 8.5pt;
             line-height: 1.4;
         }
 
         .info-table .label {
-            width: 110px;
+            width: 1%;
             white-space: nowrap;
+            text-align: left;
+        }
+
+        .info-table .colon {
+            width: 1%;
+            white-space: nowrap;
+            padding-left: 2px;
+            padding-right: 2px;
         }
 
         .info-table .value {
-            min-width: 100px;
+            padding-left: 2px;
         }
 
         .info-table .label-right {
-            width: 90px;
+            width: 1%;
             white-space: nowrap;
-        }
-
-        .info-table .value-right {
-            width: 130px;
+            text-align: left;
+            padding-left: 14px;
         }
 
         /* ===== SECTION PER MENU ===== */
@@ -474,7 +480,7 @@ $belanjaList = $stmt->fetchAll();
         <table class="header-table">
             <tr>
                 <td class="col-logo">
-                    <img src="../assets/logo.png" alt="Logo KBUS">
+                    <img src="../assets/logo.png" alt="Logo KBUS" width="100" height="100">
                 </td>
 
                 <td class="col-kop">
@@ -502,19 +508,24 @@ $belanjaList = $stmt->fetchAll();
         <table class="info-table">
             <tr>
                 <td class="label">Nama SPPG</td>
-                <td class="value">: <?= htmlspecialchars($infoSppg) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoSppg) ?></td>
                 <td class="label-right">Tanggal</td>
-                <td class="value-right">: <?= getNamaHari($tanggal) ?>, <?= formatTanggalIndonesia($tanggal) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= getNamaHari($tanggal) ?>, <?= formatTanggalIndonesia($tanggal) ?></td>
             </tr>
             <tr>
                 <td class="label">No Kontak</td>
-                <td class="value">: <?= htmlspecialchars($infoKontak) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoKontak) ?></td>
                 <td class="label-right">No Faktur</td>
-                <td class="value-right">: <?= htmlspecialchars($infoNoFaktur) ?></td>
+                <td class="colon">:</td>
+                <td class="value"><?= htmlspecialchars($infoNoFaktur) ?></td>
             </tr>
             <tr>
                 <td class="label">Alamat</td>
-                <td colspan="3">: <?= htmlspecialchars($infoAlamat) ?></td>
+                <td class="colon">:</td>
+                <td colspan="4" class="value"><?= htmlspecialchars($infoAlamat) ?></td>
             </tr>
         </table>
 
@@ -541,8 +552,6 @@ $belanjaList = $stmt->fetchAll();
                                 <th class="col-nama">NAMA BARANG</th>
                                 <th class="col-qty">QTY</th>
                                 <th class="col-satuan">SATUAN</th>
-                                <th class="col-harga">HARGA</th>
-                                <th class="col-sub">SUB TOTAL</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -553,14 +562,8 @@ $belanjaList = $stmt->fetchAll();
                                     <td><?= htmlspecialchars($detail['item_barang']) ?></td>
                                     <td class="center"><?= rtrim(rtrim(number_format((float)$detail['qty'], 2, ',', '.'), '0'), ',') ?></td>
                                     <td class="left"><?= htmlspecialchars($detail['satuan']) ?></td>
-                                    <td class="right">Rp <?= number_format($detail['harga_satuan'], 0, ',', '.') ?></td>
-                                    <td class="right">Rp <?= number_format($detail['jumlah'], 0, ',', '.') ?></td>
                                 </tr>
                             <?php endforeach; ?>
-                            <tr class="row-total">
-                                <td colspan="5" class="right">TOTAL :</td>
-                                <td class="right">Rp <?= number_format($menuTotal, 0, ',', '.') ?></td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -592,7 +595,7 @@ $belanjaList = $stmt->fetchAll();
                 <td class="ttd-kanan">
                     Hormat Kami,
                     <br>
-                    <img src="../assets/logo-kbus.png" class="cap-img" alt="Cap KBUS">
+                    <img src="../assets/logo-kbus.png" class="cap-img" alt="Cap KBUS" width="120" height="120">
                     <span class="ttd-gap-kecil"></span>
                     <span class="ttd-line">Yudi Hendrian</span>
                 </td>
