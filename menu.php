@@ -1067,12 +1067,10 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                             <table class="form-table" id="tableItem">
                                 <thead>
                                     <tr>
-                                        <th style="width:25%">Item Barang</th>
-                                        <th style="width:18%">Kategori</th>
-                                        <th style="width:12%">QTY</th>
+                                        <th style="width:40%">Item Barang</th>
+                                        <th style="width:25%">Kategori</th>
+                                        <th style="width:15%">QTY</th>
                                         <th style="width:12%">Satuan</th>
-                                        <th style="width:13%">Nota</th>
-                                        <th style="width:12%">Foto</th>
                                         <th style="width:8%">Aksi</th>
                                     </tr>
                                 </thead>
