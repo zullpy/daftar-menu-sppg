@@ -85,7 +85,7 @@ while ($row = $stmt->fetch()) {
     <title>Pengambilan Stok Barang - Bina Usaha Sauyunan</title>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="pengambilan.css">
+    <link rel="stylesheet" href="pengambilan.css?v=<?= filemtime('pengambilan.css') ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Info banner lokasi operator */

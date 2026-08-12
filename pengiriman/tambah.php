@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $edit_id ? 'Edit' : 'Tambah' ?> Pengiriman - MBG</title>
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
 </head>
 
 <body>
@@ -520,7 +520,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <!-- TOAST CONTAINER -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= filemtime('script.js') ?>"></script>
     <script>
         // ============================================
         // TOAST NOTIFICATION

@@ -258,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konfirmasi Penerimaan - MBG</title>
-    <link rel="stylesheet" href="../pengiriman/style.css">
+    <link rel="stylesheet" href="../pengiriman/style.css?v=<?= file_exists('../pengiriman/style.css') ? filemtime('../pengiriman/style.css') : 1 ?>">
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <style>
@@ -1529,7 +1529,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             });
         }
     </script>
-    <script src="../assets/push-subscribe.js"></script>
+    <script src="../assets/push-subscribe.js?v=<?= file_exists('../assets/push-subscribe.js') ? filemtime('../assets/push-subscribe.js') : 1 ?>"></script>
 </body>
 
 </html>

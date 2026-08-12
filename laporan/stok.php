@@ -151,7 +151,7 @@ $showTotalColumn = ($userRole === 'admin') ? 'true' : 'false';
 <title>Data Stok Barang - Bina Usaha Sauyunan</title>
 <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="stok.css">
+<link rel="stylesheet" href="stok.css?v=<?= filemtime('stok.css') ?>">
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
@@ -250,7 +250,7 @@ const VISIBLE_LOKASI = <?= $visibleLokasiJson ?>;
 const LOKASI_LABEL = <?= $lokasiLabelJson ?>;
 const SHOW_TOTAL_COLUMN = <?= $showTotalColumn ?>;
 </script>
-<script src="stok.js"></script>
+<script src="stok.js?v=<?= filemtime('stok.js') ?>"></script>
 <script src="../assets/push-subscribe.js"></script>
 </body>
 </html>

@@ -118,7 +118,7 @@ foreach ($all_data as $row) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Pengiriman - MBG</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
     <link rel="icon" href="../assets/favicon.ico">
 </head>
 
@@ -460,8 +460,8 @@ foreach ($all_data as $row) {
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script src="../assets/push-subscribe.js"></script>
+    <script src="script.js?v=<?= filemtime('script.js') ?>"></script>
+    <script src="../assets/push-subscribe.js?v=<?= file_exists('../assets/push-subscribe.js') ? filemtime('../assets/push-subscribe.js') : 1 ?>"></script>
 </body>
 
 </html>

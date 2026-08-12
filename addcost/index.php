@@ -355,8 +355,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Cost - Koperasi Bina Usaha Sauyunan</title>
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="../style.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../style.css?v=<?= file_exists('../style.css') ? filemtime('../style.css') : 1 ?>">
+    <link rel="stylesheet" href="style.css?v=<?= file_exists('style.css') ? filemtime('style.css') : 1 ?>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* ✅ Tambahan style untuk info dapur operator */
@@ -936,7 +936,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
     <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>"></script>
     <script src="../script.js?v=<?= filemtime(__DIR__ . '/../script.js') ?>"></script>
-    <script src="../assets/push-subscribe.js"></script>
+    <script src="../assets/push-subscribe.js?v=<?= file_exists('../assets/push-subscribe.js') ? filemtime('../assets/push-subscribe.js') : 1 ?>"></script>
 </body>
 
 </html>

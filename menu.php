@@ -362,7 +362,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daftar Menu MBG - Koperasi Bina Usaha Sauyunan</title>
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* ✅ Tambahan style untuk info dapur operator */
@@ -1242,7 +1242,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
     <div id="toastNotif" class="toast-notif"></div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= filemtime('script.js') ?>"></script>
     <script>
         const KATEGORI_LIST = <?= json_encode($KATEGORI_LIST) ?>;
         const USER_ROLE = '<?= $role ?>';
@@ -1253,7 +1253,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
             updateNoFaktur();
         });
     </script>
-    <script src="assets/push-subscribe.js"></script>
+    <script src="assets/push-subscribe.js?v=<?= file_exists('assets/push-subscribe.js') ? filemtime('assets/push-subscribe.js') : 1 ?>"></script>
 </body>
 
 </html>
