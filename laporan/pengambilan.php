@@ -404,7 +404,7 @@ while ($row = $stmt->fetch()) {
         </div>
     </div>
 
-    <script src="pengambilan.js"></script>
+    <script src="pengambilan.js?v=<?= filemtime('pengambilan.js') ?>"></script>
     <script src="../assets/push-subscribe.js"></script>
 </body>
 

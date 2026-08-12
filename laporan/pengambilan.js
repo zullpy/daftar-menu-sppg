@@ -5,6 +5,7 @@ function setAutoJam() {
 }
 
 function toggleAccordion(target) {
+    if (!target) return;
     let header = null;
     let body = null;
 
@@ -16,8 +17,11 @@ function toggleAccordion(target) {
         body = header.nextElementSibling;
     }
 
-    if (header) header.classList.toggle('open');
-    if (body) body.classList.toggle('active');
+    if (header && header.classList) header.classList.toggle('open');
+    if (body && body.classList) {
+        body.classList.toggle('active');
+        body.classList.toggle('open');
+    }
 }
 
 function toggleFilter() {

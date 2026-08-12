@@ -39,9 +39,17 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 
 // ===== Accordion Toggle =====
 function toggleAccordion(header) {
-    header.classList.toggle('open');
-    const content = header.nextElementSibling;
-    content.classList.toggle('active');
+    if (!header) return;
+    if (typeof header === 'string') {
+        header = document.getElementById(header);
+        if (!header) return;
+    }
+    if (header && header.classList) header.classList.toggle('open');
+    const content = header ? header.nextElementSibling : null;
+    if (content && content.classList) {
+        content.classList.toggle('active');
+        content.classList.toggle('open');
+    }
 }
 
 // ===== Auto No Faktur =====
