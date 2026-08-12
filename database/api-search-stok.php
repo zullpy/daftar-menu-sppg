@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require 'koneksi.php';
+require_once 'stok_helper.php';
 
 $q = trim($_GET['q'] ?? '');
 $lokasi = $_GET['lokasi'] ?? 'semua';
@@ -46,6 +47,8 @@ try {
 
     $rows = $stmt->fetchAll();
     $data = array_map(function ($r) {
+        $mapping = stok_getMapping($r['nama_barang']);
+        $isiPerSatuan = $mapping ? $mapping['isi_per_satuan'] : null;
         return [
             'nama_barang'   => $r['nama_barang'],
             // "satuan" & "sisa_stok" dipertahankan (kompatibel dengan pemanggil
@@ -56,6 +59,7 @@ try {
             // ganti satuan ke versi eceran (mis. PCS bukan DUS)
             'satuan_grosir' => $r['satuan'],
             'satuan_eceran' => $r['satuan_eceran'],
+            'isi_per_satuan' => $isiPerSatuan,
             'sisa_grosir'   => (float)$r['sisa_grosir'],
             'sisa_eceran'   => (!empty($r['satuan_eceran'])) ? (float)$r['sisa_eceran'] : null,
         ];

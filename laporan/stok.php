@@ -18,14 +18,6 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-// ===== KONEKSI TAMBAHAN KE db_draft_barang =====
-try {
-    $pdoBarang = new PDO('mysql:host=localhost;dbname=u673037475_db_barang;charset=utf8mb4', 'u673037475_dbkbus', 'Kbus2026');
-    $pdoBarang->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) {
-    $pdoBarang = null;
-}
-
 $LOKASI_LIST  = ['sodong', 'sariwangi', 'manonjaya'];
 $LOKASI_LABEL = [
     'sodong'    => 'Sodong',
@@ -42,8 +34,9 @@ if ($userRole === 'operator') {
 
 // ===== 1. MAPPING SATUAN GROSIR/ECERAN DARI db_draft_barang =====
 $barangMap = [];
-if ($pdoBarang) {
-    $stmtB = $pdoBarang->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
+$pdoBarangTarget = (isset($pdo_draft) && $pdo_draft) ? $pdo_draft : null;
+if ($pdoBarangTarget) {
+    $stmtB = $pdoBarangTarget->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
     foreach ($stmtB->fetchAll(PDO::FETCH_ASSOC) as $b) {
         $key = strtolower(trim($b['nama_barang']));
         $satuanGrosir    = trim($b['satuan'] ?? '') ?: '-';

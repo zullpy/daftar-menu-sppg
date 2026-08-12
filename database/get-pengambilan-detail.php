@@ -2,6 +2,7 @@
 // database/get-pengambilan-detail.php
 header('Content-Type: application/json');
 require 'koneksi.php';
+require_once 'stok_helper.php';
 
 $id_pengambilan = (int) ($_GET['id'] ?? 0);
 
@@ -16,7 +17,14 @@ try {
                             WHERE id_pengambilan = :id
                             ORDER BY id_detail ASC");
     $stmt->execute([':id' => $id_pengambilan]);
-    $detail = $stmt->fetchAll();
+    $rows = $stmt->fetchAll();
+
+    $detail = array_map(function($d) {
+        $mapping = stok_getMapping($d['nama_barang']);
+        $d['satuan_grosir'] = $mapping ? $mapping['satuan_grosir'] : null;
+        $d['satuan_eceran'] = $mapping ? $mapping['satuan_eceran'] : null;
+        return $d;
+    }, $rows);
 
     echo json_encode(['status' => 'success', 'detail' => $detail]);
 } catch (\PDOException $e) {

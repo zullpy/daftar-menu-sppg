@@ -246,7 +246,7 @@ while ($row = $stmt->fetch()) {
                 <?php foreach ($pengambilData as $namaPengambil => $items): ?>
                     <?php $pengambilId = 'peng-' . md5($namaPengambil . $tanggal); ?>
                     <div class="pengambil-group">
-                        <div class="pengambil-header" onclick="toggleAccordion('<?= $pengambilId ?>')">
+                        <div class="pengambil-header" onclick="toggleAccordion(this)">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                                 <i class="ph ph-user"></i>
                                 <span class="label"><?= htmlspecialchars($namaPengambil) ?></span>

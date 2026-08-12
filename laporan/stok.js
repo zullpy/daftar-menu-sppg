@@ -45,7 +45,13 @@ function fmtStok(d, lokasi) {
     if (grosir > 0) parts.push(`${fmt(grosir)} ${ucSatuan(satG)}`);
     if (sisaRounded > 0) parts.push(`${fmt(sisaRounded)} ${ucSatuan(satE)}`);
 
-    return parts.length > 0 ? parts.join(' ') : `0 ${ucSatuan(satE)}`;
+    const mainText = parts.length > 0 ? parts.join(' ') : `0 ${ucSatuan(satE)}`;
+
+    if (eceran > 0 && satE.toLowerCase() !== satG.toLowerCase()) {
+        return `${mainText}<span class="num-sub-eceran">(≈ ${fmt(eceran)} ${ucSatuan(satE)})</span>`;
+    }
+
+    return mainText;
 }
 
 function totalStokEceran(d) {
@@ -72,7 +78,7 @@ function fmtTotalStok(d) {
     const satG = d.satuan || '-';
     const satE = d.satuan_eceran || satG;
 
-    if (totalEceran <= 0) return `0 ${ucSatuan(satE)}`;
+    if (totalEceran <= 0) return `0`;
     if (!isi || isi <= 0) return `${fmt(totalEceran)} ${ucSatuan(satE)}`;
 
     const grosir = Math.floor(totalEceran / isi);
@@ -83,7 +89,13 @@ function fmtTotalStok(d) {
     if (grosir > 0) parts.push(`${fmt(grosir)} ${ucSatuan(satG)}`);
     if (sisaRounded > 0) parts.push(`${fmt(sisaRounded)} ${ucSatuan(satE)}`);
 
-    return parts.length > 0 ? parts.join(' ') : `0 ${ucSatuan(satE)}`;
+    const mainText = parts.length > 0 ? parts.join(' ') : `0 ${ucSatuan(satE)}`;
+
+    if (totalEceran > 0 && satE.toLowerCase() !== satG.toLowerCase()) {
+        return `${mainText}<span class="num-sub-eceran">(≈ ${fmt(totalEceran)} ${ucSatuan(satE)})</span>`;
+    }
+
+    return mainText;
 }
 
 function getStatus(total) {
@@ -175,15 +187,19 @@ function renderTable() {
         VISIBLE_LOKASI.forEach(lok => {
             lokasiCells += cellStok(fmtStok(d, lok));
         });
-        // KOLOM TOTAL HANYA UNTUK ADMIN
         const totalCell = (VISIBLE_LOKASI.length > 1 && SHOW_TOTAL_COLUMN)
             ? `<td class="center"><span class="num-total">${fmtTotalStok(d)}</span></td>`
             : '';
+
+        const subSatuan = (d.isi_per_satuan && d.isi_per_satuan > 0)
+            ? `<span style="color:#0284c7; font-weight:600;"><i class="ph ph-arrows-left-right" style="font-size:11px;"></i> 1 ${ucSatuan(d.satuan)} = ${fmt(d.isi_per_satuan)} ${ucSatuan(d.satuan_eceran)}</span>`
+            : `${ucSatuan(d.satuan)}`;
+
         return `<tr onclick="openBs(${i})">
             <td><span class="row-no">${i + 1}</span></td>
             <td>
                 <div class="row-nama">${d.nama_barang}</div>
-                <div class="row-satuan">${ucSatuan(d.satuan_eceran)} &bull; ${d.satuan}</div>
+                <div class="row-satuan">${subSatuan}</div>
             </td>
             ${lokasiCells}
             ${totalCell}
@@ -197,7 +213,9 @@ function openBs(idx) {
     const total = totalStokEceran(d);
     const st = getStatus(total);
     document.getElementById('bsName').textContent = d.nama_barang;
-    document.getElementById('bsSatuan').textContent = `1 ${d.satuan} = ${fmt(d.isi_per_satuan)} ${d.satuan_eceran}`;
+    document.getElementById('bsSatuan').textContent = (d.isi_per_satuan && d.isi_per_satuan > 0)
+        ? `1 ${d.satuan} = ${fmt(d.isi_per_satuan)} ${d.satuan_eceran}`
+        : `Satuan: ${d.satuan}`;
 
     let html = '';
     VISIBLE_LOKASI.forEach(lok => {
@@ -210,7 +228,7 @@ function openBs(idx) {
                     <i class="ph ph-cooking-pot" style="font-size:13px"></i> ${LOKASI_LABEL[lok] || lok}
                 </div>
                 <div class="bs-row">
-                    <span class="bs-lbl"><i class="ph ph-package" style="font-size:14px"></i>Stok</span>
+                    <span class="bs-lbl"><i class="ph ph-package" style="font-size:14px"></i>Stok Rincian</span>
                     <span class="bs-val">${fmtStok(d, lok)}</span>
                 </div>
             </div>`;
@@ -218,9 +236,19 @@ function openBs(idx) {
     html += `
         <div class="bs-divider"></div>
         <div class="bs-row">
-            <span class="bs-lbl"><i class="ph ph-stack" style="font-size:15px"></i>Total Stok</span>
+            <span class="bs-lbl"><i class="ph ph-stack" style="font-size:15px"></i>Total Stok Rincian</span>
             <span class="bs-val">${fmtTotalStok(d)}</span>
-        </div>
+        </div>`;
+
+    if (d.isi_per_satuan && d.isi_per_satuan > 0) {
+        html += `
+        <div class="bs-row">
+            <span class="bs-lbl"><i class="ph ph-tag" style="font-size:15px"></i>Total Eceran Keseluruhan</span>
+            <span class="bs-val" style="color:#047857; font-weight:700;">${fmt(total)} ${ucSatuan(d.satuan_eceran)}</span>
+        </div>`;
+    }
+
+    html += `
         <div class="bs-row">
             <span class="bs-lbl"><i class="ph ph-info" style="font-size:15px"></i>Status</span>
             <span class="item-status ${st.cls}">${st.txt}</span>

@@ -36,12 +36,30 @@
  */
 function stok_getPdoBarang()
 {
+    if (isset($GLOBALS['pdo_draft']) && $GLOBALS['pdo_draft'] instanceof PDO) {
+        return $GLOBALS['pdo_draft'];
+    }
+
     static $pdoBarang = null;
     static $tried = false;
     if ($tried) return $pdoBarang;
     $tried = true;
+
     try {
-        $pdoBarang = new PDO('mysql:host=localhost;dbname=u673037475_db_barang;charset=utf8mb4', 'u673037475_dbkbus', 'Kbus2026');
+        $_server = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? '';
+        $isLocal = !str_contains($_server, 'kbus.site') && !str_contains($_server, 'permenceker');
+
+        if ($isLocal) {
+            $user = 'root';
+            $pass = '';
+            $dbname = 'db_draft_barang';
+        } else {
+            $user = 'u673037475_dbkbus';
+            $pass = 'Kbus2026';
+            $dbname = 'u673037475_db_barang';
+        }
+
+        $pdoBarang = new PDO("mysql:host=localhost;dbname={$dbname};charset=utf8mb4", $user, $pass);
         $pdoBarang->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     } catch (Exception $e) {
         $pdoBarang = null;
@@ -97,12 +115,17 @@ function stok_syncGrosir(PDO $pdo, $nama_barang, $lokasi)
     if (!$mapping) return;
 
     $isi = $mapping['isi_per_satuan'];
-    $stmt = $pdo->prepare("SELECT id, qty_eceran FROM stok_barang WHERE TRIM(UPPER(nama_barang)) = TRIM(UPPER(?)) AND lokasi = ? FOR UPDATE");
+    $stmt = $pdo->prepare("SELECT id, qty_grosir, qty_eceran FROM stok_barang WHERE TRIM(UPPER(nama_barang)) = TRIM(UPPER(?)) AND lokasi = ? FOR UPDATE");
     $stmt->execute([$nama_barang, $lokasi]);
     $row = $stmt->fetch();
     if (!$row) return;
 
     $totalEceran = (float)$row['qty_eceran'];
+    $qtyGrosir = (float)$row['qty_grosir'];
+
+    if ($totalEceran <= 0 && $qtyGrosir > 0) {
+        $totalEceran = $qtyGrosir;
+    }
     if ($totalEceran < 0) $totalEceran = 0; // jaga-jaga, stok gak boleh minus
 
     $qtyGrosirBaru = floor($totalEceran / $isi);
@@ -274,7 +297,7 @@ function stok_kurangiUntukPengambilan(PDO $pdo, $nama_barang, $satuanInput, $lok
         if ($row) {
             $qtyEceranRow = (float)($row['qty_eceran'] ?? 0);
             $qtyGrosirRow = (float)($row['qty_grosir'] ?? 0);
-            $totalTersedia = $mapping ? $qtyEceranRow : (($qtyEceranRow > 0) ? $qtyEceranRow : $qtyGrosirRow);
+            $totalTersedia = ($qtyEceranRow > 0) ? $qtyEceranRow : $qtyGrosirRow;
         } else {
             $totalTersedia = 0;
         }
@@ -305,7 +328,7 @@ function stok_kurangiUntukPengambilan(PDO $pdo, $nama_barang, $satuanInput, $lok
     foreach ($rows as &$r) {
         $qtyEceranRow = (float)($r['qty_eceran'] ?? 0);
         $qtyGrosirRow = (float)($r['qty_grosir'] ?? 0);
-        $r['total_tersedia'] = $mapping ? $qtyEceranRow : (($qtyEceranRow > 0) ? $qtyEceranRow : $qtyGrosirRow);
+        $r['total_tersedia'] = ($qtyEceranRow > 0) ? $qtyEceranRow : $qtyGrosirRow;
     }
     unset($r);
     usort($rows, fn($a, $b) => $b['total_tersedia'] <=> $a['total_tersedia']);
@@ -327,8 +350,8 @@ function stok_kurangiUntukPengambilan(PDO $pdo, $nama_barang, $satuanInput, $lok
         $qtyGrosirBaru = $mapping ? floor($totalBaru / $isi) : $totalBaru;
         $qtyEceranBaru = $mapping ? $totalBaru : 0;
 
-        $pdo->prepare("UPDATE stok_barang SET qty_grosir = ?, qty_eceran = ? WHERE id = ?")
-            ->execute([$qtyGrosirBaru, $qtyEceranBaru, $r['id']]);
+        $pdo->prepare("UPDATE stok_barang SET qty_grosir = ?, qty_eceran = ?, satuan_eceran = ? WHERE id = ?")
+            ->execute([$qtyGrosirBaru, $qtyEceranBaru, $mapping ? $mapping['satuan_eceran'] : null, $r['id']]);
 
         $sisaAmbil -= $potong;
     }

@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require 'koneksi.php';
+require_once 'stok_helper.php';
 
 $nama_barang = $_GET['nama'] ?? '';
 $lokasi = $_GET['lokasi'] ?? 'semua';
@@ -42,6 +43,9 @@ try {
     $satuanEceran = $result['satuan_eceran'] ?? '';
     $sisaEceran   = ($satuanEceran !== '') ? (float)($result['sisa_eceran'] ?? 0) : null;
 
+    $mapping = stok_getMapping($nama_barang);
+    $isiPerSatuan = $mapping ? $mapping['isi_per_satuan'] : null;
+
     // "sisa_stok"/"satuan" dipertahankan (kompatibel dengan pemanggil lama) =
     // versi GROSIR, karena itu satuan default yang di-autofill ke form.
     echo json_encode([
@@ -55,6 +59,7 @@ try {
         'sisa_eceran'   => $sisaEceran,
         'satuan_grosir' => $satuan,
         'satuan_eceran' => $satuanEceran,
+        'isi_per_satuan' => $isiPerSatuan
     ]);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);

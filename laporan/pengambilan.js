@@ -4,11 +4,20 @@ function setAutoJam() {
     document.getElementById('jam_pengambilan').value = jam;
 }
 
-function toggleAccordion(id) {
-    const el = document.getElementById(id);
-    el.classList.toggle('active');
-    const header = el.previousElementSibling;
+function toggleAccordion(target) {
+    let header = null;
+    let body = null;
+
+    if (typeof target === 'string') {
+        body = document.getElementById(target);
+        if (body) header = body.previousElementSibling;
+    } else if (target && target.nodeType) {
+        header = target.closest('.pengambil-header, .accordion-header, .date-header') || target;
+        body = header.nextElementSibling;
+    }
+
     if (header) header.classList.toggle('open');
+    if (body) body.classList.toggle('active');
 }
 
 function toggleFilter() {
@@ -37,6 +46,7 @@ function closeModal() {
 }
 
 // ============================================
+// ============================================
 // ✅ FUNGSI TOAST NOTIFICATION (BARU)
 // ============================================
 function showToast(message, type = 'success') {
@@ -51,9 +61,9 @@ function showToast(message, type = 'success') {
     toast.className = `toast toast-${type}`;
 
     let icon = '';
-    if (type === 'success') icon = '<span class="toast-icon" style="color:#2e7d32;">✅</span>';
-    else if (type === 'warning') icon = '<span class="toast-icon" style="color:#ed6c02;">⚠️</span>';
-    else if (type === 'error') icon = '<span class="toast-icon" style="color:#d32f2f;">❌</span>';
+    if (type === 'success') icon = '<span class="toast-icon" style="color:#2e7d32;"><i class="ph-bold ph-check-circle"></i></span>';
+    else if (type === 'warning') icon = '<span class="toast-icon" style="color:#ed6c02;"><i class="ph-bold ph-warning"></i></span>';
+    else if (type === 'error') icon = '<span class="toast-icon" style="color:#d32f2f;"><i class="ph-bold ph-x-circle"></i></span>';
 
     toast.innerHTML = `${icon} <span>${message}</span>`;
     container.appendChild(toast);
@@ -75,12 +85,22 @@ function cariBarangStok(input) {
     const wrap = input.closest('.autocomplete-wrap');
     const dropdown = wrap.querySelector('.autocomplete-dropdown');
     const infoEl = wrap.querySelector('.stok-info');
+    const row = input.closest('.barang-row');
 
     // Reset stok tersimpan & tampilan info tiap kali user ngetik ulang (belum pilih dari list lagi)
     delete input.dataset.stok;
     delete input.dataset.satuan;
+    delete input.dataset.satuanGrosir;
+    delete input.dataset.sisaGrosir;
+    delete input.dataset.satuanEceran;
+    delete input.dataset.sisaEceran;
+    delete input.dataset.isiPerSatuan;
     infoEl.innerHTML = '';
     infoEl.className = 'stok-info';
+    if (row) {
+        const wrapSelector = row.querySelector('.unit-selector-wrap');
+        if (wrapSelector) wrapSelector.innerHTML = '';
+    }
 
     if (keyword.length < 2) {
         dropdown.innerHTML = '';
@@ -129,7 +149,8 @@ function renderDropdownStok(input, dropdown, items) {
              data-satuan-grosir="${(item.satuan_grosir || item.satuan).replace(/"/g, '&quot;')}"
              data-sisa-grosir="${item.sisa_grosir}"
              data-satuan-eceran="${satuanEceran.replace(/"/g, '&quot;')}"
-             data-sisa-eceran="${sisaEceran}">
+             data-sisa-eceran="${sisaEceran}"
+             data-isi-per-satuan="${item.isi_per_satuan || ''}">
             <span class="ai-nama">${item.nama_barang}</span>
             <span class="ai-stok">${labelStok}</span>
         </div>
@@ -139,12 +160,8 @@ function renderDropdownStok(input, dropdown, items) {
 }
 
 // Update tampilan sisa stok yang PERSISTEN di bawah input.
-// Nampilin dua-duanya kalau barang punya satuan eceran, misal:
-// "📦 Sisa: 1 DUS (setara 24 PCS)"
 function tampilkanInfoStok(wrap, nama, stok, satuan, sisaEceran, satuanEceran) {
     const infoEl = wrap.querySelector('.stok-info');
-    // Level "aman/menipis/habis" dipatok ke total eceran kalau ada,
-    // karena itu sumber kebenaran (lebih presisi dari sisa dus utuh).
     const acuan = (sisaEceran !== undefined && sisaEceran !== null && satuanEceran) ? sisaEceran : stok;
     let level = 'aman';
     if (acuan <= 0) level = 'habis';
@@ -161,6 +178,98 @@ function tampilkanInfoStok(wrap, nama, stok, satuan, sisaEceran, satuanEceran) {
 
     infoEl.className = 'stok-info stok-' + level;
     infoEl.innerHTML = `<i class="ph-fill ph-package"></i> ${label}`;
+}
+
+function renderUnitSelector(row, data) {
+    const wrap = row.querySelector('.unit-selector-wrap');
+    if (!wrap) return;
+
+    const satuanGrosir = data.satuanGrosir || data.satuan || '';
+    const satuanEceran = data.satuanEceran || '';
+
+    if (satuanEceran && satuanEceran.toLowerCase() !== satuanGrosir.toLowerCase()) {
+        wrap.innerHTML = `
+            <button type="button" class="btn-unit-pill active" data-unit-type="grosir" onclick="switchUnitMode(this, 'grosir')">
+                <i class="ph ph-package"></i> Grosir (${satuanGrosir})
+            </button>
+            <button type="button" class="btn-unit-pill" data-unit-type="eceran" onclick="switchUnitMode(this, 'eceran')">
+                <i class="ph ph-tag"></i> Eceran (${satuanEceran})
+            </button>
+        `;
+    } else {
+        wrap.innerHTML = '';
+    }
+}
+
+function switchUnitMode(btn, mode) {
+    const row = btn.closest('.barang-row');
+    const inputNama = row.querySelector('.input-nama-barang');
+    const satuanInput = row.querySelector('input[name="satuan[]"]');
+    const qtyInput = row.querySelector('input[name="qty[]"]');
+    const wrap = row.querySelector('.autocomplete-wrap');
+    const pills = row.querySelectorAll('.btn-unit-pill');
+
+    pills.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+
+    const satG = inputNama.dataset.satuanGrosir || inputNama.dataset.satuan || '';
+    const satE = inputNama.dataset.satuanEceran || '';
+    const sisaG = parseFloat(inputNama.dataset.sisaGrosir ?? inputNama.dataset.stok);
+    const sisaE = (inputNama.dataset.sisaEceran !== '' && inputNama.dataset.sisaEceran !== undefined)
+        ? parseFloat(inputNama.dataset.sisaEceran) : null;
+
+    if (mode === 'eceran' && satE) {
+        if (satuanInput) satuanInput.value = satE;
+        if (qtyInput) qtyInput.placeholder = `Qty (${satE})`;
+
+        const infoEl = wrap.querySelector('.stok-info');
+        if (infoEl && sisaE !== null) {
+            let level = 'aman';
+            if (sisaE <= 0) level = 'habis';
+            else if (sisaE <= 10) level = 'menipis';
+            infoEl.className = 'stok-info stok-' + level;
+            let infoKonversi = (sisaG > 0) ? ` (Grosir: ${sisaG} ${satG})` : '';
+            infoEl.innerHTML = `<i class="ph-fill ph-tag"></i> Mode Eceran: <strong>${sisaE} ${satE}</strong>${infoKonversi}`;
+        }
+        showToast(`Mode <strong>Eceran (${satE})</strong> aktif. Sisa stok: ${sisaE} ${satE}`, 'success');
+    } else if (mode === 'grosir') {
+        if (satuanInput) satuanInput.value = satG;
+        if (qtyInput) qtyInput.placeholder = `Qty (${satG})`;
+
+        const infoEl = wrap.querySelector('.stok-info');
+        if (infoEl) {
+            let level = 'aman';
+            if (sisaG <= 0) level = 'habis';
+            else if (sisaG <= 10) level = 'menipis';
+            infoEl.className = 'stok-info stok-' + level;
+            let infoKonversi = (satE && sisaE !== null) ? ` (setara ${sisaE} ${satE})` : '';
+            infoEl.innerHTML = `<i class="ph-fill ph-package"></i> Mode Grosir: <strong>${sisaG} ${satG}</strong>${infoKonversi}`;
+        }
+        showToast(`Mode <strong>Grosir (${satG})</strong> aktif. Sisa stok: ${sisaG} ${satG}`, 'success');
+    }
+}
+
+function syncUnitPills(satuanInput) {
+    const row = satuanInput.closest('.barang-row');
+    const inputNama = row.querySelector('.input-nama-barang');
+    if (!inputNama) return;
+
+    const val = satuanInput.value.trim().toLowerCase();
+    const satG = (inputNama.dataset.satuanGrosir || inputNama.dataset.satuan || '').toLowerCase();
+    const satE = (inputNama.dataset.satuanEceran || '').toLowerCase();
+
+    const pillGrosir = row.querySelector('.btn-unit-pill[data-unit-type="grosir"]');
+    const pillEceran = row.querySelector('.btn-unit-pill[data-unit-type="eceran"]');
+
+    if (!pillGrosir || !pillEceran) return;
+
+    if (val === satE && val !== satG) {
+        pillGrosir.classList.remove('active');
+        pillEceran.classList.add('active');
+    } else if (val === satG) {
+        pillEceran.classList.remove('active');
+        pillGrosir.classList.add('active');
+    }
 }
 
 function pilihBarangStok(el) {
@@ -180,21 +289,24 @@ function pilihBarangStok(el) {
     input.value = nama;
     input.dataset.stok = stok;
     input.dataset.satuan = satuan;
-    // Simpan breakdown grosir & eceran biar validasi qty tetap benar
-    // walau operator ganti satuan yang diketik jadi versi eceran.
     input.dataset.satuanGrosir = satuanGrosir;
     input.dataset.sisaGrosir = sisaGrosir;
     input.dataset.satuanEceran = satuanEceran;
     input.dataset.sisaEceran = sisaEceran !== null ? sisaEceran : '';
+    if (el.dataset.isiPerSatuan) {
+        input.dataset.isiPerSatuan = el.dataset.isiPerSatuan;
+    } else {
+        delete input.dataset.isiPerSatuan;
+    }
 
-    // Auto-isi satuan di baris yang sama
     const satuanInput = row.querySelector('input[name="satuan[]"]');
-    if (satuanInput) satuanInput.value = satuan;
+    if (satuanInput) satuanInput.value = satuanGrosir;
 
     dropdown.innerHTML = '';
     dropdown.classList.remove('show');
 
     tampilkanInfoStok(wrap, nama, stok, satuan, sisaEceran, satuanEceran);
+    renderUnitSelector(row, { satuanGrosir, satuanEceran, sisaGrosir, sisaEceran });
 
     const acuan = (sisaEceran !== null && satuanEceran !== '') ? sisaEceran : stok;
     if (acuan <= 0) {
@@ -216,7 +328,6 @@ function sembunyikanDropdown(input) {
 // ✅ CEK STOK VIA TOAST (BARU)
 // ============================================
 function cekStokBarang(input) {
-    // Kalau sudah dipilih dari dropdown, dataset.stok sudah ada — tidak perlu fetch ulang
     if (input.dataset.stok !== undefined) return;
 
     const namaBarang = input.value.trim();
@@ -235,15 +346,33 @@ function cekStokBarang(input) {
                 const satuanEceran = data.satuan_eceran || '';
                 const sisaEceran = (data.sisa_eceran !== undefined && data.sisa_eceran !== null && satuanEceran !== '') ? data.sisa_eceran : null;
 
-                // Simpan data untuk validasi qty nanti (grosir & eceran)
                 input.dataset.stok = sisa;
                 input.dataset.satuan = satuan;
                 input.dataset.satuanGrosir = data.satuan_grosir || satuan;
                 input.dataset.sisaGrosir = data.sisa_grosir !== undefined ? data.sisa_grosir : sisa;
                 input.dataset.satuanEceran = satuanEceran;
                 input.dataset.sisaEceran = sisaEceran !== null ? sisaEceran : '';
+                if (data.isi_per_satuan) {
+                    input.dataset.isiPerSatuan = data.isi_per_satuan;
+                } else {
+                    delete input.dataset.isiPerSatuan;
+                }
+
+                const row = wrap.closest('.barang-row');
+                const satuanInput = row ? row.querySelector('input[name="satuan[]"]') : null;
+                if (satuanInput && !satuanInput.value.trim()) {
+                    satuanInput.value = data.satuan_grosir || satuan;
+                }
 
                 tampilkanInfoStok(wrap, namaBarang, sisa, satuan, sisaEceran, satuanEceran);
+                if (row) {
+                    renderUnitSelector(row, {
+                        satuanGrosir: data.satuan_grosir || satuan,
+                        satuanEceran: satuanEceran,
+                        sisaGrosir: data.sisa_grosir !== undefined ? data.sisa_grosir : sisa,
+                        sisaEceran: sisaEceran
+                    });
+                }
 
                 const acuan = (sisaEceran !== null && satuanEceran !== '') ? sisaEceran : sisa;
                 if (acuan <= 0) {
@@ -263,12 +392,11 @@ function cekStokBarang(input) {
 }
 
 // ============================================
-// DYNAMIC BARANG ROWS (DIPERBAIKI BUG NYA)
+// DYNAMIC BARANG ROWS
 // ============================================
 let barangIndex = 0;
 function addBarangRow() {
     const container = document.getElementById('barangContainer');
-    // Template literal yang bersih dan benar
     const html = `
         <div class="barang-row" id="barang-${barangIndex}">
             <div class="form-group autocomplete-wrap">
@@ -279,13 +407,14 @@ function addBarangRow() {
                     onblur="setTimeout(() => { sembunyikanDropdown(this); cekStokBarang(this); }, 200)">
                 <div class="autocomplete-dropdown"></div>
                 <div class="stok-info"></div>
+                <div class="unit-selector-wrap"></div>
             </div>
             <div class="barang-row-inputs">
                 <div class="form-group">
                     <input type="number" name="qty[]" placeholder="Qty" step="0.01" required inputmode="decimal">
                 </div>
                 <div class="form-group">
-                    <input type="text" name="satuan[]" placeholder="Satuan" required>
+                    <input type="text" name="satuan[]" placeholder="Satuan" required oninput="syncUnitPills(this)">
                 </div>
             </div>
             <div class="form-group">
@@ -324,9 +453,6 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
         if (inputNama && inputQty) {
             const nama = inputNama.value.trim();
             const qty = parseFloat(inputQty.value) || 0;
-            // Satuan yang BENERAN diketik/dipakai operator di baris ini
-            // (bisa beda dari satuan default hasil autocomplete, mis.
-            // operator sengaja ganti ke satuan eceran)
             const satuanDipakai = (inputSatuan ? inputSatuan.value.trim() : '') || inputNama.dataset.satuan || '';
 
             const satuanGrosir = inputNama.dataset.satuanGrosir || inputNama.dataset.satuan || '';
@@ -335,13 +461,13 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
             const sisaEceran = (inputNama.dataset.sisaEceran !== '' && inputNama.dataset.sisaEceran !== undefined && satuanEceran !== '')
                 ? parseFloat(inputNama.dataset.sisaEceran) : null;
 
-            // Deteksi mode: satuan yang diketik cocok satuan eceran (dan beda dari grosir)?
             const modeEceran = satuanEceran
                 && satuanDipakai.toLowerCase() === satuanEceran.toLowerCase()
                 && satuanDipakai.toLowerCase() !== satuanGrosir.toLowerCase();
 
             const stokBanding = modeEceran ? sisaEceran : sisaGrosir;
-            const satuanBanding = modeEceran ? satuanEceran : satuanGrosir;
+            const satuanBanding = modeEceran ? satuanEceran : (satuanGrosir || satuanDipakai);
+            const labelMode = modeEceran ? 'Eceran' : 'Grosir';
 
             if (stokBanding === null || isNaN(stokBanding) || stokBanding <= 0) {
                 Swal.fire('Stok Tidak Ada', `Stok untuk barang "${nama}" tidak ada atau habis!`, 'error');
@@ -349,7 +475,7 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
             }
 
             if (qty > stokBanding) {
-                Swal.fire('Stok Tidak Cukup', `Jumlah pengambilan untuk barang "${nama}" (${qty} ${satuanBanding}) melebihi stok yang ada! (Sisa stok: ${stokBanding} ${satuanBanding})`, 'error');
+                Swal.fire('Stok Tidak Cukup', `Jumlah pengambilan ${labelMode} untuk barang "${nama}" (${qty} ${satuanBanding}) melebihi stok yang ada! (Sisa stok ${labelMode}: ${stokBanding} ${satuanBanding})`, 'error');
                 return;
             }
         }
@@ -430,7 +556,13 @@ function lihatDetail(id, noPengambilan, sppg) {
                 let html = '';
                 data.detail.forEach(d => {
                     const jenisLabel = d.jenis === 'addcost' ? 'Add Cost' : 'Food Cost';
-                    html += `<tr><td>${d.nama_barang}</td><td>${parseFloat(d.qty)}</td><td>${d.satuan}</td><td>${jenisLabel}</td></tr>`;
+                    let unitBadge = '';
+                    if (d.satuan_eceran && d.satuan.toLowerCase() === d.satuan_eceran.toLowerCase() && d.satuan.toLowerCase() !== (d.satuan_grosir || '').toLowerCase()) {
+                        unitBadge = '<span class="badge-unit-eceran"><i class="ph ph-tag"></i> Eceran</span>';
+                    } else if (d.satuan_grosir && d.satuan.toLowerCase() === d.satuan_grosir.toLowerCase()) {
+                        unitBadge = '<span class="badge-unit-grosir"><i class="ph ph-package"></i> Grosir</span>';
+                    }
+                    html += `<tr><td>${d.nama_barang}</td><td>${parseFloat(d.qty)}</td><td>${d.satuan} ${unitBadge}</td><td>${jenisLabel}</td></tr>`;
                 });
                 document.getElementById('detailBody').innerHTML = html;
             } else {
