@@ -49,6 +49,8 @@ try {
     $data = array_map(function ($r) {
         $mapping = stok_getMapping($r['nama_barang']);
         $isiPerSatuan = $mapping ? $mapping['isi_per_satuan'] : null;
+        $hargaGrosir  = $mapping ? (float)$mapping['harga_grosir'] : 0;
+        $hargaEceran  = $mapping ? (float)$mapping['harga_eceran'] : 0;
         return [
             'nama_barang'   => $r['nama_barang'],
             // "satuan" & "sisa_stok" dipertahankan (kompatibel dengan pemanggil
@@ -62,6 +64,8 @@ try {
             'isi_per_satuan' => $isiPerSatuan,
             'sisa_grosir'   => (float)$r['sisa_grosir'],
             'sisa_eceran'   => (!empty($r['satuan_eceran'])) ? (float)$r['sisa_eceran'] : null,
+            'harga_grosir'  => $hargaGrosir,
+            'harga_eceran'  => $hargaEceran,
         ];
     }, $rows);
 

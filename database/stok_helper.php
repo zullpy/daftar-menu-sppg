@@ -80,7 +80,7 @@ function stok_getMapping($nama_barang)
     $key = strtolower(trim($nama_barang));
     if (array_key_exists($key, $cache)) return $cache[$key];
 
-    $stmt = $pdoBarang->prepare("SELECT satuan, satuan_eceran, isi_per_satuan FROM barang WHERE LOWER(TRIM(nama_barang)) = :nama LIMIT 1");
+    $stmt = $pdoBarang->prepare("SELECT satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang WHERE LOWER(TRIM(nama_barang)) = :nama LIMIT 1");
     $stmt->execute([':nama' => $key]);
     $row = $stmt->fetch();
 
@@ -93,11 +93,24 @@ function stok_getMapping($nama_barang)
     $isi = ((float)($row['isi_per_satuan'] ?? 0) > 0) ? (float)$row['isi_per_satuan'] : null;
     $hasEceran = $satuanEceranRaw !== '' && $isi;
 
-    $mapping = $hasEceran ? [
+    $hargaBeli = (float)($row['harga_beli'] ?? 0);
+    $hargaEceranRaw = (float)($row['harga_eceran'] ?? 0);
+    if ($hasEceran && $hargaEceranRaw > 0) {
+        $hargaEceran = $hargaEceranRaw;
+    } elseif ($hasEceran && $isi > 0 && $hargaBeli > 0) {
+        $hargaEceran = $hargaBeli / $isi;
+    } else {
+        $hargaEceran = $hargaBeli;
+    }
+
+    $mapping = [
         'satuan_grosir'  => trim($row['satuan']),
-        'satuan_eceran'  => $satuanEceranRaw,
+        'satuan_eceran'  => $satuanEceranRaw !== '' ? $satuanEceranRaw : trim($row['satuan']),
         'isi_per_satuan' => $isi,
-    ] : null;
+        'harga_grosir'   => $hargaBeli,
+        'harga_eceran'   => $hargaEceran,
+        'has_eceran'     => $hasEceran,
+    ];
 
     $cache[$key] = $mapping;
     return $mapping;

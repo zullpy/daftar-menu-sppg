@@ -45,6 +45,8 @@ try {
 
     $mapping = stok_getMapping($nama_barang);
     $isiPerSatuan = $mapping ? $mapping['isi_per_satuan'] : null;
+    $hargaGrosir  = $mapping ? (float)$mapping['harga_grosir'] : 0;
+    $hargaEceran  = $mapping ? (float)$mapping['harga_eceran'] : 0;
 
     // "sisa_stok"/"satuan" dipertahankan (kompatibel dengan pemanggil lama) =
     // versi GROSIR, karena itu satuan default yang di-autofill ke form.
@@ -59,7 +61,9 @@ try {
         'sisa_eceran'   => $sisaEceran,
         'satuan_grosir' => $satuan,
         'satuan_eceran' => $satuanEceran,
-        'isi_per_satuan' => $isiPerSatuan
+        'isi_per_satuan' => $isiPerSatuan,
+        'harga_grosir'  => $hargaGrosir,
+        'harga_eceran'  => $hargaEceran
     ]);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
