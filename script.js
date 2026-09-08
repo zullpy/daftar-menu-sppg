@@ -132,22 +132,32 @@ document.querySelector('input[name="tanggal"]')?.addEventListener('change', upda
 
 // ===== Dynamic Form Rows =====
 let rowIndex = 0;
-function addRow() {
+function addRow(item = null) {
     rowIndex++;
     const tbody = document.querySelector('#tableItem tbody');
     const tr = document.createElement('tr');
     tr.dataset.rowIndex = rowIndex;
+    
+    const targetKategori = item ? (item.kategori || 'Karbohidrat') : 'Karbohidrat';
     let kategoriOptions = '';
     KATEGORI_LIST.forEach(k => {
-        kategoriOptions += `<option value="${k}">${k}</option>`;
+        const isSel = (k === targetKategori) ? 'selected' : '';
+        kategoriOptions += `<option value="${k}" ${isSel}>${k}</option>`;
     });
+
+    const nama = item ? (item.item_barang || '') : '';
+    const qty = (item && item.qty !== undefined && item.qty !== null) ? item.qty : '';
+    const satuan = item ? (item.satuan || '') : '';
+    const harga = (item && item.harga_satuan !== undefined) ? item.harga_satuan : 0;
+    const jumlah = (qty && harga) ? (qty * harga).toFixed(2) : 0;
+
     tr.innerHTML = `
-        <td><input type="text" name="item_barang[${rowIndex}]" placeholder="Nama barang" required></td>
+        <td><input type="text" name="item_barang[${rowIndex}]" value="${escapeHtml(String(nama))}" placeholder="Nama barang" required></td>
         <td><select name="kategori[${rowIndex}]" class="kategori-select" required>${kategoriOptions}</select></td>
-        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" placeholder="0" required></td>
-        <td><input type="text" name="satuan[${rowIndex}]" placeholder="pcs/kg" required>
-            <input type="hidden" name="harga_satuan[${rowIndex}]" class="input-harga" value="0">
-            <input type="hidden" name="jumlah[${rowIndex}]" class="input-jumlah" value="0">
+        <td><input type="number" name="qty[${rowIndex}]" class="input-qty" step="0.01" min="0" value="${qty}" placeholder="0" required></td>
+        <td><input type="text" name="satuan[${rowIndex}]" value="${escapeHtml(String(satuan))}" placeholder="pcs/kg" required>
+            <input type="hidden" name="harga_satuan[${rowIndex}]" class="input-harga" value="${harga}">
+            <input type="hidden" name="jumlah[${rowIndex}]" class="input-jumlah" value="${jumlah}">
         </td>
         <td><input type="hidden" name="row_index[]" value="${rowIndex}"><button type="button" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="removeRow(this)" title="Hapus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></td>
     `;
@@ -476,8 +486,11 @@ function exportPDF(tanggal) {
     }, 500);
 }
 
-// ===== Edit Item Modal =====
+// ===== Edit Item Modal & Asynchronous Handlers =====
+let currentEditDetailBtn = null;
+
 function openEditItem(btn) {
+    currentEditDetailBtn = btn;
     document.getElementById('edit_id_detail').value = btn.dataset.id;
     document.getElementById('edit_item_barang').value = btn.dataset.item;
     document.getElementById('edit_qty').value = btn.dataset.qty;
@@ -487,6 +500,274 @@ function openEditItem(btn) {
     openModal('modalEdit');
 }
 
+async function submitEditDetail(e) {
+    e.preventDefault();
+    const form = document.getElementById('formEditDetail') || e.target;
+    const saveBtn = document.getElementById('btnSaveEditDetail');
+    const origBtnHtml = saveBtn ? saveBtn.innerHTML : 'Simpan Perubahan';
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = 'Menyimpan...';
+    }
+
+    const formData = new FormData(form);
+    formData.append('ajax', '1');
+
+    try {
+        const res = await fetch('menu.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+            alert('Gagal menyimpan perubahan: ' + (json.message || 'Error'));
+            return;
+        }
+
+        const data = json.data;
+        const id = data.id_detail;
+
+        let row = currentEditDetailBtn ? currentEditDetailBtn.closest('.item-row') : document.querySelector(`.item-row[data-id-detail="${id}"]`);
+        if (row) {
+            const oldKategori = currentEditDetailBtn ? (currentEditDetailBtn.dataset.kategori || '') : '';
+            const oldName = currentEditDetailBtn ? (currentEditDetailBtn.dataset.item || '') : '';
+
+            // Update nama barang
+            const nameSpan = row.querySelector('.item-row-name');
+            if (nameSpan) nameSpan.textContent = data.item_barang;
+
+            // Format QTY (strip decimal jika bulat)
+            const qtyNum = parseFloat(data.qty) || 0;
+            const qtyFormatted = (qtyNum % 1 === 0) ? qtyNum.toString() : qtyNum.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            const qtyChip = row.querySelector('.item-qty-chip');
+            if (qtyChip) qtyChip.textContent = `${qtyFormatted} ${data.satuan}`;
+
+            // Update badge kategori
+            const badgeKat = row.querySelector('.badge-kategori');
+            if (badgeKat) {
+                badgeKat.textContent = data.kategori;
+                const katStyles = {
+                    'Karbohidrat': { color: '#2563eb', bg: '#eff6ff' },
+                    'Protein': { color: '#dc2626', bg: '#fef2f2' },
+                    'Sayuran': { color: '#16a34a', bg: '#f0fdf4' },
+                    'Buah-buahan': { color: '#db2777', bg: '#fdf2f8' },
+                    'Bumbu': { color: '#d97706', bg: '#fffbeb' },
+                    'Pelengkap/Tambahan': { color: '#7c3aed', bg: '#f5f3ff' },
+                };
+                const st = katStyles[data.kategori] || { color: '#64748b', bg: '#f1f5f9' };
+                badgeKat.style.color = st.color;
+                badgeKat.style.background = st.bg;
+            }
+
+            // Update data attributes pada button edit
+            const editBtn = row.querySelector('.action-btn-edit');
+            if (editBtn) {
+                editBtn.dataset.item = data.item_barang;
+                editBtn.dataset.qty = data.qty;
+                editBtn.dataset.satuan = data.satuan;
+                editBtn.dataset.harga = data.harga_satuan;
+                editBtn.dataset.kategori = data.kategori;
+            }
+
+            // Update kategori card summary
+            const menuCard = row.closest('.menu-card');
+            if (menuCard) {
+                updateKategoriCardsOnEdit(menuCard, oldKategori, data.kategori, oldName, data.item_barang);
+            }
+
+            // Efek highlight
+            row.style.transition = 'background-color 0.4s ease';
+            const origBg = row.style.backgroundColor;
+            row.style.backgroundColor = '#ecfdf5';
+            setTimeout(() => { row.style.backgroundColor = origBg; }, 1200);
+        }
+
+        closeModal('modalEdit');
+        showToast('✓ Perubahan item berhasil disimpan!', 'success');
+
+    } catch (err) {
+        alert('Terjadi kesalahan koneksi: ' + err.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origBtnHtml;
+        }
+    }
+}
+
+// ===== Hapus Item Tanpa Reload =====
+async function deleteDetailItem(idDetail, btn) {
+    if (!confirm('Yakin ingin menghapus item ini?')) return;
+
+    const row = btn.closest('.item-row');
+    const itemList = row ? row.closest('.item-list') : null;
+    const menuCard = row ? row.closest('.menu-card') : null;
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'delete_detail');
+        formData.append('id_detail', idDetail);
+        formData.append('ajax', '1');
+
+        const res = await fetch('menu.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+            alert('Gagal menghapus item: ' + (json.message || 'Error'));
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            return;
+        }
+
+        const itemName = row.querySelector('.item-row-name') ? row.querySelector('.item-row-name').textContent.trim() : '';
+        const editBtn = row.querySelector('.action-btn-edit');
+        const itemKategori = editBtn ? (editBtn.dataset.kategori || '') : '';
+
+        // Animasi hapus baris
+        row.style.transition = 'all 0.3s ease';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+            row.remove();
+
+            if (itemList) {
+                const remainingRows = itemList.querySelectorAll('.item-row');
+                remainingRows.forEach((r, idx) => {
+                    const noSpan = r.querySelector('.item-row-no');
+                    if (noSpan) noSpan.textContent = idx + 1;
+                });
+
+                if (menuCard) {
+                    const footerStrong = menuCard.querySelector('.item-list-footer strong');
+                    if (footerStrong) {
+                        footerStrong.textContent = `${remainingRows.length} item`;
+                    }
+                    if (remainingRows.length === 0) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.className = 'item-list-empty';
+                        emptyDiv.textContent = 'Belum ada item barang';
+                        itemList.appendChild(emptyDiv);
+
+                        const footer = menuCard.querySelector('.item-list-footer');
+                        if (footer) footer.style.display = 'none';
+                        const ringkasan = menuCard.querySelector('.ringkasan-status-box');
+                        if (ringkasan) ringkasan.style.display = 'none';
+                    }
+                }
+            }
+
+            if (menuCard && itemKategori) {
+                updateKategoriCardsOnDelete(menuCard, itemKategori, itemName);
+            }
+
+            showToast('✓ Item berhasil dihapus!', 'success');
+        }, 300);
+
+    } catch (err) {
+        alert('Terjadi kesalahan koneksi: ' + err.message);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+// ===== Helper Kategori Cards =====
+function findKategoriCard(menuCard, katName) {
+    if (!menuCard || !katName) return null;
+    const cards = menuCard.querySelectorAll('.kategori-card');
+    for (let c of cards) {
+        const title = c.querySelector('.kategori-card-title');
+        if (title && title.textContent.trim().toLowerCase() === katName.trim().toLowerCase()) {
+            return c;
+        }
+    }
+    return null;
+}
+
+function updateKategoriCardsOnDelete(menuCard, katName, itemName) {
+    const card = findKategoriCard(menuCard, katName);
+    if (!card) return;
+
+    const countEl = card.querySelector('.kategori-card-count');
+    let count = parseInt(countEl ? countEl.textContent : '0', 10) || 0;
+    count = Math.max(0, count - 1);
+    if (countEl) countEl.textContent = count;
+
+    const list = card.querySelector('.kategori-item-list');
+    if (list) {
+        const items = list.querySelectorAll('.kategori-item');
+        for (let it of items) {
+            if (it.textContent.trim().toLowerCase() === itemName.trim().toLowerCase()) {
+                it.remove();
+                break;
+            }
+        }
+    }
+
+    if (count === 0) {
+        const body = card.querySelector('.kategori-card-body');
+        if (body) {
+            body.innerHTML = '<div class="kategori-empty">Kosong</div>';
+        }
+    }
+}
+
+function updateKategoriCardsOnEdit(menuCard, oldKat, newKat, oldName, newName) {
+    if (oldKat === newKat && oldName === newName) return;
+
+    if (oldKat === newKat) {
+        const card = findKategoriCard(menuCard, newKat);
+        if (card) {
+            const list = card.querySelector('.kategori-item-list');
+            if (list) {
+                const items = list.querySelectorAll('.kategori-item');
+                for (let it of items) {
+                    if (it.textContent.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+                        it.innerHTML = `<span class="kategori-item-dot"></span> ${escapeHtml(newName)}`;
+                        break;
+                    }
+                }
+            }
+        }
+    } else {
+        if (oldKat) {
+            updateKategoriCardsOnDelete(menuCard, oldKat, oldName);
+        }
+
+        const newCard = findKategoriCard(menuCard, newKat);
+        if (newCard) {
+            const countEl = newCard.querySelector('.kategori-card-count');
+            let count = parseInt(countEl ? countEl.textContent : '0', 10) || 0;
+            count++;
+            if (countEl) countEl.textContent = count;
+
+            const body = newCard.querySelector('.kategori-card-body');
+            let list = newCard.querySelector('.kategori-item-list');
+            if (!list && body) {
+                body.innerHTML = '<ul class="kategori-item-list"></ul>';
+                list = body.querySelector('.kategori-item-list');
+            }
+            if (list) {
+                const empty = body.querySelector('.kategori-empty');
+                if (empty) empty.remove();
+                const li = document.createElement('li');
+                li.className = 'kategori-item';
+                li.innerHTML = `<span class="kategori-item-dot"></span> ${escapeHtml(newName)}`;
+                list.appendChild(li);
+            }
+        }
+    }
+}
+
 // ===== Tambah Barang Susulan =====
 function openAddItemModal(idBelanja, judulMenu) {
     const form = document.getElementById('formAddItem');
@@ -494,6 +775,177 @@ function openAddItemModal(idBelanja, judulMenu) {
     document.getElementById('additem_id_belanja').value = idBelanja;
     document.getElementById('additem_judul_menu').textContent = `Menambahkan item untuk: ${judulMenu}`;
     openModal('modalAddItem');
+}
+
+async function submitAddItem(e) {
+    e.preventDefault();
+    const form = document.getElementById('formAddItem') || e.target;
+    const saveBtn = document.getElementById('btnSaveAddItem');
+    const origBtnHtml = saveBtn ? saveBtn.innerHTML : 'Simpan Barang';
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = 'Menyimpan...';
+    }
+
+    const formData = new FormData(form);
+    formData.append('ajax', '1');
+
+    try {
+        const res = await fetch('menu.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+            alert('Gagal menambah barang: ' + (json.message || 'Error'));
+            return;
+        }
+
+        const data = json.data;
+        const idBelanja = data.id_belanja;
+
+        const menuCard = document.querySelector(`.menu-card[data-id-belanja="${idBelanja}"]`);
+        if (menuCard) {
+            const itemList = menuCard.querySelector('.item-list');
+            if (itemList) {
+                const emptyEl = itemList.querySelector('.item-list-empty');
+                if (emptyEl) emptyEl.remove();
+
+                const rows = itemList.querySelectorAll('.item-row');
+                const nextNo = rows.length + 1;
+
+                const qtyNum = parseFloat(data.qty) || 0;
+                const qtyFormatted = (qtyNum % 1 === 0) ? qtyNum.toString() : qtyNum.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+                const katStyles = {
+                    'Karbohidrat': { color: '#2563eb', bg: '#eff6ff' },
+                    'Protein': { color: '#dc2626', bg: '#fef2f2' },
+                    'Sayuran': { color: '#16a34a', bg: '#f0fdf4' },
+                    'Buah-buahan': { color: '#db2777', bg: '#fdf2f8' },
+                    'Bumbu': { color: '#d97706', bg: '#fffbeb' },
+                    'Pelengkap/Tambahan': { color: '#7c3aed', bg: '#f5f3ff' },
+                };
+                const st = katStyles[data.kategori] || { color: '#64748b', bg: '#f1f5f9' };
+
+                const newRow = document.createElement('div');
+                newRow.className = 'item-row';
+                newRow.dataset.idDetail = data.id_detail;
+
+                let notaBtnHtml = '';
+                if (data.jumlah_nota > 0) {
+                    notaBtnHtml = `
+                        <button type="button" class="action-btn action-btn-nota" onclick="viewPhotos(${data.id_detail}, 'nota', 1)" title="Lihat Nota (1)">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                            <span>1</span>
+                        </button>
+                    `;
+                }
+
+                newRow.innerHTML = `
+                    <div class="item-row-main">
+                        <div class="item-row-info">
+                            <span class="item-row-no">${nextNo}</span>
+                            <div class="item-row-text">
+                                <div class="item-row-name-line">
+                                    <span class="item-row-name">${escapeHtml(data.item_barang)}</span>
+                                    <span class="item-qty-chip">${qtyFormatted} ${escapeHtml(data.satuan)}</span>
+                                </div>
+                                <div class="item-row-meta">
+                                    <span class="badge-kategori" style="background: ${st.bg}; color: ${st.color};">${escapeHtml(data.kategori)}</span>
+                                    <span class="status-badge status-badge-belum">Belum Dicek</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-row-actions">
+                        <div class="action-group">
+                            ${notaBtnHtml}
+                            <label class="action-btn action-btn-nota-add" title="Tambah Nota">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                <input type="file" accept="image/*,.pdf" multiple hidden onchange="uploadInlinePhoto(this, 'add_nota', ${data.id_detail})">
+                            </label>
+                        </div>
+                        <div class="action-group">
+                            <label class="action-btn action-btn-galeri" title="Pilih dari Galeri">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
+                                </svg>
+                                <input type="file" accept="image/*" multiple hidden onchange="uploadInlinePhoto(this, 'add_foto_receiving', ${data.id_detail})">
+                            </label>
+                            <label class="action-btn action-btn-kamera" title="Ambil Foto dengan Kamera">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <input type="file" accept="image/*" capture="environment" hidden onchange="uploadInlinePhoto(this, 'add_foto_receiving', ${data.id_detail})">
+                            </label>
+                        </div>
+                        <div class="action-group action-group-end">
+                            <button type="button" class="action-btn action-btn-edit" onclick="openEditItem(this)"
+                                data-id="${data.id_detail}"
+                                data-item="${escapeHtml(data.item_barang)}"
+                                data-qty="${data.qty}"
+                                data-satuan="${escapeHtml(data.satuan)}"
+                                data-harga="${data.harga_satuan}"
+                                data-kategori="${escapeHtml(data.kategori)}" title="Edit Item">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                                </svg>
+                            </button>
+                            <button type="button" class="action-btn action-btn-delete" onclick="deleteDetailItem(${data.id_detail}, this)" title="Hapus Item">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                itemList.appendChild(newRow);
+
+                const footer = menuCard.querySelector('.item-list-footer');
+                if (footer) {
+                    footer.style.display = 'flex';
+                    const footerStrong = footer.querySelector('strong');
+                    if (footerStrong) footerStrong.textContent = `${nextNo} item`;
+                }
+
+                updateKategoriCardsOnEdit(menuCard, '', data.kategori, '', data.item_barang);
+
+                newRow.style.transition = 'background-color 0.4s ease';
+                newRow.style.backgroundColor = '#ecfdf5';
+                setTimeout(() => { newRow.style.backgroundColor = ''; }, 1200);
+            }
+        }
+
+        closeModal('modalAddItem');
+        form.reset();
+        showToast('✓ Barang susulan berhasil ditambahkan!', 'success');
+
+    } catch (err) {
+        alert('Terjadi kesalahan koneksi: ' + err.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origBtnHtml;
+        }
+    }
 }
 
 // ===== Upload Faktur TTD =====
@@ -915,3 +1367,224 @@ document.addEventListener('click', function (e) {
         closeUploadMenuPopup();
     }
 });
+
+// =====================================================
+// ✅ FITUR TARIK DARI DOMPET HARIAN
+// =====================================================
+let daftarMenuDompetCache = [];
+let debounceMenuDompetTimer = null;
+
+function openModalTarikDompet() {
+    openModal('modalTarikDompet');
+    const inputSearch = document.getElementById('searchMenuDompet');
+    if (inputSearch) inputSearch.value = '';
+    loadDaftarMenuDompet();
+}
+
+function debounceFilterMenuDompet(query) {
+    clearTimeout(debounceMenuDompetTimer);
+    debounceMenuDompetTimer = setTimeout(() => {
+        filterMenuDompetLocal(query);
+    }, 200);
+}
+
+function filterMenuDompetLocal(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+        renderListMenuDompet(daftarMenuDompetCache);
+        return;
+    }
+    const filtered = daftarMenuDompetCache.filter(m => {
+        const nama = (m.nama_menu || '').toLowerCase();
+        const tgl = (m.tanggal || '').toLowerCase();
+        return nama.includes(q) || tgl.includes(q);
+    });
+    renderListMenuDompet(filtered);
+}
+
+async function loadDaftarMenuDompet() {
+    const container = document.getElementById('listMenuDompetContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div style="text-align:center; padding:30px; color:#64748b;">
+            <div class="spinner" style="margin:0 auto 10px; width:28px; height:28px; border-width:3px;"></div>
+            Memuat daftar menu dari Dompet Harian...
+        </div>
+    `;
+
+    try {
+        const res = await fetch('database/api-dompet-harian.php?action=list');
+        const json = await res.json();
+
+        if (!json.success) {
+            container.innerHTML = `<div style="text-align:center; padding:24px; color:#ef4444;">Gagal memuat menu: ${escapeHtml(json.message || 'Error')}</div>`;
+            return;
+        }
+
+        daftarMenuDompetCache = json.data || [];
+        renderListMenuDompet(daftarMenuDompetCache);
+    } catch (err) {
+        container.innerHTML = `<div style="text-align:center; padding:24px; color:#ef4444;">Koneksi error: ${escapeHtml(err.message)}</div>`;
+    }
+}
+
+function renderListMenuDompet(menus) {
+    const container = document.getElementById('listMenuDompetContainer');
+    if (!container) return;
+
+    if (!menus || menus.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:36px 20px; color:#94a3b8;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 10px; display:block; opacity:0.6;">
+                    <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+                <div style="font-weight:600; color:#475569;">Tidak ada data menu ditemukan</div>
+                <small>Pastikan data belanja sudah dicatat di Dompet Harian.</small>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    menus.forEach(m => {
+        const tglIndo = formatTanggalIndo(m.tanggal);
+        const statusClass = (m.status === 'approved') ? 'approved' : 'pending';
+        const statusLabel = (m.status === 'approved') ? 'Disetujui' : (m.status || 'Pending');
+        const porsi = Number(m.jumlah_porsi || 0).toLocaleString('id-ID');
+        const totalItems = m.total_items || 0;
+
+        html += `
+            <div class="menu-dompet-item" onclick="pilihMenuDompet(${m.id})" title="Klik untuk tarik menu ini">
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
+                        <span style="font-size:12px; font-weight:600; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:6px;">
+                            ${escapeHtml(tglIndo)}
+                        </span>
+                        <span class="badge-status-dh ${statusClass}">${escapeHtml(statusLabel)}</span>
+                    </div>
+                    <div style="font-weight:700; font-size:15px; color:#0f172a;">${escapeHtml(m.nama_menu)}</div>
+                    <div style="font-size:12.5px; color:#64748b; margin-top:3px; display:flex; gap:14px; flex-wrap:wrap;">
+                        <span>Porsi: <strong style="color:#334155;">${porsi}</strong></span>
+                        <span>Item Belanja: <strong style="color:#334155;">${totalItems} item</strong></span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" style="flex-shrink:0; pointer-events:none; padding:8px 14px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                    <span>Pilih</span>
+                </button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function formatTanggalIndo(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const b = parseInt(parts[1], 10) - 1;
+    return `${parts[2]} ${bulan[b] || parts[1]} ${parts[0]}`;
+}
+
+async function pilihMenuDompet(id) {
+    const loading = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    if (loading) {
+        if (loadingText) loadingText.textContent = 'Menarik data menu & menyaring bahan makanan...';
+        loading.classList.add('active');
+    }
+
+    try {
+        const res = await fetch(`database/api-dompet-harian.php?action=detail&id=${id}`);
+        const json = await res.json();
+
+        if (!json.success) {
+            alert('Gagal mengambil detail menu: ' + (json.message || 'Error'));
+            return;
+        }
+
+        const menu = json.menu;
+        const items = json.items || [];
+        const excluded = json.excluded || [];
+
+        // 1. Isi data Header Menu
+        const inputTanggal = document.querySelector('input[name="tanggal"]');
+        if (inputTanggal && menu.tanggal) {
+            inputTanggal.value = menu.tanggal;
+            if (typeof updateNoFaktur === 'function') updateNoFaktur();
+        }
+
+        const inputJudul = document.querySelector('input[name="judul"]');
+        if (inputJudul && menu.nama_menu) {
+            inputJudul.value = menu.nama_menu;
+        }
+
+        const inputPorsi = document.querySelector('input[name="porsi"]');
+        if (inputPorsi && menu.porsi !== undefined) {
+            inputPorsi.value = menu.porsi;
+        }
+
+        // 2. Kosongkan tabel bahan dan isi dengan item bahan makanan hasil filter
+        const tbody = document.querySelector('#tableItem tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            rowIndex = 0; // Reset index
+            if (items.length > 0) {
+                items.forEach(it => addRow(it));
+            } else {
+                addRow(); // Default 1 baris kosong jika tidak ada item
+            }
+        }
+
+        // 3. Tampilkan Notice Pengecualian jika ada item bensin, sewa, insentif
+        const noticeWrap = document.getElementById('noticeExcludedWrap');
+        if (noticeWrap) {
+            if (excluded.length > 0) {
+                const listExcludedHtml = excluded.map(e => `
+                    <span style="display:inline-block; background:rgba(217,119,6,0.12); padding:2px 8px; border-radius:6px; margin:2px 4px 2px 0; font-size:12px; font-weight:600;">
+                        ${escapeHtml(e.nama_barang)} <small style="font-weight:normal; opacity:0.85;">(${escapeHtml(e.alasan)})</small>
+                    </span>
+                `).join('');
+
+                noticeWrap.innerHTML = `
+                    <div class="notice-excluded-box">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; color:#b45309; margin-bottom:4px;">
+                                ${excluded.length} Item Biaya Operasional Otomatis Dikecualikan:
+                            </div>
+                            <div style="margin-bottom:6px;">${listExcludedHtml}</div>
+                            <div style="font-size:12px; color:#78350f;">
+                                Item-item operasional non-pangan di atas tidak dimasukkan ke dalam rincian menu dapur MBG.
+                            </div>
+                        </div>
+                    </div>
+                `;
+                noticeWrap.style.display = 'block';
+            } else {
+                noticeWrap.innerHTML = '';
+                noticeWrap.style.display = 'none';
+            }
+        }
+
+        // 4. Tutup modal pemilih dompet
+        closeModal('modalTarikDompet');
+
+        // 5. Berikan feedback toast notifikasi
+        showToast(`Menu "<strong>${escapeHtml(menu.nama_menu)}</strong>" berhasil ditarik! Kategori gizi telah terisi otomatis.`, 'success');
+
+    } catch (err) {
+        alert('Terjadi kesalahan saat memproses data: ' + err.message);
+    } finally {
+        if (loading) loading.classList.remove('active');
+    }
+}

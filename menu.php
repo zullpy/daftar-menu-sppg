@@ -33,36 +33,80 @@ require_once 'database/koneksi.php';
 require_once 'assets/icons.php';
 
 // ====== 🔒 PROSES HAPUS DETAIL (HANYA ADMIN) ======
-if (isset($_GET['delete_detail'])) {
+if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'] === 'delete_detail')) {
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+              || (isset($_POST['ajax']) && $_POST['ajax'] == '1')
+              || (isset($_GET['ajax']) && $_GET['ajax'] == '1');
     if (!$isAdmin) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya admin yang dapat menghapus item.']);
+            exit;
+        }
         header("Location: menu.php?error=unauthorized");
         exit;
     }
-    $id = (int)$_GET['delete_detail'];
+    $id = (int)($_POST['id_detail'] ?? $_GET['delete_detail'] ?? 0);
     $pdo->prepare("DELETE FROM belanja_detail WHERE id_detail = ?")->execute([$id]);
+
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'id_detail' => $id]);
+        exit;
+    }
     header("Location: menu.php?deleted=1");
     exit;
 }
 
 // ====== 🔒 PROSES UPDATE DETAIL (HANYA ADMIN) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_detail'])) {
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+              || (isset($_POST['ajax']) && $_POST['ajax'] == '1');
     if (!$isAdmin) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya admin yang dapat mengubah item.']);
+            exit;
+        }
         header("Location: menu.php?error=unauthorized");
         exit;
     }
     try {
-        $id = $_POST['id_detail'];
-        $item = $_POST['item_barang'];
-        $qty = $_POST['qty'];
-        $satuan = $_POST['satuan'];
-        $harga = $_POST['harga_satuan'];
+        $id = (int)($_POST['id_detail'] ?? 0);
+        $item = trim($_POST['item_barang'] ?? '');
+        $qty = (float)($_POST['qty'] ?? 0);
+        $satuan = trim($_POST['satuan'] ?? '');
+        $harga = (float)($_POST['harga_satuan'] ?? 0);
         $jumlah = $qty * $harga;
-        $kategori = $_POST['kategori'];
+        $kategori = $_POST['kategori'] ?? 'Karbohidrat';
+
         $stmt = $pdo->prepare("UPDATE belanja_detail SET item_barang=?, qty=?, satuan=?, harga_satuan=?, jumlah=?, kategori=? WHERE id_detail=?");
         $stmt->execute([$item, $qty, $satuan, $harga, $jumlah, $kategori, $id]);
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'id_detail' => $id,
+                    'item_barang' => $item,
+                    'qty' => $qty,
+                    'satuan' => $satuan,
+                    'harga_satuan' => $harga,
+                    'jumlah' => $jumlah,
+                    'kategori' => $kategori
+                ]
+            ]);
+            exit;
+        }
         header("Location: menu.php?updated=1");
         exit;
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
         $error = $e->getMessage();
     }
 }
@@ -196,16 +240,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
 
 // ====== 🔒 PROSES TAMBAH BARANG SUSULAN (HANYA ADMIN) ======
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+              || (isset($_POST['ajax']) && $_POST['ajax'] == '1');
     if (!$isAdmin) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya admin yang dapat menambah item.']);
+            exit;
+        }
         header("Location: menu.php?error=unauthorized");
         exit;
     }
     try {
         $idBelanja = (int)$_POST['id_belanja'];
-        $item = $_POST['item_barang'];
-        $qty = $_POST['qty'];
-        $satuan = $_POST['satuan'];
-        $harga = $_POST['harga_satuan'];
+        $item = trim($_POST['item_barang'] ?? '');
+        $qty = (float)($_POST['qty'] ?? 0);
+        $satuan = trim($_POST['satuan'] ?? '');
+        $harga = (float)($_POST['harga_satuan'] ?? 0);
         $jumlah = (float)$qty * (float)$harga;
         $kategori = $_POST['kategori'] ?? 'Karbohidrat';
         $stmt = $pdo->prepare("INSERT INTO belanja_detail (id_belanja, item_barang, qty, satuan, harga_satuan, jumlah, kategori) VALUES (:id_belanja, :item_barang, :qty, :satuan, :harga_satuan, :jumlah, :kategori)");
@@ -220,6 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
         ]);
         $idDetail = $pdo->lastInsertId();
 
+        $hasNota = 0;
         if (isset($_FILES['nota_susulan']) && $_FILES['nota_susulan']['error'] === UPLOAD_ERR_OK) {
             $uploadDir = 'uploads/nota/';
             if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -228,11 +280,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
             if (move_uploaded_file($_FILES['nota_susulan']['tmp_name'], $uploadDir . $newName)) {
                 $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (:id_detail, :file_nota)")
                     ->execute([':id_detail' => $idDetail, ':file_nota' => $newName]);
+                $hasNota = 1;
             }
+        }
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'id_detail' => (int)$idDetail,
+                    'id_belanja' => $idBelanja,
+                    'item_barang' => $item,
+                    'qty' => $qty,
+                    'satuan' => $satuan,
+                    'harga_satuan' => $harga,
+                    'jumlah' => $jumlah,
+                    'kategori' => $kategori,
+                    'jumlah_nota' => $hasNota,
+                    'jumlah_foto' => 0
+                ]
+            ]);
+            exit;
         }
         header("Location: menu.php?item_added=1");
         exit;
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
         $error = $e->getMessage();
     }
 }
@@ -398,6 +476,112 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
         .info-dapur-operator strong {
             color: #15803d;
+        }
+
+        /* ✅ Fitur Tarik dari Dompet Harian */
+        .tarik-dompet-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+            border: 1px solid #bae6fd;
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .tarik-dompet-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .tarik-dompet-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #0284c7;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+        }
+
+        .btn-tarik-dompet {
+            background: #0284c7 !important;
+            border: none !important;
+            color: #fff !important;
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-weight: 600;
+            font-size: 13.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-tarik-dompet:hover {
+            background: #0369a1 !important;
+            transform: translateY(-1px);
+        }
+
+        .menu-dompet-item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .menu-dompet-item:hover {
+            border-color: #0284c7;
+            background: #f8fafc;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+        }
+
+        .notice-excluded-box {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #92400e;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .badge-status-dh {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-status-dh.approved {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-status-dh.pending {
+            background: #fef9c3;
+            color: #854d0e;
         }
     </style>
 </head>
@@ -576,7 +760,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </div>
                     <div class="date-content <?= $firstDate ? 'active' : '' ?>">
                         <?php foreach ($menus as $belanja): ?>
-                            <div class="menu-card">
+                            <div class="menu-card" data-id-belanja="<?= $belanja['id_belanja'] ?>">
                                 <?php if (!empty($belanja['nama_sppg']) || !empty($belanja['no_faktur'])): ?>
                                     <div class="dapur-info-badge">
                                         <span>
@@ -857,14 +1041,14 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                                 <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                                                             </svg>
                                                         </button>
-                                                        <a href="?delete_detail=<?= $detail['id_detail'] ?>" class="action-btn action-btn-delete" onclick="return confirm('Yakin ingin menghapus item ini?')" title="Hapus Item">
+                                                        <button type="button" class="action-btn action-btn-delete" onclick="deleteDetailItem(<?= $detail['id_detail'] ?>, this)" title="Hapus Item">
                                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                                 <polyline points="3 6 5 6 21 6" />
                                                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                                                 <line x1="10" y1="11" x2="10" y2="17" />
                                                                 <line x1="14" y1="11" x2="14" y2="17" />
                                                             </svg>
-                                                        </a>
+                                                        </button>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
@@ -949,6 +1133,33 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formBelanja">
                     <input type="hidden" name="save_belanja" value="1">
+
+                    <!-- ✅ BANNER TARIK DARI DOMPET HARIAN -->
+                    <div class="tarik-dompet-card">
+                        <div class="tarik-dompet-info">
+                            <div class="tarik-dompet-icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+                                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+                                    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; color: #1e293b; font-size: 14px;">Sudah Catat Menu di Dompet Harian?</div>
+                                <div style="font-size: 12.5px; color: #64748b; margin-top: 2px;">
+                                    Tarik otomatis nama menu, porsi, dan bahan makanan. Biaya operasional (bensin, sewa, insentif) otomatis disaring.
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-tarik-dompet" onclick="openModalTarikDompet()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>Tarik dari Dompet Harian</span>
+                        </button>
+                    </div>
 
                     <!-- STEP 1: Info Dapur -->
                     <div class="form-section">
@@ -1054,6 +1265,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                         <div id="fotoMenuPreview" class="image-preview"></div>
                     </div>
 
+                    <!-- NOTICE ITEM DIKECUALIKAN (DINAMIS SAAT DITARIK) -->
+                    <div id="noticeExcludedWrap" style="display:none; margin: 15px 0;"></div>
+
                     <!-- STEP 4: Detail Item Barang -->
                     <div class="form-section">
                         <h3 class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -1086,6 +1300,59 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
             </div>
         </div>
 
+        <!-- ✅ MODAL PILIH MENU DARI DOMPET HARIAN -->
+        <div class="modal-overlay" id="modalTarikDompet" style="z-index: 1050;">
+            <div class="modal-content modal-large" style="max-width: 840px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: #fff;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+                                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+                                <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 style="margin:0; font-size:17px; font-weight:700; color:#fff;">Pilih Menu dari Dompet Harian</h2>
+                            <p style="margin:2px 0 0; font-size:12px; color:#94a3b8;">Pilih menu untuk ditarik otomatis ke form input MBG</p>
+                        </div>
+                    </div>
+                    <button class="close-modal" onclick="closeModal('modalTarikDompet')" style="color:#fff;"><?= icon('x', 20) ?></button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <!-- Filter Search Bar -->
+                    <div style="display:flex; gap:10px; margin-bottom: 14px;">
+                        <div style="position:relative; flex:1;">
+                            <input type="text" id="searchMenuDompet" class="form-control" placeholder="Cari nama menu atau tanggal (contoh: Ayam, 2026-08)..." oninput="debounceFilterMenuDompet(this.value)" style="padding-left:38px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%);">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="loadDaftarMenuDompet()" title="Segarkan Data" style="padding:8px 14px; gap:6px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                            </svg>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+
+                    <!-- Notice Pengecualian Otomatis -->
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:12.5px; color:#166534; display:flex; align-items:center; gap:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <span>Sistem otomatis menyaring keluar item non-pangan (<strong>bensin, sewa armada, insentif/honor chef</strong>), dan mendeteksi kategori gizi (Karbohidrat, Protein, Sayuran, dll.).</span>
+                    </div>
+
+                    <!-- Container List Menu -->
+                    <div id="listMenuDompetContainer" style="max-height: 420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-right: 4px;">
+                        <div style="text-align:center; padding:30px; color:#64748b;">Memuat data menu dompet harian...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal Edit & Add Item (tetap sama, tidak diubah) -->
         <div class="modal-overlay" id="modalEdit">
             <div class="modal-content" style="max-width: 500px;">
@@ -1095,7 +1362,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                         </svg>Edit Item Barang</h2>
                     <button class="close-modal" onclick="closeModal('modalEdit')"><?= icon('x', 20) ?></button>
                 </div>
-                <form method="POST">
+                <form method="POST" id="formEditDetail" onsubmit="submitEditDetail(event)">
+                    <input type="hidden" name="update_detail" value="1">
                     <input type="hidden" name="id_detail" id="edit_id_detail">
                     <div class="form-section">
                         <div class="form-group">
@@ -1126,7 +1394,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('modalEdit')">Batal</button>
-                        <button type="submit" name="update_detail" class="btn btn-primary">Simpan Perubahan</button>
+                        <button type="submit" id="btnSaveEditDetail" name="update_detail" class="btn btn-primary">Simpan Perubahan</button>
                     </div>
                 </form>
             </div>
@@ -1138,7 +1406,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     <h2><?= icon('plus', 18) ?> Tambah Barang Susulan</h2>
                     <button class="close-modal" onclick="closeModal('modalAddItem')"><?= icon('x', 20) ?></button>
                 </div>
-                <form method="POST" enctype="multipart/form-data" id="formAddItem">
+                <form method="POST" enctype="multipart/form-data" id="formAddItem" onsubmit="submitAddItem(event)">
                     <input type="hidden" name="add_single_item" value="1">
                     <input type="hidden" name="id_belanja" id="additem_id_belanja">
                     <div class="form-section">
@@ -1175,7 +1443,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('modalAddItem')">Batal</button>
-                        <button type="submit" name="add_single_item" class="btn btn-primary">Simpan Barang</button>
+                        <button type="submit" id="btnSaveAddItem" name="add_single_item" class="btn btn-primary">Simpan Barang</button>
                     </div>
                 </form>
             </div>
