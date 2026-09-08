@@ -37,7 +37,7 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
     });
 });
 
-// ===== Accordion Toggle =====
+// ===== Accordion Toggle & Persistence =====
 function toggleAccordion(header) {
     if (!header) return;
     if (typeof header === 'string') {
@@ -50,6 +50,74 @@ function toggleAccordion(header) {
         content.classList.toggle('active');
         content.classList.toggle('open');
     }
+    try {
+        const openDates = [];
+        document.querySelectorAll('.date-group').forEach(group => {
+            const h = group.querySelector('.accordion-toggle');
+            if (h && h.classList.contains('open')) {
+                const tgl = group.dataset.tanggal;
+                if (tgl) openDates.push(tgl);
+            }
+        });
+        sessionStorage.setItem('mbg_open_dates', JSON.stringify(openDates));
+        sessionStorage.setItem('mbg_scroll_y', window.scrollY);
+    } catch (e) {}
+}
+
+// Restore Accordion & Scroll Position on Page Load
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        const savedDates = JSON.parse(sessionStorage.getItem('mbg_open_dates') || '[]');
+        if (Array.isArray(savedDates) && savedDates.length > 0) {
+            document.querySelectorAll('.date-group').forEach(group => {
+                const tgl = group.dataset.tanggal;
+                const header = group.querySelector('.accordion-toggle');
+                const content = header ? header.nextElementSibling : null;
+                if (tgl && savedDates.includes(tgl)) {
+                    if (header) header.classList.add('open');
+                    if (content) { content.classList.add('active', 'open'); }
+                } else if (tgl && savedDates.length > 0) {
+                    if (header) header.classList.remove('open');
+                    if (content) { content.classList.remove('active', 'open'); }
+                }
+            });
+        }
+        const savedY = parseInt(sessionStorage.getItem('mbg_scroll_y') || '0', 10);
+        if (savedY > 0) {
+            window.scrollTo({ top: savedY, behavior: 'instant' });
+            setTimeout(() => window.scrollTo({ top: savedY, behavior: 'instant' }), 100);
+        }
+    } catch (e) {}
+});
+
+// Helper Update Ringkasan Stats In-Place
+function updateCardRingkasanStats(card) {
+    if (!card) return;
+    const items = card.querySelectorAll('.item-row');
+    let lengkap = 0, kurang = 0, tidakAda = 0, belum = 0;
+    items.forEach(row => {
+        const activeBtn = row.querySelector('.status-btn.active');
+        if (!activeBtn) {
+            belum++;
+        } else if (activeBtn.classList.contains('btn-lengkap')) {
+            lengkap++;
+        } else if (activeBtn.classList.contains('btn-kurang')) {
+            kurang++;
+        } else if (activeBtn.classList.contains('btn-tidak-ada')) {
+            tidakAda++;
+        } else {
+            belum++;
+        }
+    });
+
+    const chipLengkap = card.querySelector('.stat-chip.stat-lengkap');
+    if (chipLengkap) chipLengkap.textContent = `✓ ${lengkap}`;
+    const chipKurang = card.querySelector('.stat-chip.stat-kurang');
+    if (chipKurang) chipKurang.textContent = `⚠ ${kurang}`;
+    const chipTidakAda = card.querySelector('.stat-chip.stat-tidakada');
+    if (chipTidakAda) chipTidakAda.textContent = `✗ ${tidakAda}`;
+    const chipBelum = card.querySelector('.stat-chip.stat-belum');
+    if (chipBelum) chipBelum.textContent = `? ${belum}`;
 }
 
 // ===== Auto No Faktur =====
@@ -283,7 +351,62 @@ function uploadInlinePhoto(input, action, id) {
         if (failed) {
             alert('❌ Gagal upload: ' + failed.message);
         } else {
-            location.reload();
+            const addedCount = results.filter(r => r.success).length;
+            const actionGroup = input.closest('.action-group');
+            if (actionGroup) {
+                if (action === 'add_nota') {
+                    let btn = actionGroup.querySelector('.action-btn-nota');
+                    if (btn) {
+                        const span = btn.querySelector('span');
+                        const currentCount = parseInt(span ? span.textContent : '0', 10) || 0;
+                        const newCount = currentCount + addedCount;
+                        if (span) span.textContent = newCount;
+                        btn.setAttribute('onclick', `viewPhotos(${id}, 'nota', ${newCount})`);
+                        btn.title = `Lihat Nota (${newCount})`;
+                    } else {
+                        const newBtn = document.createElement('button');
+                        newBtn.type = 'button';
+                        newBtn.className = 'action-btn action-btn-nota';
+                        newBtn.setAttribute('onclick', `viewPhotos(${id}, 'nota', ${addedCount})`);
+                        newBtn.title = `Lihat Nota (${addedCount})`;
+                        newBtn.innerHTML = `
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                            <span>${addedCount}</span>
+                        `;
+                        actionGroup.insertBefore(newBtn, actionGroup.firstChild);
+                    }
+                } else if (action === 'add_foto_receiving') {
+                    let btn = actionGroup.querySelector('.action-btn-foto');
+                    if (btn) {
+                        const span = btn.querySelector('span');
+                        const currentCount = parseInt(span ? span.textContent : '0', 10) || 0;
+                        const newCount = currentCount + addedCount;
+                        if (span) span.textContent = newCount;
+                        btn.setAttribute('onclick', `viewPhotos(${id}, 'foto', ${newCount})`);
+                        btn.title = `Lihat Foto Receiving (${newCount})`;
+                    } else {
+                        const newBtn = document.createElement('button');
+                        newBtn.type = 'button';
+                        newBtn.className = 'action-btn action-btn-foto';
+                        newBtn.setAttribute('onclick', `viewPhotos(${id}, 'foto', ${addedCount})`);
+                        newBtn.title = `Lihat Foto Receiving (${addedCount})`;
+                        newBtn.innerHTML = `
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span>${addedCount}</span>
+                        `;
+                        actionGroup.insertBefore(newBtn, actionGroup.firstChild);
+                    }
+                }
+            }
+            showToast(`✓ Berhasil mengunggah ${addedCount} file`, 'success');
         }
     }).catch(err => {
         if (loading) loading.classList.remove('active');
@@ -458,10 +581,13 @@ async function setStatus(idDetail, status, btnEl) {
             if (ketBox) ketBox.remove();
 
             const statusLabel = status === 'lengkap' ? 'Lengkap ✓' : 'Tidak Ada ✗';
-            showToast(`Status diubah ke: <strong>${statusLabel}</strong>. Ringkasan akan terupdate otomatis.`, 'success');
+            showToast(`Status diubah ke: <strong>${statusLabel}</strong>`, 'success');
 
-            // Reload untuk update ringkasan otomatis
-            setTimeout(() => location.reload(), 1000);
+            // Update stats box kartu secara langsung tanpa reload
+            const menuCard = btnEl.closest('.menu-card');
+            if (menuCard) {
+                updateCardRingkasanStats(menuCard);
+            }
         } else {
             alert('❌ ' + (data.message || 'Gagal menyimpan status'));
         }
@@ -517,9 +643,34 @@ async function submitKeteranganKurang() {
 
         if (data.success) {
             closeModal('modalKeterangan');
-            showToast(`Status <strong>Kurang</strong> tersimpan. Ringkasan akan terupdate otomatis.`, 'success');
-            // Reload untuk update ringkasan otomatis
-            setTimeout(() => location.reload(), 1000);
+            showToast(`Status <strong>Kurang</strong> tersimpan`, 'success');
+
+            // Update tombol baris terkait langsung di DOM
+            const itemRow = document.querySelector(`.item-row [data-id="${idDetail}"]`)?.closest('.item-row')
+                         || document.querySelector(`button[onclick*="viewPhotos(${idDetail},"]`)?.closest('.item-row')
+                         || document.querySelector(`input[onchange*="${idDetail}"]`)?.closest('.item-row');
+            if (itemRow) {
+                const group = itemRow.querySelector('.status-toggle-group');
+                if (group) {
+                    group.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                    const btnKurang = group.querySelector('.btn-kurang');
+                    if (btnKurang) btnKurang.classList.add('active');
+                }
+                let ketBox = itemRow.querySelector('.keterangan-kurang-box');
+                if (!ketBox) {
+                    ketBox = document.createElement('div');
+                    ketBox.className = 'keterangan-kurang-box';
+                    const detailBox = itemRow.querySelector('.item-detail') || itemRow.querySelector('.item-main');
+                    if (detailBox) detailBox.appendChild(ketBox);
+                    else itemRow.appendChild(ketBox);
+                }
+                ketBox.innerHTML = `<em>Keterangan: ${keterangan}</em>`;
+
+                const menuCard = itemRow.closest('.menu-card');
+                if (menuCard) {
+                    updateCardRingkasanStats(menuCard);
+                }
+            }
         } else {
             alert('❌ ' + (data.message || 'Gagal menyimpan'));
         }

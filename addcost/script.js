@@ -114,7 +114,7 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
                 if (!result.success) {
                     alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
                 } else {
-                    // Reload page to show new photo
+                    try { sessionStorage.setItem('mbg_scroll_y', window.scrollY); } catch(e) {}
                     window.location.href = '?foto_uploaded=1';
                 }
             })
@@ -161,7 +161,17 @@ function deleteFoto(idDetail, type, filename) {
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = '?foto_deleted=1';
+            // Hapus thumbnail foto langsung di DOM
+            const deleteBtn = document.querySelector(`button[onclick*="'${filename}'"]`);
+            const thumbItem = deleteBtn ? deleteBtn.closest('.item-foto-thumb-item') : null;
+            if (thumbItem) {
+                const thumbContainer = thumbItem.closest('.item-foto-thumbnails');
+                thumbItem.remove();
+                if (thumbContainer && thumbContainer.querySelectorAll('.item-foto-thumb-item').length === 0) {
+                    thumbContainer.previousElementSibling?.remove(); // hapus label judul
+                    thumbContainer.remove();
+                }
+            }
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
@@ -190,7 +200,18 @@ function updateStatusItem(idDetail, status, btn) {
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = '?status_updated=1';
+            // Update UI status button in-place
+            const itemRow = btn ? btn.closest('.item-row') : null;
+            if (itemRow) {
+                const group = itemRow.querySelector('.status-btn-group');
+                if (group) {
+                    group.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }
+                const ketDisplay = itemRow.querySelector('.keterangan-display');
+                if (ketDisplay) ketDisplay.remove();
+                hideKeterangan(idDetail);
+            }
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
@@ -248,7 +269,26 @@ function submitKeterangan(idDetail) {
         .then(r => r.text())
         .then(() => {
             if (loading) loading.classList.remove('active');
-            window.location.href = '?status_updated=1';
+            hideKeterangan(idDetail);
+
+            // Update UI in-place
+            const area = document.getElementById('keterangan-area-' + idDetail);
+            const itemRow = area ? area.closest('.item-row') : null;
+            if (itemRow) {
+                const group = itemRow.querySelector('.status-btn-group');
+                if (group) {
+                    group.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                    const btnKurang = group.querySelector('.btn-kurang');
+                    if (btnKurang) btnKurang.classList.add('active');
+                }
+                let ketDisplay = itemRow.querySelector('.keterangan-display');
+                if (!ketDisplay) {
+                    ketDisplay = document.createElement('div');
+                    ketDisplay.className = 'keterangan-display';
+                    itemRow.insertBefore(ketDisplay, area);
+                }
+                ketDisplay.innerHTML = `📝 <strong>Keterangan:</strong> ${keterangan}`;
+            }
         })
         .catch(err => {
             if (loading) loading.classList.remove('active');
