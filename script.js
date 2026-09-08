@@ -21,18 +21,24 @@ function showToast(message, type = 'success') {
 
 // ===== Modal =====
 function openModal(id) {
-    document.getElementById(id).classList.add('active');
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
     document.body.style.overflow = 'hidden';
 }
 function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
-    document.body.style.overflow = 'auto';
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+    if (!document.querySelector('.modal-overlay.active')) {
+        document.body.style.overflow = '';
+    }
 }
 document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => {
         if (e.target === m) {
             m.classList.remove('active');
-            document.body.style.overflow = 'auto';
+            if (!document.querySelector('.modal-overlay.active')) {
+                document.body.style.overflow = '';
+            }
         }
     });
 });

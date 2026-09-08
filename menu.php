@@ -484,7 +484,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
             border: 1px solid #bae6fd;
             border-radius: 14px;
             padding: 14px 18px;
-            margin-bottom: 22px;
+            margin: 20px 24px 0 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -1134,162 +1134,164 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <form method="POST" enctype="multipart/form-data" id="formBelanja">
                     <input type="hidden" name="save_belanja" value="1">
 
-                    <!-- ✅ BANNER TARIK DARI DOMPET HARIAN -->
-                    <div class="tarik-dompet-card">
-                        <div class="tarik-dompet-info">
-                            <div class="tarik-dompet-icon">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
-                                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
-                                    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <div style="font-weight: 700; color: #1e293b; font-size: 14px;">Sudah Catat Menu di Dompet Harian?</div>
-                                <div style="font-size: 12.5px; color: #64748b; margin-top: 2px;">
-                                    Tarik otomatis nama menu, porsi, dan bahan makanan. Biaya operasional (bensin, sewa, insentif) otomatis disaring.
+                    <div class="modal-body-scroll">
+                        <!-- ✅ BANNER TARIK DARI DOMPET HARIAN -->
+                        <div class="tarik-dompet-card">
+                            <div class="tarik-dompet-info">
+                                <div class="tarik-dompet-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+                                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+                                        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 14px;">Sudah Catat Menu di Dompet Harian?</div>
+                                    <div style="font-size: 12.5px; color: #64748b; margin-top: 2px;">
+                                        Tarik otomatis nama menu, porsi, dan bahan makanan. Biaya operasional (bensin, sewa, insentif) otomatis disaring.
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <button type="button" class="btn btn-tarik-dompet" onclick="openModalTarikDompet()">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            <span>Tarik dari Dompet Harian</span>
-                        </button>
-                    </div>
-
-                    <!-- STEP 1: Info Dapur -->
-                    <div class="form-section">
-                        <h3 class="section-title">
-                            <span class="form-step-number">1</span>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
-                                <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
-                                <path d="M17 18h1" />
-                                <path d="M12 18h1" />
-                                <path d="M7 18h1" />
-                            </svg>
-                            Informasi Dapur
-                        </h3>
-
-                        <!-- ✅ DROPDOWN LOKASI DAPUR -->
-                        <div class="form-group" style="margin-bottom: 14px;">
-                            <label>Pilih Dapur <span class="required">*</span></label>
-                            <select name="lokasi" class="form-control" required style="font-weight:600;">
-                                <option value="">-- Pilih Dapur --</option>
-                                <?php foreach ($LOKASI_LIST as $key => $label): ?>
-                                    <option value="<?= $key ?>"><?= $label ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="form-hint">
-                                Data ini hanya akan muncul untuk operator dapur yang dipilih
-                            </small>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Nama SPPG <span class="required">*</span></label>
-                                <input type="text" name="nama_sppg" class="form-control" placeholder="Contoh: Dapur SPPG 1" required>
-                            </div>
-                            <div class="form-group">
-                                <label>No Kontak</label>
-                                <input type="text" name="no_kontak" class="form-control" placeholder="08xxxxxxxxxx">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Alamat Dapur</label>
-                            <textarea name="alamat" class="form-control" rows="2" placeholder="Alamat lengkap dapur..."></textarea>
-                        </div>
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label>No Faktur <small class="form-hint-inline">(Otomatis)</small></label>
-                            <input type="text" name="no_faktur" class="form-control" readonly style="background:#f1f5f9; font-weight:600; color:var(--primary);">
-                        </div>
-                    </div>
-
-                    <!-- STEP 2: Info Menu -->
-                    <div class="form-section">
-                        <h3 class="section-title">
-                            <span class="form-step-number">2</span>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
-                                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-                                <path d="M7 2v20" />
-                                <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-                            </svg>
-                            Informasi Menu
-                        </h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Tanggal <span class="required">*</span></label>
-                                <input type="date" name="tanggal" class="form-control" required value="<?= date('Y-m-d') ?>" onchange="updateNoFaktur()">
-                            </div>
-                            <div class="form-group">
-                                <label>Nama Menu <span class="required">*</span></label>
-                                <input type="text" name="judul" class="form-control" placeholder="Contoh: Nasi Kotak Ayam Bakar" required>
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label>Total Porsi</label>
-                            <input type="number" name="porsi" class="form-control" value="0" min="0" style="max-width:220px;">
-                        </div>
-                    </div>
-
-                    <!-- STEP 3: Foto Menu -->
-                    <div class="form-section">
-                        <h3 class="section-title">
-                            <span class="form-step-number">3</span>
-                            <?= icon('camera', 15) ?> Foto Menu <small class="form-hint-inline">(Opsional, bisa banyak)</small>
-                        </h3>
-                        <div class="upload-menu-options-inline">
-                            <button type="button" class="btn-upload-option btn-opt-kamera" onclick="document.getElementById('fotoMenuKamera').click()">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                    <circle cx="12" cy="13" r="4" />
+                            <button type="button" class="btn btn-tarik-dompet" onclick="openModalTarikDompet()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>
-                                <span>Ambil Foto</span>
-                                <small>Kamera HP</small>
-                            </button>
-                            <button type="button" class="btn-upload-option btn-opt-galeri" onclick="document.getElementById('fotoMenuGaleri').click()">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    <circle cx="8.5" cy="8.5" r="1.5" />
-                                    <polyline points="21 15 16 10 5 21" />
-                                </svg>
-                                <span>Pilih dari Galeri</span>
-                                <small>Multiple foto</small>
+                                <span>Tarik dari Dompet Harian</span>
                             </button>
                         </div>
-                        <input type="file" id="fotoMenuGaleri" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
-                        <input type="file" id="fotoMenuKamera" name="foto_menu[]" class="file-input" accept="image/*" capture="environment" onchange="previewFotoMenuMulti(this)">
-                        <div id="fotoMenuPreview" class="image-preview"></div>
-                    </div>
 
-                    <!-- NOTICE ITEM DIKECUALIKAN (DINAMIS SAAT DITARIK) -->
-                    <div id="noticeExcludedWrap" style="display:none; margin: 15px 0;"></div>
+                        <!-- STEP 1: Info Dapur -->
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <span class="form-step-number">1</span>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                                    <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+                                    <path d="M17 18h1" />
+                                    <path d="M12 18h1" />
+                                    <path d="M7 18h1" />
+                                </svg>
+                                Informasi Dapur
+                            </h3>
 
-                    <!-- STEP 4: Detail Item Barang -->
-                    <div class="form-section">
-                        <h3 class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-                            <span><span class="form-step-number">4</span> Detail Item Barang</span>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="addRow()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
-                        </h3>
-                        <p class="form-hint" style="margin-bottom:12px;">
-                            Pilih kategori yang sesuai untuk tiap barang agar mudah dicari dan dikelompokkan otomatis.
-                        </p>
-                        <div class="table-responsive">
-                            <table class="form-table" id="tableItem">
-                                <thead>
-                                    <tr>
-                                        <th style="width:40%">Item Barang</th>
-                                        <th style="width:25%">Kategori</th>
-                                        <th style="width:15%">QTY</th>
-                                        <th style="width:12%">Satuan</th>
-                                        <th style="width:8%">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                            <!-- ✅ DROPDOWN LOKASI DAPUR -->
+                            <div class="form-group" style="margin-bottom: 14px;">
+                                <label>Pilih Dapur <span class="required">*</span></label>
+                                <select name="lokasi" class="form-control" required style="font-weight:600;">
+                                    <option value="">-- Pilih Dapur --</option>
+                                    <?php foreach ($LOKASI_LIST as $key => $label): ?>
+                                        <option value="<?= $key ?>"><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-hint">
+                                    Data ini hanya akan muncul untuk operator dapur yang dipilih
+                                </small>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nama SPPG <span class="required">*</span></label>
+                                    <input type="text" name="nama_sppg" class="form-control" placeholder="Contoh: Dapur SPPG 1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>No Kontak</label>
+                                    <input type="text" name="no_kontak" class="form-control" placeholder="08xxxxxxxxxx">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Alamat Dapur</label>
+                                <textarea name="alamat" class="form-control" rows="2" placeholder="Alamat lengkap dapur..."></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>No Faktur <small class="form-hint-inline">(Otomatis)</small></label>
+                                <input type="text" name="no_faktur" class="form-control" readonly style="background:#f1f5f9; font-weight:600; color:var(--primary);">
+                            </div>
+                        </div>
+
+                        <!-- STEP 2: Info Menu -->
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <span class="form-step-number">2</span>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;">
+                                    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                                    <path d="M7 2v20" />
+                                    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                                </svg>
+                                Informasi Menu
+                            </h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tanggal <span class="required">*</span></label>
+                                    <input type="date" name="tanggal" class="form-control" required value="<?= date('Y-m-d') ?>" onchange="updateNoFaktur()">
+                                </div>
+                                <div class="form-group">
+                                    <label>Nama Menu <span class="required">*</span></label>
+                                    <input type="text" name="judul" class="form-control" placeholder="Contoh: Nasi Kotak Ayam Bakar" required>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Total Porsi</label>
+                                <input type="number" name="porsi" class="form-control" value="0" min="0" style="max-width:220px;">
+                            </div>
+                        </div>
+
+                        <!-- STEP 3: Foto Menu -->
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <span class="form-step-number">3</span>
+                                <?= icon('camera', 15) ?> Foto Menu <small class="form-hint-inline">(Opsional, bisa banyak)</small>
+                            </h3>
+                            <div class="upload-menu-options-inline">
+                                <button type="button" class="btn-upload-option btn-opt-kamera" onclick="document.getElementById('fotoMenuKamera').click()">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                        <circle cx="12" cy="13" r="4" />
+                                    </svg>
+                                    <span>Ambil Foto</span>
+                                    <small>Kamera HP</small>
+                                </button>
+                                <button type="button" class="btn-upload-option btn-opt-galeri" onclick="document.getElementById('fotoMenuGaleri').click()">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                        <polyline points="21 15 16 10 5 21" />
+                                    </svg>
+                                    <span>Pilih dari Galeri</span>
+                                    <small>Multiple foto</small>
+                                </button>
+                            </div>
+                            <input type="file" id="fotoMenuGaleri" name="foto_menu[]" class="file-input" accept="image/*" multiple onchange="previewFotoMenuMulti(this)">
+                            <input type="file" id="fotoMenuKamera" name="foto_menu[]" class="file-input" accept="image/*" capture="environment" onchange="previewFotoMenuMulti(this)">
+                            <div id="fotoMenuPreview" class="image-preview"></div>
+                        </div>
+
+                        <!-- NOTICE ITEM DIKECUALIKAN (DINAMIS SAAT DITARIK) -->
+                        <div id="noticeExcludedWrap" style="display:none; margin: 15px 24px;"></div>
+
+                        <!-- STEP 4: Detail Item Barang -->
+                        <div class="form-section">
+                            <h3 class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                                <span><span class="form-step-number">4</span> Detail Item Barang</span>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addRow()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
+                            </h3>
+                            <p class="form-hint" style="margin-bottom:12px;">
+                                Pilih kategori yang sesuai untuk tiap barang agar mudah dicari dan dikelompokkan otomatis.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="form-table" id="tableItem">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:40%">Item Barang</th>
+                                            <th style="width:25%">Kategori</th>
+                                            <th style="width:15%">QTY</th>
+                                            <th style="width:12%">Satuan</th>
+                                            <th style="width:8%">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1302,8 +1304,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
         <!-- ✅ MODAL PILIH MENU DARI DOMPET HARIAN -->
         <div class="modal-overlay" id="modalTarikDompet" style="z-index: 1050;">
-            <div class="modal-content modal-large" style="max-width: 840px;">
-                <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: #fff;">
+            <div class="modal-content modal-large" style="max-width: 820px; height: 85vh; max-height: 720px; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: #fff; flex-shrink: 0;">
                     <div style="display:flex; align-items:center; gap:12px;">
                         <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1319,9 +1321,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </div>
                     <button class="close-modal" onclick="closeModal('modalTarikDompet')" style="color:#fff;"><?= icon('x', 20) ?></button>
                 </div>
-                <div class="modal-body" style="padding: 20px;">
+                <div class="modal-body" style="padding: 20px 24px; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
                     <!-- Filter Search Bar -->
-                    <div style="display:flex; gap:10px; margin-bottom: 14px;">
+                    <div style="display:flex; gap:10px; margin-bottom: 14px; flex-shrink: 0;">
                         <div style="position:relative; flex:1;">
                             <input type="text" id="searchMenuDompet" class="form-control" placeholder="Cari nama menu atau tanggal (contoh: Ayam, 2026-08)..." oninput="debounceFilterMenuDompet(this.value)" style="padding-left:38px;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%);">
@@ -1337,7 +1339,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </div>
 
                     <!-- Notice Pengecualian Otomatis -->
-                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:12.5px; color:#166534; display:flex; align-items:center; gap:10px;">
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:12.5px; color:#166534; display:flex; align-items:center; gap:10px; flex-shrink: 0;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                             <polyline points="22 4 12 14.01 9 11.01"/>
@@ -1345,8 +1347,8 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                         <span>Sistem otomatis menyaring keluar item non-pangan (<strong>bensin, sewa armada, insentif/honor chef</strong>), dan mendeteksi kategori gizi (Karbohidrat, Protein, Sayuran, dll.).</span>
                     </div>
 
-                    <!-- Container List Menu -->
-                    <div id="listMenuDompetContainer" style="max-height: 420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-right: 4px;">
+                    <!-- Container List Menu (Single clean scrollbar) -->
+                    <div id="listMenuDompetContainer" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 6px;">
                         <div style="text-align:center; padding:30px; color:#64748b;">Memuat data menu dompet harian...</div>
                     </div>
                 </div>
