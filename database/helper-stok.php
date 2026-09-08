@@ -12,8 +12,8 @@ function kurangiStokGudangPusat($pdo_draft, $nama_barang, $qty, $keterangan = ''
     $row = $stmt->fetch();
 
     if ($row) {
-        $stok_sebelum = (int)$row['stok_akhir'];
-        $stok_sesudah = $stok_sebelum - (int)$qty;
+        $stok_sebelum = (float)$row['stok_akhir'];
+        $stok_sesudah = $stok_sebelum - (float)$qty;
 
         $pdo_draft->prepare("UPDATE barang SET stok_akhir = ? WHERE id_barang = ?")
             ->execute([$stok_sesudah, $row['id_barang']]);
@@ -34,8 +34,8 @@ function kembalikanStokGudangPusat($pdo_draft, $nama_barang, $qty, $keterangan =
     $row = $stmt->fetch();
 
     if ($row) {
-        $stok_sebelum = (int)$row['stok_akhir'];
-        $stok_sesudah = $stok_sebelum + (int)$qty;
+        $stok_sebelum = (float)$row['stok_akhir'];
+        $stok_sesudah = $stok_sebelum + (float)$qty;
 
         $pdo_draft->prepare("UPDATE barang SET stok_akhir = ? WHERE id_barang = ?")
             ->execute([$stok_sesudah, $row['id_barang']]);

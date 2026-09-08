@@ -91,7 +91,8 @@ function stok_getMapping($nama_barang)
 
     $satuanEceranRaw = trim($row['satuan_eceran'] ?? '');
     $isi = ((float)($row['isi_per_satuan'] ?? 0) > 0) ? (float)$row['isi_per_satuan'] : null;
-    $hasEceran = $satuanEceranRaw !== '' && $isi;
+    $hasEceran = $satuanEceranRaw !== '' && $isi
+        && strtolower($satuanEceranRaw) !== strtolower(trim($row['satuan']));
 
     $hargaBeli = (float)($row['harga_beli'] ?? 0);
     $hargaEceranRaw = (float)($row['harga_eceran'] ?? 0);
@@ -125,7 +126,7 @@ function stok_getMapping($nama_barang)
 function stok_syncGrosir(PDO $pdo, $nama_barang, $lokasi)
 {
     $mapping = stok_getMapping($nama_barang);
-    if (!$mapping) return;
+    if (!$mapping || empty($mapping['has_eceran'])) return;
 
     $isi = $mapping['isi_per_satuan'];
     $stmt = $pdo->prepare("SELECT id, qty_grosir, qty_eceran FROM stok_barang WHERE TRIM(UPPER(nama_barang)) = TRIM(UPPER(?)) AND lokasi = ? FOR UPDATE");
@@ -172,12 +173,14 @@ function stok_upsertGrosir(PDO $pdo, $nama_barang, $satuan, $lokasi, $delta)
     $mapping = stok_getMapping($nama_barang);
 
     if (!$mapping) {
-        // Fallback: barang tanpa sistem eceran -> perilaku lama, langsung ke qty_grosir
+        // Fallback: barang tanpa sistem eceran -> langsung update qty_grosir dan qty_eceran
         if ($delta != 0) {
             $pdo->prepare("INSERT INTO stok_barang (nama_barang, satuan, satuan_eceran, lokasi, qty_grosir, qty_eceran)
-                VALUES (?, ?, NULL, ?, ?, 0)
-                ON DUPLICATE KEY UPDATE qty_grosir = qty_grosir + VALUES(qty_grosir)")
-                ->execute([$nama_barang, $satuan, $lokasi, $delta]);
+                VALUES (?, ?, NULL, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    qty_grosir = qty_grosir + VALUES(qty_grosir),
+                    qty_eceran = qty_eceran + VALUES(qty_eceran)")
+                ->execute([$nama_barang, $satuan, $lokasi, (float)$delta, (float)$delta]);
         }
         return;
     }
@@ -185,6 +188,21 @@ function stok_upsertGrosir(PDO $pdo, $nama_barang, $satuan, $lokasi, $delta)
     $isi = $mapping['isi_per_satuan'];
     $satuanEceran = $mapping['satuan_eceran'];
     $satuanGrosir = $mapping['satuan_grosir'];
+    $hasEceran    = $mapping['has_eceran'];
+
+    // Jika tidak ada konversi eceran yang valid (satuan sama atau isi_per_satuan null/<=1),
+    // langsung update qty_grosir dan qty_eceran tanpa perkalian.
+    if (!$hasEceran || !$isi || $isi <= 1) {
+        if ($delta != 0) {
+            $pdo->prepare("INSERT INTO stok_barang (nama_barang, satuan, satuan_eceran, lokasi, qty_grosir, qty_eceran)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    qty_grosir = qty_grosir + VALUES(qty_grosir),
+                    qty_eceran = qty_eceran + VALUES(qty_eceran)")
+                ->execute([$nama_barang, $satuanGrosir, $satuanEceran, $lokasi, (float)$delta, (float)$delta]);
+        }
+        return;
+    }
 
     $satuanInputNorm = strtolower(trim($satuan));
     $modeEceran = ($satuanInputNorm === strtolower(trim($satuanEceran))

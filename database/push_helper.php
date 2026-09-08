@@ -96,6 +96,15 @@ function send_push_trigger($endpoint) {
 }
 
 function broadcast_push_notification($pdo, $title, $body) {
+    // ==== Deteksi environment (local vs production) ====
+    $_server = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? '';
+    $isLocal = !str_contains($_server, 'kbus.site') && !str_contains($_server, 'permenceker');
+
+    if ($isLocal) {
+        // Di local: tetap kirim notif untuk keperluan testing, tapi catat di log
+        error_log("[push] LOCAL TEST — kirim notif: $title — $body");
+    }
+
     // 1. Save notification to db log
     try {
         $stmt = $pdo->prepare("INSERT INTO push_notifications (title, body) VALUES (?, ?)");

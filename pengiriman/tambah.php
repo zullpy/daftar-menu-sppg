@@ -34,7 +34,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_barang') {
             $output[] = [
                 'id'         => $row['id_barang'],
                 'nama_barang' => trim($row['nama_barang']),
-                'stok'       => (int)$row['stok_akhir'],
+                'stok'       => (float)$row['stok_akhir'],
                 'satuan'     => trim($row['satuan'] ?: 'Pcs')
             ];
         }
@@ -63,7 +63,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_stok') {
         $row = $stmt->fetch();
         if ($row) {
             echo json_encode([
-                'stok'   => (int)$row['stok_akhir'],
+                'stok'   => (float)$row['stok_akhir'],
                 'satuan' => trim($row['satuan'] ?: 'Pcs'),
                 'found'  => true
             ]);
@@ -231,7 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         for ($i = 0; $i < count($nama_barangs); $i++) {
             $nama_b = trim($nama_barangs[$i]);
             if (!empty($nama_b)) {
-                $qty_b   = (int)$qtys[$i];
+                $qty_b   = (float)$qtys[$i];
                 $satuan_b = trim($satuans[$i]);
                 $ket_b   = trim($keterangans[$i] ?? '');
 
@@ -427,7 +427,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         </div>
                                         <div class="form-group small">
                                             <label>Qty *</label>
-                                            <input type="number" name="qty[]" class="form-control qty-input" min="1" required
+                                            <input type="number" name="qty[]" class="form-control qty-input" min="0.001" step="any" required
                                                 value="<?= $detail['qty'] ?>" oninput="hitungTotal()">
                                         </div>
                                         <div class="form-group small">
@@ -467,7 +467,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </div>
                                     <div class="form-group small">
                                         <label>Qty *</label>
-                                        <input type="number" name="qty[]" class="form-control qty-input" min="1" required oninput="hitungTotal()">
+                                        <input type="number" name="qty[]" class="form-control qty-input" min="0.001" step="any" required oninput="hitungTotal()">
                                     </div>
                                     <div class="form-group small">
                                         <label>Satuan *</label>
@@ -753,7 +753,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class="form-group small">
                 <label>Qty *</label>
-                <input type="number" name="qty[]" class="form-control qty-input" min="1" required oninput="hitungTotal()">
+                <input type="number" name="qty[]" class="form-control qty-input" min="0.001" step="any" required oninput="hitungTotal()">
             </div>
             <div class="form-group small">
                 <label>Satuan *</label>
@@ -782,7 +782,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         function hitungTotal() {
             let total = 0;
-            document.querySelectorAll('.qty-input').forEach(input => total += parseInt(input.value) || 0);
+            document.querySelectorAll('.qty-input').forEach(input => total += parseFloat(input.value) || 0);
             document.getElementById('totalBadge').textContent = 'Total: ' + total + ' Item';
         }
         hitungTotal();
@@ -803,7 +803,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 const namaInput = item.querySelector('.input-nama-barang');
                 const qtyInput = item.querySelector('.qty-input');
                 const nama = namaInput.value.trim();
-                const qty = parseInt(qtyInput.value) || 0;
+                const qty = parseFloat(qtyInput.value) || 0;
 
                 const key = nama.toLowerCase().trim();
                 if (nama && currentStokMap[key] !== undefined) {

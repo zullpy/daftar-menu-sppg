@@ -269,7 +269,7 @@ foreach ($all_data as $row) {
                                                 </svg>
                                                 Unit: <?= htmlspecialchars($item['ekspedisi'] ?? '-') ?>
                                             </span>
-                                            <span class="badge-info"><?= $item['total_qty'] ?> Item</span>
+                                            <span class="badge-info"><?= rtrim(rtrim((string)(float)$item['total_qty'], '0'), '.') ?> Item</span>
                                         </div>
                                         <div class="faktur-actions">
                                             <?php if ($is_fully_checked && !$has_issue): ?>
@@ -323,7 +323,7 @@ foreach ($all_data as $row) {
                                                     <tr>
                                                         <td><?= $no++ ?></td>
                                                         <td><?= htmlspecialchars($detail['nama_barang']) ?></td>
-                                                        <td><?= $detail['qty'] ?></td>
+                                                        <td><?= rtrim(rtrim((string)(float)$detail['qty'], '0'), '.') ?></td>
                                                         <td><?= htmlspecialchars($detail['satuan']) ?></td>
                                                         <td>
                                                             <?php if ($detail['terima_status']): ?>
@@ -375,7 +375,7 @@ foreach ($all_data as $row) {
                                             <tfoot>
                                                 <tr>
                                                     <th colspan="2">Total</th>
-                                                    <th><?= $item['total_qty'] ?></th>
+                                                    <th><?= rtrim(rtrim((string)(float)$item['total_qty'], '0'), '.') ?></th>
                                                     <th colspan="4">Item</th>
                                                 </tr>
                                             </tfoot>

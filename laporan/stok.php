@@ -43,7 +43,8 @@ if ($pdoBarangTarget) {
         $satuanEceranRaw = trim($b['satuan_eceran'] ?? '');
         $isiRaw          = ((float)($b['isi_per_satuan'] ?? 0) > 0) ? (float)$b['isi_per_satuan'] : null;
 
-        $hasEceran = ($satuanEceranRaw !== '') && $isiRaw;
+        $hasEceran = ($satuanEceranRaw !== '') && $isiRaw
+            && strtolower($satuanEceranRaw) !== strtolower($satuanGrosir);
         $hargaBeli      = (float)($b['harga_beli'] ?? 0);
         $hargaEceranRaw = (float)($b['harga_eceran'] ?? 0);
 

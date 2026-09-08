@@ -776,7 +776,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td><strong><?= $d['qty'] ?></strong> <?= htmlspecialchars($d['satuan']) ?></td>
+                                    <td><strong><?= rtrim(rtrim((string)(float)$d['qty'], '0'), '.') ?></strong> <?= htmlspecialchars($d['satuan']) ?></td>
                                     <td>
                                         <input type="hidden" name="status_barang[]" class="status-hidden-input-desktop"
                                             value="<?= htmlspecialchars($existingStatus) ?>">
@@ -865,7 +865,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
                                         <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
                                     </svg>
-                                    <?= $d['qty'] ?> <?= htmlspecialchars($d['satuan']) ?>
+                                    <?= rtrim(rtrim((string)(float)$d['qty'], '0'), '.') ?> <?= htmlspecialchars($d['satuan']) ?>
                                 </div>
 
                                 <div class="barang-card-field">
