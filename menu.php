@@ -1367,31 +1367,33 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <form method="POST" id="formEditDetail" onsubmit="submitEditDetail(event)">
                     <input type="hidden" name="update_detail" value="1">
                     <input type="hidden" name="id_detail" id="edit_id_detail">
-                    <div class="form-section">
-                        <div class="form-group">
-                            <label>Nama Item Barang</label>
-                            <input type="text" name="item_barang" id="edit_item_barang" class="form-control" required>
-                        </div>
-                        <div class="form-row">
+                    <div class="modal-body-scroll">
+                        <div class="form-section">
                             <div class="form-group">
-                                <label>Kategori</label>
-                                <select name="kategori" id="edit_kategori" class="form-control" required>
-                                    <?php foreach ($KATEGORI_LIST as $kat): ?>
-                                        <option value="<?= $kat ?>"><?= $kat ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <label>Nama Item Barang</label>
+                                <input type="text" name="item_barang" id="edit_item_barang" class="form-control" required>
                             </div>
-                            <div class="form-group">
-                                <label>Satuan</label>
-                                <input type="text" name="satuan" id="edit_satuan" class="form-control" required>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Kategori</label>
+                                    <select name="kategori" id="edit_kategori" class="form-control" required>
+                                        <?php foreach ($KATEGORI_LIST as $kat): ?>
+                                            <option value="<?= $kat ?>"><?= $kat ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Satuan</label>
+                                    <input type="text" name="satuan" id="edit_satuan" class="form-control" required>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>QTY</label>
-                                <input type="number" name="qty" id="edit_qty" class="form-control" step="0.01" min="0" required>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>QTY</label>
+                                    <input type="number" name="qty" id="edit_qty" class="form-control" step="0.01" min="0" required>
+                                </div>
+                                    <input type="hidden" name="harga_satuan" id="edit_harga" value="0">
                             </div>
-                                <input type="hidden" name="harga_satuan" id="edit_harga" value="0">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1411,36 +1413,38 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <form method="POST" enctype="multipart/form-data" id="formAddItem" onsubmit="submitAddItem(event)">
                     <input type="hidden" name="add_single_item" value="1">
                     <input type="hidden" name="id_belanja" id="additem_id_belanja">
-                    <div class="form-section">
-                        <p id="additem_judul_menu" style="margin-bottom:14px;color:var(--muted);font-size:13px;"></p>
-                        <div class="form-group">
-                            <label>Nama Item Barang <span class="required">*</span></label>
-                            <input type="text" name="item_barang" class="form-control" placeholder="Contoh: Minyak Goreng" required>
-                        </div>
-                        <div class="form-row">
+                    <div class="modal-body-scroll">
+                        <div class="form-section">
+                            <p id="additem_judul_menu" style="margin-bottom:14px;color:var(--muted);font-size:13px;"></p>
                             <div class="form-group">
-                                <label>Kategori</label>
-                                <select name="kategori" class="form-control" required>
-                                    <?php foreach ($KATEGORI_LIST as $kat): ?>
-                                        <option value="<?= $kat ?>"><?= $kat ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <label>Nama Item Barang <span class="required">*</span></label>
+                                <input type="text" name="item_barang" class="form-control" placeholder="Contoh: Minyak Goreng" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Kategori</label>
+                                    <select name="kategori" class="form-control" required>
+                                        <?php foreach ($KATEGORI_LIST as $kat): ?>
+                                            <option value="<?= $kat ?>"><?= $kat ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Satuan <span class="required">*</span></label>
+                                    <input type="text" name="satuan" class="form-control" placeholder="pcs/kg" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>QTY <span class="required">*</span></label>
+                                    <input type="number" name="qty" class="form-control" step="0.01" min="0" required>
+                                </div>
+                                    <input type="hidden" name="harga_satuan" value="0">
                             </div>
                             <div class="form-group">
-                                <label>Satuan <span class="required">*</span></label>
-                                <input type="text" name="satuan" class="form-control" placeholder="pcs/kg" required>
+                                <label><?= icon('camera', 14) ?> Lampiran Nota (Opsional)</label>
+                                <input type="file" name="nota_susulan" class="form-control" accept="image/*,.pdf">
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>QTY <span class="required">*</span></label>
-                                <input type="number" name="qty" class="form-control" step="0.01" min="0" required>
-                            </div>
-                                <input type="hidden" name="harga_satuan" value="0">
-                        </div>
-                        <div class="form-group">
-                            <label><?= icon('camera', 14) ?> Lampiran Nota (Opsional)</label>
-                            <input type="file" name="nota_susulan" class="form-control" accept="image/*,.pdf">
                         </div>
                     </div>
                     <div class="modal-footer">

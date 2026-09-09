@@ -977,12 +977,19 @@ main {
     overflow: hidden;
 }
 
+/* Fallback: jika form tidak membungkus elemen dengan .modal-body-scroll, izinkan scroll otomatis */
+.modal-content form:not(:has(.modal-body-scroll)) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
 .modal-body-scroll,
 .modal-content > .modal-body {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 @keyframes slideUp {

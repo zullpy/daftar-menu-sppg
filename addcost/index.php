@@ -821,65 +821,67 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     <button class="close-modal" onclick="closeModal('modalAdd')"><?= icon('x', 20) ?></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" id="formAddcost">
-                    <div class="form-section">
-                        <h3 class="section-title">Informasi Dapur</h3>
+                    <div class="modal-body-scroll">
+                        <div class="form-section">
+                            <h3 class="section-title">Informasi Dapur</h3>
 
-                        <!-- ✅ DROPDOWN LOKASI DAPUR (BARU!) -->
-                        <div class="form-group" style="margin-bottom: 14px;">
-                            <label>Pilih Dapur (Gudang Tujuan) <span class="required">*</span></label>
-                            <select name="lokasi" class="form-control" required style="font-weight:600;">
-                                <option value="">-- Pilih Dapur --</option>
-                                <?php foreach ($LOKASI_LIST as $key => $label): ?>
-                                    <option value="<?= $key ?>"><?= $label ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small style="color:var(--muted);font-size:11px;margin-top:4px;display:block;">
-                                Data ini hanya akan muncul untuk operator dapur yang dipilih
-                            </small>
-                        </div>
+                            <!-- ✅ DROPDOWN LOKASI DAPUR (BARU!) -->
+                            <div class="form-group" style="margin-bottom: 14px;">
+                                <label>Pilih Dapur (Gudang Tujuan) <span class="required">*</span></label>
+                                <select name="lokasi" class="form-control" required style="font-weight:600;">
+                                    <option value="">-- Pilih Dapur --</option>
+                                    <?php foreach ($LOKASI_LIST as $key => $label): ?>
+                                        <option value="<?= $key ?>"><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small style="color:var(--muted);font-size:11px;margin-top:4px;display:block;">
+                                    Data ini hanya akan muncul untuk operator dapur yang dipilih
+                                </small>
+                            </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Tanggal <span class="required">*</span></label>
-                                <input type="date" name="tanggal" class="form-control" required value="<?= date('Y-m-d') ?>" onchange="updateNoFakturAddcost()">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tanggal <span class="required">*</span></label>
+                                    <input type="date" name="tanggal" class="form-control" required value="<?= date('Y-m-d') ?>" onchange="updateNoFakturAddcost()">
+                                </div>
+                                <div class="form-group">
+                                    <label>No Faktur <small style="color:var(--muted);">(Otomatis)</small></label>
+                                    <input type="text" name="no_faktur" id="noFakturAddcost" class="form-control" readonly style="background:#f1f5f9; font-weight:600; color:var(--primary);">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nama Supplier/Dapur <span class="required">*</span></label>
+                                    <input type="text" name="nama_supplier" class="form-control" placeholder="Contoh: SPPG Sodonghilir 2" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>No Kontak</label>
+                                    <input type="text" name="no_kontak" class="form-control" placeholder="08xxxxxxxxxx">
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>No Faktur <small style="color:var(--muted);">(Otomatis)</small></label>
-                                <input type="text" name="no_faktur" id="noFakturAddcost" class="form-control" readonly style="background:#f1f5f9; font-weight:600; color:var(--primary);">
+                                <label>Alamat</label>
+                                <textarea name="alamat_dapur" class="form-control" rows="2" placeholder="Alamat lengkap..."></textarea>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Nama Supplier/Dapur <span class="required">*</span></label>
-                                <input type="text" name="nama_supplier" class="form-control" placeholder="Contoh: SPPG Sodonghilir 2" required>
+                        <div class="form-section">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                                <h3 class="section-title" style="margin-bottom:0;border:none;padding:0;">Detail Item Biaya</h3>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addRowAddcost()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
                             </div>
-                            <div class="form-group">
-                                <label>No Kontak</label>
-                                <input type="text" name="no_kontak" class="form-control" placeholder="08xxxxxxxxxx">
+                            <div class="table-responsive">
+                                <table class="form-table" id="tableAddcostItem">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:50%">Nama Barang</th>
+                                            <th style="width:20%">QTY</th>
+                                            <th style="width:20%">Satuan</th>
+                                            <th style="width:10%">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Alamat</label>
-                            <textarea name="alamat_dapur" class="form-control" rows="2" placeholder="Alamat lengkap..."></textarea>
-                        </div>
-                    </div>
-                    <div class="form-section">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                            <h3 class="section-title" style="margin-bottom:0;border:none;padding:0;">Detail Item Biaya</h3>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="addRowAddcost()"><?= icon('plus', 14) ?> <span>Tambah Baris</span></button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="form-table" id="tableAddcostItem">
-                                <thead>
-                                    <tr>
-                                        <th style="width:50%">Nama Barang</th>
-                                        <th style="width:20%">QTY</th>
-                                        <th style="width:20%">Satuan</th>
-                                        <th style="width:10%">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -899,21 +901,23 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <form method="POST">
                     <input type="hidden" name="id_detail" id="edit_id_detail">
                     <input type="hidden" name="pembelian_add_id" id="edit_pembelian_add_id">
-                    <div class="form-section">
-                        <div class="form-group">
-                            <label>Nama Barang</label>
-                            <input type="text" name="nama_barang" id="edit_nama_barang" class="form-control" required>
-                        </div>
-                        <div class="form-row">
-                                <input type="hidden" name="harga" id="edit_harga" value="0">
+                    <div class="modal-body-scroll">
+                        <div class="form-section">
                             <div class="form-group">
-                                <label>Satuan</label>
-                                <input type="text" name="satuan" id="edit_satuan" class="form-control" required>
+                                <label>Nama Barang</label>
+                                <input type="text" name="nama_barang" id="edit_nama_barang" class="form-control" required>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label>QTY</label>
-                            <input type="number" name="qty" id="edit_qty" class="form-control" step="0.01" min="0" required>
+                            <div class="form-row">
+                                    <input type="hidden" name="harga" id="edit_harga" value="0">
+                                <div class="form-group">
+                                    <label>Satuan</label>
+                                    <input type="text" name="satuan" id="edit_satuan" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>QTY</label>
+                                <input type="number" name="qty" id="edit_qty" class="form-control" step="0.01" min="0" required>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
