@@ -57,6 +57,7 @@ function toggleAccordion(header) {
         content.classList.toggle('open');
     }
     try {
+        const pageKey = window.location.pathname;
         const openDates = [];
         document.querySelectorAll('.date-group').forEach(group => {
             const h = group.querySelector('.accordion-toggle');
@@ -65,15 +66,19 @@ function toggleAccordion(header) {
                 if (tgl) openDates.push(tgl);
             }
         });
-        sessionStorage.setItem('mbg_open_dates', JSON.stringify(openDates));
-        sessionStorage.setItem('mbg_scroll_y', window.scrollY);
+        sessionStorage.setItem('mbg_open_dates_' + pageKey, JSON.stringify(openDates));
     } catch (e) {}
 }
 
-// Restore Accordion & Scroll Position on Page Load
+// Restore Accordion & Scroll Position on Page Load (Khusus reload/in-page action, tidak untuk navigasi baru)
 document.addEventListener('DOMContentLoaded', () => {
     try {
-        const savedDates = JSON.parse(sessionStorage.getItem('mbg_open_dates') || '[]');
+        // Hapus legacy global scroll key agar tidak bocor antar halaman
+        sessionStorage.removeItem('mbg_scroll_y');
+        sessionStorage.removeItem('mbg_open_dates');
+
+        const pageKey = window.location.pathname;
+        const savedDates = JSON.parse(sessionStorage.getItem('mbg_open_dates_' + pageKey) || '[]');
         if (Array.isArray(savedDates) && savedDates.length > 0) {
             document.querySelectorAll('.date-group').forEach(group => {
                 const tgl = group.dataset.tanggal;
@@ -88,11 +93,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        const savedY = parseInt(sessionStorage.getItem('mbg_scroll_y') || '0', 10);
-        if (savedY > 0) {
+
+        // Cek apakah halaman dibuka karena reload atau submit aksi dalam halaman yang sama
+        let isReload = false;
+        try {
+            const navEntries = performance.getEntriesByType('navigation');
+            if (navEntries.length > 0) {
+                isReload = navEntries[0].type === 'reload';
+            } else if (window.performance && window.performance.navigation) {
+                isReload = window.performance.navigation.type === 1;
+            }
+        } catch (e) {}
+
+        const hasActionParam = window.location.search.includes('uploaded') ||
+                               window.location.search.includes('updated') ||
+                               window.location.search.includes('deleted') ||
+                               window.location.search.includes('saved');
+
+        const scrollKey = 'mbg_scroll_y_' + pageKey;
+        const savedY = parseInt(sessionStorage.getItem(scrollKey) || '0', 10);
+
+        // Hanya restore scroll jika reload atau ada parameter aksi pada halaman yang sama
+        if (savedY > 0 && (isReload || hasActionParam)) {
             window.scrollTo({ top: savedY, behavior: 'instant' });
-            setTimeout(() => window.scrollTo({ top: savedY, behavior: 'instant' }), 100);
+            setTimeout(() => window.scrollTo({ top: savedY, behavior: 'instant' }), 80);
+        } else {
+            // Navigasi menu baru: selalu mulai dari atas (top: 0)
+            window.scrollTo({ top: 0, behavior: 'instant' });
         }
+
+        // Bersihkan key scroll setelah dipakai agar tidak tersimpan untuk kunjungan berikutnya
+        sessionStorage.removeItem(scrollKey);
     } catch (e) {}
 });
 

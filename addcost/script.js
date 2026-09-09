@@ -114,7 +114,7 @@ function uploadFotoItemGeneric(input, idDetail, action, type) {
                 if (!result.success) {
                     alert('❌ Gagal upload: ' + (result.message || 'Unknown error'));
                 } else {
-                    try { sessionStorage.setItem('mbg_scroll_y', window.scrollY); } catch(e) {}
+                    try { sessionStorage.setItem('mbg_scroll_y_' + window.location.pathname, window.scrollY); } catch(e) {}
                     window.location.href = '?foto_uploaded=1';
                 }
             })
