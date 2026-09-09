@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Jakarta');
 
 if (isset($_GET['logout'])) {
     session_destroy();

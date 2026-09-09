@@ -3,9 +3,17 @@
 // AUTO DATABASE MIGRATION RUNNER (PDO) - Aplikasi MBG
 // =========================================================================
 
+// Standarisasi zona waktu ke WIB (Asia/Jakarta)
+date_default_timezone_set('Asia/Jakarta');
+
 function runAutoMigrationsPDO($pdo)
 {
     if (!($pdo instanceof PDO)) return;
+
+    // Pastikan session MySQL PDO berjalan di zona waktu WIB (+07:00)
+    try {
+        @$pdo->exec("SET time_zone = '+07:00'");
+    } catch (\Throwable $tz) {}
 
     // 1. Buat tabel schema_migrations jika belum ada
     $createTable = "CREATE TABLE IF NOT EXISTS schema_migrations (
