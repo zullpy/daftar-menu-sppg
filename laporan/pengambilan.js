@@ -530,20 +530,207 @@ document.getElementById('formTambah').addEventListener('submit', function (e) {
     })
         .then(res => res.json())
         .then(result => {
+            Swal.close();
             if (result.status === 'success') {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil!',
-                    text: result.message,
-                    timer: 1500,
-                    showConfirmButton: false
-                }).then(() => location.reload());
+                closeModal();
+                showToast(result.message || 'Laporan berhasil dibuat!', 'success');
+                if (result.data) {
+                    renderLaporanBaru(result.data);
+                }
             } else {
                 Swal.fire('Gagal', result.message, 'error');
             }
         })
         .catch(() => Swal.fire('Error', 'Terjadi kesalahan sistem', 'error'));
 });
+
+// Helper manipulasi DOM in-place tanpa reload
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatTanggalIndo(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const bulanIndo = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const day = parseInt(parts[2], 10);
+    const mIndex = parseInt(parts[1], 10) - 1;
+    const month = bulanIndo[mIndex] || parts[1];
+    const year = parts[0];
+    return `${day} ${month} ${year}`;
+}
+
+function updateCounter(selector, delta) {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    let val = parseInt(el.textContent.replace(/\./g, ''), 10) || 0;
+    val = Math.max(0, val + delta);
+    el.textContent = val.toLocaleString('id-ID');
+}
+
+function updateHeaderSubtitle() {
+    const subtitleEl = document.querySelector('.header-subtitle');
+    if (!subtitleEl) return;
+    const totalPengambil = document.querySelectorAll('.pengambil-group').length;
+    const totalLaporan = document.querySelectorAll('.row-item').length;
+    const todayPart = subtitleEl.textContent.split('•')[0].trim();
+    subtitleEl.textContent = `${todayPart} • ${totalPengambil} pengambil • ${totalLaporan} laporan`;
+}
+
+function renderLaporanBaru(item) {
+    if (!item) return;
+
+    // Hapus empty state jika sebelumnya tidak ada data
+    const emptyState = document.querySelector('.empty-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+
+    const tgl = item.tanggal_pengambilan;
+    let dateSection = document.querySelector(`.date-section[data-date="${tgl}"]`);
+
+    if (!dateSection) {
+        dateSection = document.createElement('div');
+        dateSection.className = 'date-section';
+        dateSection.dataset.date = tgl;
+        dateSection.innerHTML = `
+            <div class="date-section-title">
+                <i class="ph ph-calendar"></i>
+                <span>${formatTanggalIndo(tgl)}</span>
+                <span class="count-badge">0 laporan</span>
+            </div>
+        `;
+
+        // Urutkan penempatan date-section (descending tanggal)
+        const existingSections = Array.from(document.querySelectorAll('.date-section'));
+        let inserted = false;
+        for (const sec of existingSections) {
+            if (tgl > sec.dataset.date) {
+                sec.parentNode.insertBefore(dateSection, sec);
+                inserted = true;
+                break;
+            }
+        }
+        if (!inserted) {
+            const fab = document.querySelector('.fab-add') || document.querySelector('#modalTambah');
+            if (fab) {
+                fab.parentNode.insertBefore(dateSection, fab);
+            } else {
+                document.body.appendChild(dateSection);
+            }
+        }
+    }
+
+    // Update count pada date section title
+    const dateBadge = dateSection.querySelector('.date-section-title .count-badge');
+    if (dateBadge) {
+        const curDateCount = parseInt(dateBadge.textContent, 10) || 0;
+        dateBadge.textContent = `${curDateCount + 1} laporan`;
+    }
+
+    // Cari / Buat pengambil-group
+    let pengambilGroup = Array.from(dateSection.querySelectorAll('.pengambil-group')).find(g => {
+        return g.dataset.pengambil === item.nama_pengambil;
+    });
+
+    if (!pengambilGroup) {
+        pengambilGroup = document.createElement('div');
+        pengambilGroup.className = 'pengambil-group';
+        pengambilGroup.dataset.pengambil = item.nama_pengambil;
+        const randomId = 'peng-' + Math.random().toString(36).substring(2, 9);
+        pengambilGroup.innerHTML = `
+            <div class="pengambil-header open" onclick="toggleAccordion(this)">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                    <i class="ph ph-user"></i>
+                    <span class="label">${escapeHtml(item.nama_pengambil)}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                    <span class="count-badge">0 laporan</span>
+                    <i class="ph ph-caret-down chev"></i>
+                </div>
+            </div>
+            <div class="pengambil-body active open" id="${randomId}"></div>
+        `;
+        dateSection.appendChild(pengambilGroup);
+    }
+
+    // Update count pada pengambil-group
+    const pBadge = pengambilGroup.querySelector('.pengambil-header .count-badge');
+    if (pBadge) {
+        const curP = parseInt(pBadge.textContent, 10) || 0;
+        pBadge.textContent = `${curP + 1} laporan`;
+    }
+
+    // Pastikan accordion terbuka agar laporan baru terlihat
+    const pHeader = pengambilGroup.querySelector('.pengambil-header');
+    const pBody = pengambilGroup.querySelector('.pengambil-body');
+    if (pHeader) pHeader.classList.add('open');
+    if (pBody) {
+        pBody.classList.add('active');
+        pBody.classList.add('open');
+    }
+
+    // Siapkan element row-item baru
+    const lokasiMap = window.LOKASI_MAP || { sodong: 'Sodong', sariwangi: 'Sariwangi', manonjaya: 'Manonjaya', semua: 'Semua' };
+    const namaLokasi = lokasiMap[item.lokasi] || item.lokasi;
+    const kontakHtml = item.no_kontak ? `<span><i class="ph ph-phone"></i> ${escapeHtml(item.no_kontak)}</span>` : '';
+    const userRole = window.USER_ROLE || 'operator';
+    const verifBtnHtml = (userRole === 'admin')
+        ? `<button class="btn btn-success" onclick="verifikasiLaporan(${item.id_pengambilan}, this)">
+               <i class="ph ph-check"></i> Sudah Dibuatkan Faktur
+           </button>`
+        : '';
+
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'row-item row-item-highlight';
+    rowDiv.dataset.id = item.id_pengambilan;
+    rowDiv.innerHTML = `
+        <div class="main">
+            <span class="no-pengambilan">
+                ${escapeHtml(item.no_pengambilan)}
+                <span class="badge-lokasi">
+                    <i class="ph-fill ph-map-pin" style="font-size:12px;"></i>
+                    ${escapeHtml(namaLokasi)}
+                </span>
+            </span>
+            <span class="sub">
+                <span><i class="ph ph-storefront"></i> ${escapeHtml(item.nama_sppg)}</span>
+                <span><i class="ph ph-clock"></i> ${escapeHtml(item.jam_pengambilan)}</span>
+                ${kontakHtml}
+            </span>
+        </div>
+        <div class="actions">
+            <span class="status-badge status-pending">⏳ Pending</span>
+            <span class="count-badge">${item.jumlah_item} item</span>
+            <button class="btn btn-outline" onclick="lihatDetail(${item.id_pengambilan}, '${escapeHtml(item.no_pengambilan)}', '${escapeHtml(item.nama_sppg)}')">
+                detail
+            </button>
+            ${verifBtnHtml}
+        </div>
+    `;
+
+    if (pBody) {
+        pBody.insertBefore(rowDiv, pBody.firstChild);
+    }
+
+    // Update counter cards & header subtitle
+    updateCounter('.summary-card.total .summary-value', 1);
+    updateCounter('.summary-card.warning .summary-value', 1);
+    updateHeaderSubtitle();
+
+    // Scroll ke row baru jika posisinya di luar viewport
+    rowDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 // Lihat Detail
 function lihatDetail(id, noPengambilan, sppg) {
@@ -583,7 +770,7 @@ function closeDetail() {
     document.body.style.overflow = '';
 }
 
-function verifikasiLaporan(id) {
+function verifikasiLaporan(id, btnEl = null) {
     Swal.fire({
         title: 'Konfirmasi',
         text: 'Tandai laporan ini sudah dibuatkan faktur?',
@@ -601,11 +788,31 @@ function verifikasiLaporan(id) {
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'success') {
-                        Swal.fire('Berhasil', 'Laporan diverifikasi!', 'success').then(() => location.reload());
+                        // Update status langsung di DOM tanpa reload
+                        const row = (btnEl ? btnEl.closest('.row-item') : null)
+                            || document.querySelector(`.row-item[data-id="${id}"]`);
+                        if (row) {
+                            const badge = row.querySelector('.status-badge');
+                            if (badge) {
+                                badge.className = 'status-badge status-verified';
+                                badge.textContent = '✓ Faktur Dibuat';
+                            }
+                            const verifBtn = btnEl || row.querySelector('.btn-success');
+                            if (verifBtn) {
+                                verifBtn.remove();
+                            }
+                        }
+
+                        // Update summary cards counter
+                        updateCounter('.summary-card.warning .summary-value', -1);
+                        updateCounter('.summary-card.success .summary-value', 1);
+
+                        showToast('Laporan berhasil diverifikasi!', 'success');
                     } else {
                         Swal.fire('Gagal', result.message, 'error');
                     }
-                });
+                })
+                .catch(() => Swal.fire('Error', 'Terjadi kesalahan sistem saat verifikasi', 'error'));
         }
     });
 }

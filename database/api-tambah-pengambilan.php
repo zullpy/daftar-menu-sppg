@@ -100,7 +100,19 @@ try {
 
     echo json_encode([
         'status'  => 'success',
-        'message' => "Laporan $no_pengambilan berhasil dibuat untuk Dapur " . strtoupper($lokasi)
+        'message' => "Laporan $no_pengambilan berhasil dibuat untuk Dapur " . strtoupper($lokasi),
+        'data'    => [
+            'id_pengambilan'      => (int) $id_pengambilan,
+            'no_pengambilan'      => $no_pengambilan,
+            'nama_pengambil'      => $nama_pengambil,
+            'nama_sppg'           => $nama_sppg,
+            'tanggal_pengambilan' => $tanggal,
+            'jam_pengambilan'     => $jam,
+            'no_kontak'           => $no_kontak,
+            'lokasi'              => $lokasi,
+            'status'              => 'pending',
+            'jumlah_item'         => count($barang)
+        ]
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

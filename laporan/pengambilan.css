@@ -1359,3 +1359,14 @@ body {
     border: 1px solid #a7f3d0;
     margin-left: 4px;
 }
+
+/* Highlight animasi untuk baris yang baru ditambah tanpa reload */
+@keyframes rowHighlight {
+    0% { background-color: #ecfdf5; }
+    40% { background-color: #d1fae5; }
+    100% { background-color: #fff; }
+}
+
+.row-item.row-item-highlight {
+    animation: rowHighlight 2.5s ease-out;
+}

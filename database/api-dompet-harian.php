@@ -140,7 +140,7 @@ try {
             }
 
             // Ambil rincian barang dari dompet harian
-            $stmtDetail = $pdo_draft->prepare("SELECT * FROM detail_item_belanja WHERE pengajuan_id = ? ORDER BY id ASC");
+            $stmtDetail = $pdo_draft->prepare("SELECT * FROM detail_item_belanja WHERE pengajuan_id = ? ORDER BY COALESCE(NULLIF(urutan, 0), id) ASC, id ASC");
             $stmtDetail->execute([$id]);
             $rawItems = $stmtDetail->fetchAll(PDO::FETCH_ASSOC);
 

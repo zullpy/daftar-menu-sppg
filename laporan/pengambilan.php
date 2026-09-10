@@ -237,7 +237,7 @@ while ($row = $stmt->fetch()) {
         </div>
     <?php else: ?>
         <?php foreach ($dataGrouped as $tanggal => $pengambilData): ?>
-            <div class="date-section">
+            <div class="date-section" data-date="<?= $tanggal ?>">
                 <div class="date-section-title">
                     <i class="ph ph-calendar"></i>
                     <span><?= date('d F Y', strtotime($tanggal)) ?></span>
@@ -245,7 +245,7 @@ while ($row = $stmt->fetch()) {
                 </div>
                 <?php foreach ($pengambilData as $namaPengambil => $items): ?>
                     <?php $pengambilId = 'peng-' . md5($namaPengambil . $tanggal); ?>
-                    <div class="pengambil-group">
+                    <div class="pengambil-group" data-pengambil="<?= htmlspecialchars($namaPengambil, ENT_QUOTES) ?>">
                         <div class="pengambil-header" onclick="toggleAccordion(this)">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                                 <i class="ph ph-user"></i>
@@ -258,7 +258,7 @@ while ($row = $stmt->fetch()) {
                         </div>
                         <div class="pengambil-body" id="<?= $pengambilId ?>">
                             <?php foreach ($items as $item): ?>
-                                <div class="row-item">
+                                <div class="row-item" data-id="<?= $item['id_pengambilan'] ?>">
                                     <div class="main">
                                         <span class="no-pengambilan">
                                             <?= htmlspecialchars($item['no_pengambilan']) ?>
@@ -285,7 +285,7 @@ while ($row = $stmt->fetch()) {
                                             detail
                                         </button>
                                         <?php if ($userRole === 'admin' && $item['status'] !== 'verified'): ?>
-                                            <button class="btn btn-success" onclick="verifikasiLaporan(<?= $item['id_pengambilan'] ?>)">
+                                            <button class="btn btn-success" onclick="verifikasiLaporan(<?= $item['id_pengambilan'] ?>, this)">
                                                 <i class="ph ph-check"></i> Sudah Dibuatkan Faktur
                                             </button>
                                         <?php endif; ?>
@@ -404,6 +404,10 @@ while ($row = $stmt->fetch()) {
         </div>
     </div>
 
+    <script>
+        window.USER_ROLE = <?= json_encode($userRole) ?>;
+        window.LOKASI_MAP = <?= json_encode($lokasiMap) ?>;
+    </script>
     <script src="pengambilan.js?v=<?= filemtime('pengambilan.js') ?>"></script>
     <script src="../assets/push-subscribe.js"></script>
 </body>
