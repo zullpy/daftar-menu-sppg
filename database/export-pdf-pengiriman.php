@@ -508,7 +508,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <tr>
                         <td class="center"><?= $d ? ($i + 1) : '' ?></td>
                         <td><?= $d ? htmlspecialchars($d['nama_barang']) : '' ?></td>
-                        <td class="center"><?= $d ? htmlspecialchars($d['qty']) : '' ?></td>
+                        <td class="center"><?= $d ? (float)$d['qty'] : '' ?></td>
                         <td><?= $d ? htmlspecialchars($d['satuan']) : '' ?></td>
                         <td class="center <?= $status_class ?>"><?= $status_text ?></td>
                         <td><?= htmlspecialchars($ket) ?></td>
