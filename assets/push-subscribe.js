@@ -352,9 +352,9 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Jalankan saat halaman siap
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPushNotification);
+// Jalankan setelah seluruh resource halaman selesai load agar tidak membebani loading tab browser
+if (document.readyState === 'complete') {
+    setTimeout(initPushNotification, 400);
 } else {
-    initPushNotification();
+    window.addEventListener('load', () => setTimeout(initPushNotification, 400));
 }

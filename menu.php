@@ -1,4 +1,7 @@
 <?php
+if (!in_array('ob_gzhandler', ob_list_handlers()) && extension_loaded('zlib') && !ini_get('zlib.output_compression')) {
+    ob_start('ob_gzhandler');
+}
 session_start();
 // ====== CEK SESSION ROLE ======
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
@@ -680,7 +683,10 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
     <title>Daftar Menu MBG - Koperasi Bina Usaha Sauyunan</title>
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <style>
         /* ✅ Tambahan style untuk info dapur operator */
         .lokasi-badge {
@@ -900,7 +906,12 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 }
 
                 if (empty($carouselPhotos)): ?>
-                    <div class="slide active"><img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" alt="Menu"></div>
+                    <div class="slide active">
+                        <div style="width:100%; height:260px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg, #1e293b, #0f172a); color:#94a3b8; gap:10px; border-radius:16px;">
+                            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span style="font-size:14px; font-weight:600; color:#e2e8f0;">Belum Ada Foto Menu</span>
+                        </div>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($carouselPhotos as $i => $photo): ?>
                         <div class="slide <?= $i === 0 ? 'active' : '' ?>">

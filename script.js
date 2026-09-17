@@ -70,15 +70,64 @@ function toggleAccordion(header) {
     } catch (e) {}
 }
 
-// Restore Accordion & Scroll Position on Page Load (Khusus reload/in-page action, tidak untuk navigasi baru)
-document.addEventListener('DOMContentLoaded', () => {
+// 1. Nonaktifkan native scroll restoration browser agar posisi scroll tidak direset otomatis saat load selesai
+if ('scrollRestoration' in history) {
     try {
-        // Hapus legacy global scroll key agar tidak bocor antar halaman
-        sessionStorage.removeItem('mbg_scroll_y');
-        sessionStorage.removeItem('mbg_open_dates');
+        history.scrollRestoration = 'manual';
+    } catch (e) {}
+}
 
-        const pageKey = window.location.pathname;
-        const savedDates = JSON.parse(sessionStorage.getItem('mbg_open_dates_' + pageKey) || '[]');
+const mbgPageKey = window.location.pathname;
+const mbgScrollKey = 'mbg_scroll_y_' + mbgPageKey;
+const mbgDatesKey = 'mbg_open_dates_' + mbgPageKey;
+
+let isRestoringScroll = true;
+
+// Simpan posisi scroll secara aktif (debounced) agar selalu terkini
+let mbgScrollTimer = null;
+window.addEventListener('scroll', () => {
+    if (isRestoringScroll) return; // Abaikan scroll event selama fase pemulihan posisi
+    clearTimeout(mbgScrollTimer);
+    mbgScrollTimer = setTimeout(() => {
+        if (window.scrollY > 0) {
+            sessionStorage.setItem(mbgScrollKey, window.scrollY);
+        }
+    }, 100);
+}, { passive: true });
+
+// Simpan saat sebelum reload / unload
+window.addEventListener('beforeunload', () => {
+    if (window.scrollY > 0) {
+        sessionStorage.setItem(mbgScrollKey, window.scrollY);
+    }
+    try {
+        const openDates = [];
+        document.querySelectorAll('.date-group').forEach(group => {
+            const h = group.querySelector('.accordion-toggle');
+            const c = group.querySelector('.date-content');
+            if ((h && h.classList.contains('open')) || (c && (c.classList.contains('active') || c.classList.contains('open')))) {
+                const tgl = group.dataset.tanggal;
+                if (tgl) openDates.push(tgl);
+            }
+        });
+        sessionStorage.setItem(mbgDatesKey, JSON.stringify(openDates));
+    } catch (e) {}
+});
+
+function applyRestoreScroll() {
+    const savedY = parseInt(sessionStorage.getItem(mbgScrollKey) || '0', 10);
+    if (savedY > 0) {
+        window.scrollTo({ top: savedY, behavior: 'instant' });
+    }
+}
+
+// Restore Accordion & Scroll Position on Page Load
+document.addEventListener('DOMContentLoaded', () => {
+    // Matikan transisi CSS sementara agar accordion langsung terbuka instan tanpa nunggu animasi 0.8s
+    document.documentElement.classList.add('mbg-restoring-scroll');
+
+    try {
+        const savedDates = JSON.parse(sessionStorage.getItem(mbgDatesKey) || '[]');
         if (Array.isArray(savedDates) && savedDates.length > 0) {
             document.querySelectorAll('.date-group').forEach(group => {
                 const tgl = group.dataset.tanggal;
@@ -93,38 +142,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
-        // Cek apakah halaman dibuka karena reload atau submit aksi dalam halaman yang sama
-        let isReload = false;
-        try {
-            const navEntries = performance.getEntriesByType('navigation');
-            if (navEntries.length > 0) {
-                isReload = navEntries[0].type === 'reload';
-            } else if (window.performance && window.performance.navigation) {
-                isReload = window.performance.navigation.type === 1;
-            }
-        } catch (e) {}
-
-        const hasActionParam = window.location.search.includes('uploaded') ||
-                               window.location.search.includes('updated') ||
-                               window.location.search.includes('deleted') ||
-                               window.location.search.includes('saved');
-
-        const scrollKey = 'mbg_scroll_y_' + pageKey;
-        const savedY = parseInt(sessionStorage.getItem(scrollKey) || '0', 10);
-
-        // Hanya restore scroll jika reload atau ada parameter aksi pada halaman yang sama
-        if (savedY > 0 && (isReload || hasActionParam)) {
-            window.scrollTo({ top: savedY, behavior: 'instant' });
-            setTimeout(() => window.scrollTo({ top: savedY, behavior: 'instant' }), 80);
-        } else {
-            // Navigasi menu baru: selalu mulai dari atas (top: 0)
-            window.scrollTo({ top: 0, behavior: 'instant' });
-        }
-
-        // Bersihkan key scroll setelah dipakai agar tidak tersimpan untuk kunjungan berikutnya
-        sessionStorage.removeItem(scrollKey);
     } catch (e) {}
+
+    // Segera restore posisi scroll dalam berbagai milestone render
+    applyRestoreScroll();
+    requestAnimationFrame(applyRestoreScroll);
+    setTimeout(applyRestoreScroll, 50);
+    setTimeout(applyRestoreScroll, 150);
+    setTimeout(applyRestoreScroll, 300);
+    setTimeout(applyRestoreScroll, 600);
+
+    // Kembalikan transisi normal setelah DOM stabil
+    setTimeout(() => {
+        document.documentElement.classList.remove('mbg-restoring-scroll');
+        isRestoringScroll = false;
+    }, 800);
+});
+
+// Pastikan setelah seluruh gambar / font / aset selesai loading (window load), posisi scroll TETAP terjaga dan tidak mental ke atas
+window.addEventListener('load', () => {
+    applyRestoreScroll();
+    setTimeout(applyRestoreScroll, 100);
+    setTimeout(applyRestoreScroll, 300);
+    setTimeout(() => {
+        document.documentElement.classList.remove('mbg-restoring-scroll');
+        isRestoringScroll = false;
+    }, 500);
 });
 
 // Helper Update Ringkasan Stats In-Place
@@ -161,9 +204,15 @@ function updateCardRingkasanStats(card) {
 async function updateNoFaktur() {
     const tglInput = document.querySelector('input[name="tanggal"]');
     const fakturInput = document.querySelector('input[name="no_faktur"]');
-    if (!tglInput.value) return;
-    const res = await fetch(`../database/get-no-faktur.php?tanggal=${tglInput.value}`);
-    fakturInput.value = await res.text();
+    if (!tglInput || !tglInput.value || !fakturInput) return;
+    try {
+        const res = await fetch(`database/get-no-faktur.php?tanggal=${encodeURIComponent(tglInput.value)}`);
+        if (res.ok) {
+            fakturInput.value = await res.text();
+        }
+    } catch (e) {
+        console.warn('Gagal memuat no faktur otomatis:', e);
+    }
 }
 document.querySelector('input[name="tanggal"]')?.addEventListener('change', updateNoFaktur);
 

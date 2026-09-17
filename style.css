@@ -1631,6 +1631,14 @@ main {
     transition: max-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Matikan transisi saat restore scroll agar accordion terbuka instan tanpa delay animasi */
+.mbg-restoring-scroll *,
+.mbg-restoring-scroll *::before,
+.mbg-restoring-scroll *::after {
+    transition: none !important;
+    animation: none !important;
+}
+
 /* Dapur Info Badge */
 .dapur-info-badge {
     display: flex;
