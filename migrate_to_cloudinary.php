@@ -348,6 +348,23 @@ if (!$isCli && isset($_GET['action'])) {
         exit;
     }
 
+    if ($action === 'inspect') {
+        $samples = [];
+        foreach ($MIGRATION_TARGETS as $k => $cfg) {
+            $table = $cfg['table'];
+            $col   = $cfg['col'];
+            $pk    = $cfg['pk'];
+            try {
+                $stmt = $pdo->query("SELECT `{$pk}`, `{$col}` FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != '' ORDER BY `{$pk}` DESC LIMIT 4");
+                $samples[$k] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                $samples[$k] = ['error' => $e->getMessage()];
+            }
+        }
+        echo json_encode(['success' => true, 'samples' => $samples]);
+        exit;
+    }
+
     if ($action === 'process_batch') {
         $targetKey   = $_POST['target_key'] ?? 'menu';
         $lastId      = (int)($_POST['last_id'] ?? 0);
@@ -754,6 +771,13 @@ $stats = getMigrationStats($pdo, $MIGRATION_TARGETS);
             <button type="button" id="btnStopMigration" class="btn btn-danger" style="display: none;" onclick="stopMigration()">
                 <span>Hentikan Proses</span>
             </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="inspectSamples()" title="Tampilkan contoh data foto yang tersimpan di database">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span>Cek Sampel URL di Database</span>
+            </button>
             <span id="migrationStatusLabel" style="font-size: 13px; font-weight: 600; color: #64748b;"></span>
         </div>
 
@@ -906,6 +930,33 @@ function stopMigration() {
     shouldStop = true;
     document.getElementById('migrationStatusLabel').textContent = 'Menghentikan proses...';
     addLog('Mengirim sinyal berhenti, menunggu batch aktif selesai...', 'info');
+}
+
+async function inspectSamples() {
+    addLog('Mengambil sampel 4 record terbaru dari database...', 'info');
+    try {
+        const res = await fetch('migrate_to_cloudinary.php?action=inspect');
+        const json = await res.json();
+        if (json.success && json.samples) {
+            for (const cat in json.samples) {
+                const rows = json.samples[cat];
+                if (Array.isArray(rows) && rows.length > 0) {
+                    addLog(`--- Kategori [${cat}] ---`, 'info');
+                    rows.forEach(r => {
+                        const pkKey = Object.keys(r)[0];
+                        const colKey = Object.keys(r)[1];
+                        const val = r[colKey];
+                        const isCloud = String(val).includes('res.cloudinary.com');
+                        addLog(`ID ${r[pkKey]}: ${val} ${isCloud ? '[CLOUDINARY]' : '[BUKAN CLOUDINARY]'}`, isCloud ? 'ok' : 'skip');
+                    });
+                }
+            }
+        } else {
+            addLog('Gagal mengambil sampel data', 'err');
+        }
+    } catch (e) {
+        addLog('Error inspect: ' + e.message, 'err');
+    }
 }
 </script>
 
