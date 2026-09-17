@@ -229,6 +229,8 @@ function resolve_photo_url(?string $photo, string $localPrefix = ''): string
         return '';
     }
 
+    $photo = trim($photo);
+
     // Jika sudah berupa URL Cloudinary atau web link
     if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
         // Otomatis optimalkan format (WebP) dan kompresi (q_auto) jika berasal dari Cloudinary
@@ -238,8 +240,15 @@ function resolve_photo_url(?string $photo, string $localPrefix = ''): string
         return $photo;
     }
 
-    // Jika nama file lokal lama
-    return rtrim($localPrefix, '/') . '/' . ltrim($photo, '/');
+    $cleanPrefix = trim($localPrefix, '/');
+    $cleanPhoto  = ltrim($photo, '/');
+
+    // Cegah prefix berulang jika photo sudah diawali dengan folder prefix yang sama
+    if (!empty($cleanPrefix) && str_starts_with($cleanPhoto, $cleanPrefix . '/')) {
+        return $cleanPhoto;
+    }
+
+    return (!empty($cleanPrefix) ? $cleanPrefix . '/' : '') . $cleanPhoto;
 }
 
 /**
