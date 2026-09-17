@@ -124,7 +124,7 @@ function getMigrationStats(PDO $pdo, array $targets): array
                     if (is_array($arr) && !empty($arr)) {
                         $hasLocal = false;
                         foreach ($arr as $f) {
-                            if (!str_starts_with($f, 'http://') && !str_starts_with($f, 'https://')) {
+                            if (!str_contains($f, 'res.cloudinary.com')) {
                                 $hasLocal = true;
                                 break;
                             }
@@ -133,10 +133,10 @@ function getMigrationStats(PDO $pdo, array $targets): array
                     }
                 }
             } else {
-                $stmtLocal = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE 'http%'");
+                $stmtLocal = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE '%res.cloudinary.com%'");
                 $countLocal = (int)$stmtLocal->fetchColumn();
 
-                $stmtCloud = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` LIKE 'http%'");
+                $stmtCloud = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` LIKE '%res.cloudinary.com%'");
                 $countCloud = (int)$stmtCloud->fetchColumn();
             }
 
@@ -202,14 +202,15 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
             $itemPhoto = trim($itemPhoto);
             if (empty($itemPhoto)) continue;
 
-            if (str_starts_with($itemPhoto, 'http://') || str_starts_with($itemPhoto, 'https://')) {
+            if (str_contains($itemPhoto, 'res.cloudinary.com')) {
                 $newArr[] = $itemPhoto;
                 continue;
             }
 
-            $localPath = rtrim($localDir, '/') . '/' . ltrim($itemPhoto, '/');
+            $cleanPhoto = basename(parse_url($itemPhoto, PHP_URL_PATH) ?? $itemPhoto);
+            $localPath = rtrim($localDir, '/') . '/' . ltrim($cleanPhoto, '/');
             if (!file_exists($localPath)) {
-                $altPath = __DIR__ . '/addcost/uploads/' . basename($localDir) . '/' . $itemPhoto;
+                $altPath = __DIR__ . '/addcost/uploads/' . basename($localDir) . '/' . $cleanPhoto;
                 if (file_exists($altPath)) $localPath = $altPath;
             }
 
@@ -226,7 +227,7 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
             }
 
             try {
-                $uploadResult = cloudinary_upload($localPath, $cloudFolder, 'image');
+                $uploadResult = cloudinary_upload($localPath, $cloudFolder);
                 if ($uploadResult['success'] && !empty($uploadResult['url'])) {
                     $newArr[] = $uploadResult['url'];
                     $uploadedCount++;
@@ -255,14 +256,17 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
 
     $filename = $rawVal;
 
-    if (str_starts_with($filename, 'http://') || str_starts_with($filename, 'https://')) {
+    if (str_contains($filename, 'res.cloudinary.com')) {
         return ['success' => true, 'status' => 'already_cloud', 'id' => $id, 'filename' => $filename, 'message' => 'Sudah berupa URL Cloudinary'];
     }
 
+    // Jika bernilai URL hosting lama (http://... atau https://...), ambil nama filenya
+    $cleanFilename = basename(parse_url($filename, PHP_URL_PATH) ?? $filename);
+
     // Resolusi path file fisik lokal
-    $localPath = rtrim($localDir, '/') . '/' . ltrim($filename, '/');
+    $localPath = rtrim($localDir, '/') . '/' . ltrim($cleanFilename, '/');
     if (!file_exists($localPath)) {
-        $altPath = __DIR__ . '/uploads/' . basename($localDir) . '/' . $filename;
+        $altPath = __DIR__ . '/uploads/' . basename($localDir) . '/' . $cleanFilename;
         if (file_exists($altPath)) {
             $localPath = $altPath;
         } else {
@@ -270,8 +274,8 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
                 'success'  => false,
                 'status'   => 'missing',
                 'id'       => $id,
-                'filename' => $filename,
-                'message'  => "File tidak ditemukan di disk: {$filename}"
+                'filename' => $cleanFilename,
+                'message'  => "File tidak ditemukan di disk: {$cleanFilename}"
             ];
         }
     }
@@ -361,7 +365,7 @@ if (!$isCli && isset($_GET['action'])) {
         $col          = $targetConfig['col'];
 
         // Ambil baris berikutnya berdasarkan cursor lastId
-        $stmt = $pdo->prepare("SELECT `{$pkCol}`, `{$col}` FROM `{$table}` WHERE `{$pkCol}` > ? AND `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE 'http%' ORDER BY `{$pkCol}` ASC LIMIT {$batchSize}");
+        $stmt = $pdo->prepare("SELECT `{$pkCol}`, `{$col}` FROM `{$table}` WHERE `{$pkCol}` > ? AND `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE '%res.cloudinary.com%' ORDER BY `{$pkCol}` ASC LIMIT {$batchSize}");
         $stmt->execute([$lastId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -450,7 +454,7 @@ if ($isCli) {
             $batchLimit = ($limit > 0) ? min(50, $limit - $totalProcessed) : 50;
             if ($batchLimit <= 0) break;
 
-            $stmt = $pdo->prepare("SELECT `{$pkCol}`, `{$col}` FROM `{$table}` WHERE `{$pkCol}` > ? AND `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE 'http%' ORDER BY `{$pkCol}` ASC LIMIT {$batchLimit}");
+            $stmt = $pdo->prepare("SELECT `{$pkCol}`, `{$col}` FROM `{$table}` WHERE `{$pkCol}` > ? AND `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE '%res.cloudinary.com%' ORDER BY `{$pkCol}` ASC LIMIT {$batchLimit}");
             $stmt->execute([$lastId]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
