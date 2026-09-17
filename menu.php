@@ -48,7 +48,27 @@ if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'
         exit;
     }
     $id = (int)($_POST['id_detail'] ?? $_GET['delete_detail'] ?? 0);
-    $pdo->prepare("DELETE FROM belanja_detail WHERE id_detail = ?")->execute([$id]);
+    if ($id > 0) {
+        // Hapus foto nota dari Cloudinary / lokal
+        $stmtNota = $pdo->prepare("SELECT file_nota FROM lampiran_nota WHERE id_detail = ?");
+        $stmtNota->execute([$id]);
+        foreach ($stmtNota->fetchAll(PDO::FETCH_COLUMN) as $nota) {
+            delete_photo_asset($nota, 'uploads/nota/');
+        }
+
+        // Hapus foto receiving dari Cloudinary / lokal
+        $stmtRec = $pdo->prepare("SELECT foto FROM foto_receiving WHERE id_detail = ?");
+        $stmtRec->execute([$id]);
+        foreach ($stmtRec->fetchAll(PDO::FETCH_COLUMN) as $rec) {
+            delete_photo_asset($rec, 'uploads/foto/');
+        }
+
+        // Hapus baris relasi & item detail
+        $pdo->prepare("DELETE FROM lampiran_nota WHERE id_detail = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM foto_receiving WHERE id_detail = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM pengambilan_barang_detail WHERE id_detail = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM belanja_detail WHERE id_detail = ?")->execute([$id]);
+    }
 
     if ($isAjax) {
         header('Content-Type: application/json');
@@ -57,6 +77,125 @@ if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'
     }
     header("Location: menu.php?deleted=1");
     exit;
+}
+
+// ====== 🔒 PROSES HAPUS MENU (HANYA ADMIN) ======
+if (isset($_GET['delete_menu']) || (isset($_POST['action']) && $_POST['action'] === 'delete_menu')) {
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+              || (isset($_POST['ajax']) && $_POST['ajax'] == '1')
+              || (isset($_GET['ajax']) && $_GET['ajax'] == '1');
+    if (!$isAdmin) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya admin yang dapat menghapus menu.']);
+            exit;
+        }
+        header("Location: menu.php?error=unauthorized");
+        exit;
+    }
+
+    $idBelanja = (int)($_POST['id_belanja'] ?? $_GET['delete_menu'] ?? 0);
+    if ($idBelanja <= 0) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'ID Menu tidak valid.']);
+            exit;
+        }
+        header("Location: menu.php?error=invalid_id");
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // 1. Cek menu di tabel belanja
+        $stmtBelanja = $pdo->prepare("SELECT id_belanja, foto_menu, judul FROM belanja WHERE id_belanja = ?");
+        $stmtBelanja->execute([$idBelanja]);
+        $belanjaData = $stmtBelanja->fetch(PDO::FETCH_ASSOC);
+
+        if (!$belanjaData) {
+            $pdo->rollBack();
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Data menu tidak ditemukan.']);
+                exit;
+            }
+            header("Location: menu.php?error=not_found");
+            exit;
+        }
+
+        // Hapus foto_menu lama di tabel belanja (jika ada)
+        if (!empty($belanjaData['foto_menu'])) {
+            delete_photo_asset($belanjaData['foto_menu'], 'uploads/menu/');
+        }
+
+        // 2. Ambil & hapus semua foto menu dari Cloudinary / lokal
+        $stmtFotoMenu = $pdo->prepare("SELECT foto FROM foto_menu_multiple WHERE id_belanja = ?");
+        $stmtFotoMenu->execute([$idBelanja]);
+        $fotosMenu = $stmtFotoMenu->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($fotosMenu as $foto) {
+            delete_photo_asset($foto, 'uploads/menu/');
+        }
+
+        // 3. Ambil semua id_detail terkait menu ini
+        $stmtDetail = $pdo->prepare("SELECT id_detail FROM belanja_detail WHERE id_belanja = ?");
+        $stmtDetail->execute([$idBelanja]);
+        $detailIds = $stmtDetail->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($detailIds)) {
+            $placeholders = implode(',', array_fill(0, count($detailIds), '?'));
+
+            // Hapus foto nota dari Cloudinary / lokal
+            $stmtNota = $pdo->prepare("SELECT file_nota FROM lampiran_nota WHERE id_detail IN ($placeholders)");
+            $stmtNota->execute($detailIds);
+            foreach ($stmtNota->fetchAll(PDO::FETCH_COLUMN) as $nota) {
+                delete_photo_asset($nota, 'uploads/nota/');
+            }
+
+            // Hapus foto receiving dari Cloudinary / lokal
+            $stmtRec = $pdo->prepare("SELECT foto FROM foto_receiving WHERE id_detail IN ($placeholders)");
+            $stmtRec->execute($detailIds);
+            foreach ($stmtRec->fetchAll(PDO::FETCH_COLUMN) as $rec) {
+                delete_photo_asset($rec, 'uploads/foto/');
+            }
+
+            // Hapus baris relasi detail
+            $pdo->prepare("DELETE FROM lampiran_nota WHERE id_detail IN ($placeholders)")->execute($detailIds);
+            $pdo->prepare("DELETE FROM foto_receiving WHERE id_detail IN ($placeholders)")->execute($detailIds);
+            $pdo->prepare("DELETE FROM pengambilan_barang_detail WHERE id_detail IN ($placeholders)")->execute($detailIds);
+            $pdo->prepare("DELETE FROM belanja_detail WHERE id_belanja = ?")->execute([$idBelanja]);
+        }
+
+        // 4. Hapus foto_menu_multiple dan baris belanja
+        $pdo->prepare("DELETE FROM foto_menu_multiple WHERE id_belanja = ?")->execute([$idBelanja]);
+        $pdo->prepare("DELETE FROM belanja WHERE id_belanja = ?")->execute([$idBelanja]);
+
+        $pdo->commit();
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Menu "' . $belanjaData['judul'] . '" dan seluruh foto berhasil dihapus.',
+                'id_belanja' => $idBelanja
+            ]);
+            exit;
+        }
+
+        header("Location: menu.php?deleted_menu=1");
+        exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Gagal menghapus menu: ' . $e->getMessage()]);
+            exit;
+        }
+        header("Location: menu.php?error=" . urlencode($e->getMessage()));
+        exit;
+    }
 }
 
 // ====== 🔒 PROSES UPDATE DETAIL (HANYA ADMIN) ======
@@ -839,6 +978,13 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                         <line x1="5" y1="12" x2="19" y2="12" />
                                                     </svg>
                                                     <span>Tambah Barang</span>
+                                                </button>
+                                                <button type="button" class="btn btn-danger btn-sm" onclick="deleteMenu(<?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($belanja['judul'])) ?>')" title="Hapus Menu Beserta Foto di Cloudinary">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="3 6 5 6 21 6" />
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                    </svg>
+                                                    <span>Hapus Menu</span>
                                                 </button>
                                             <?php endif; ?>
                                         </div>

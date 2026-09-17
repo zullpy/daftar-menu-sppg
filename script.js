@@ -643,6 +643,87 @@ async function submitEditDetail(e) {
     }
 }
 
+// ===== Hapus Seluruh Menu Beserta Foto Cloudinary =====
+async function deleteMenu(idBelanja, menuTitle) {
+    const titleText = menuTitle ? `"${menuTitle}"` : 'ini';
+    const confirmMsg = `Yakin ingin menghapus menu ${titleText}?\n\nPERINGATAN: Seluruh item barang, foto menu, foto receiving, dan nota terkait di Cloudinary akan ikut terhapus secara permanen!`;
+    if (!confirm(confirmMsg)) return;
+
+    const card = document.querySelector(`.menu-card[data-id-belanja="${idBelanja}"]`);
+    let deleteBtn = null;
+    if (card) {
+        deleteBtn = card.querySelector('.btn-danger');
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span>Menghapus...</span>';
+        }
+        card.style.opacity = '0.6';
+        card.style.pointerEvents = 'none';
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'delete_menu');
+        formData.append('id_belanja', idBelanja);
+        formData.append('ajax', '1');
+
+        const res = await fetch('menu.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const json = await res.json();
+
+        if (!json.success) {
+            alert('Gagal menghapus menu: ' + (json.message || 'Error'));
+            if (card) {
+                card.style.opacity = '1';
+                card.style.pointerEvents = 'auto';
+            }
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    <span>Hapus Menu</span>
+                `;
+            }
+            return;
+        }
+
+        showToast(json.message || '✓ Menu dan seluruh foto berhasil dihapus!', 'success');
+        if (card) {
+            card.style.transition = 'all 0.4s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+        }
+        setTimeout(() => {
+            window.location.reload();
+        }, 700);
+
+    } catch (err) {
+        console.error('Error deleteMenu:', err);
+        alert('Terjadi kesalahan saat menghapus menu: ' + err.message);
+        if (card) {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+        }
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                <span>Hapus Menu</span>
+            `;
+        }
+    }
+}
+
 // ===== Hapus Item Tanpa Reload =====
 async function deleteDetailItem(idDetail, btn) {
     if (!confirm('Yakin ingin menghapus item ini?')) return;

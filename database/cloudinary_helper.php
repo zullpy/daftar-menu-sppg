@@ -232,3 +232,113 @@ function resolve_photo_url(?string $photo, string $localPrefix = ''): string
     // Jika nama file lokal lama
     return rtrim($localPrefix, '/') . '/' . ltrim($photo, '/');
 }
+
+/**
+ * Ekstrak public_id dari URL Cloudinary
+ *
+ * @param string $url URL Cloudinary
+ * @return string|null
+ */
+function cloudinary_extract_public_id(string $url): ?string
+{
+    if (!str_contains($url, 'res.cloudinary.com')) {
+        return null;
+    }
+    $path = parse_url($url, PHP_URL_PATH);
+    if (!$path) return null;
+    $pos = strpos($path, '/upload/');
+    if ($pos === false) return null;
+    $afterUpload = substr($path, $pos + strlen('/upload/'));
+    $parts = explode('/', $afterUpload);
+    while (!empty($parts)) {
+        if (preg_match('/^v\d+$/', $parts[0])) {
+            array_shift($parts);
+            break;
+        } elseif (str_contains($parts[0], ',') || in_array($parts[0], ['f_auto', 'q_auto'])) {
+            array_shift($parts);
+        } else {
+            break;
+        }
+    }
+    $remaining = implode('/', $parts);
+    return preg_replace('/\.[a-zA-Z0-9]+$/', '', $remaining);
+}
+
+/**
+ * Hapus aset dari Cloudinary berdasarkan URL atau public_id
+ *
+ * @param string $publicIdOrUrl URL Cloudinary atau string public_id
+ * @param string $resourceType 'image', 'raw', atau 'video'
+ * @return bool
+ */
+function cloudinary_delete(string $publicIdOrUrl, string $resourceType = 'image'): bool
+{
+    if (!cloudinary_is_configured()) {
+        return false;
+    }
+
+    $publicId = $publicIdOrUrl;
+    if (str_starts_with($publicIdOrUrl, 'http://') || str_starts_with($publicIdOrUrl, 'https://')) {
+        $publicId = cloudinary_extract_public_id($publicIdOrUrl);
+        if (!$publicId) {
+            return false;
+        }
+    }
+
+    $cloudName = trim(CLOUDINARY_CLOUD_NAME);
+    $apiKey    = trim(CLOUDINARY_API_KEY);
+    $apiSecret = trim(CLOUDINARY_API_SECRET);
+    $timestamp = time();
+
+    $toSign = 'public_id=' . $publicId . '&timestamp=' . $timestamp . $apiSecret;
+    $signature = sha1($toSign);
+
+    $endpoint = "https://api.cloudinary.com/v1_1/{$cloudName}/{$resourceType}/destroy";
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => [
+            'public_id' => $publicId,
+            'timestamp' => $timestamp,
+            'api_key'   => $apiKey,
+            'signature' => $signature,
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+
+    $res = curl_exec($ch);
+    curl_close($ch);
+
+    $json = json_decode($res, true);
+    return isset($json['result']) && ($json['result'] === 'ok' || $json['result'] === 'not found');
+}
+
+/**
+ * Hapus aset foto baik yang tersimpan di Cloudinary maupun file lokal lama.
+ *
+ * @param string|null $photo URL Cloudinary atau nama file lokal
+ * @param string $localPrefix Path relatif folder penyimpanan lokal (misal 'uploads/menu/')
+ * @return bool
+ */
+function delete_photo_asset(?string $photo, string $localPrefix = ''): bool
+{
+    if (empty($photo)) {
+        return false;
+    }
+
+    if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+        return cloudinary_delete($photo);
+    }
+
+    $localPath = rtrim($localPrefix, '/') . '/' . ltrim($photo, '/');
+    if (file_exists($localPath)) {
+        return @unlink($localPath);
+    }
+
+    return false;
+}
+
+
