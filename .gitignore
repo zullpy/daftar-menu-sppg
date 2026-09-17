@@ -5,6 +5,10 @@
 # Koneksi database (berisi kredensial)
 database/koneksi.php
 
+# Cloudinary credentials (berisi API Secret)
+database/cloudinary.php
+cloudinary.php
+
 # Environment & konfigurasi lokal
 .env
 .env.local

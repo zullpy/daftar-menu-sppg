@@ -30,6 +30,7 @@ if (isset($_GET['logout'])) {
 }
 
 require_once 'database/koneksi.php';
+require_once 'database/cloudinary_helper.php';
 require_once 'assets/icons.php';
 
 // ====== 🔒 PROSES HAPUS DETAIL (HANYA ADMIN) ======
@@ -172,15 +173,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
 
         if (isset($_FILES['foto_menu']) && is_array($_FILES['foto_menu']['name'])) {
             $uploadDir = 'uploads/menu/';
-            if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
             foreach ($_FILES['foto_menu']['name'] as $key => $filename) {
                 if (!empty($filename) && $_FILES['foto_menu']['error'][$key] === UPLOAD_ERR_OK) {
+                    $fileItem = [
+                        'name'     => $_FILES['foto_menu']['name'][$key],
+                        'type'     => $_FILES['foto_menu']['type'][$key] ?? '',
+                        'tmp_name' => $_FILES['foto_menu']['tmp_name'][$key],
+                        'error'    => $_FILES['foto_menu']['error'][$key],
+                        'size'     => $_FILES['foto_menu']['size'][$key] ?? 0,
+                    ];
                     $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
                     if (in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                        $newName = 'menu_' . date('YmdHis') . '_' . $idBelanja . '_' . $key . '.' . $fileExt;
-                        if (move_uploaded_file($_FILES['foto_menu']['tmp_name'][$key], $uploadDir . $newName)) {
-                            $pdo->prepare("INSERT INTO foto_menu_multiple (id_belanja, foto) VALUES (?, ?)")->execute([$idBelanja, $newName]);
-                        }
+                        $savedPhoto = smart_upload_foto($fileItem, 'menu', $uploadDir, 'menu_' . $idBelanja . '_' . $key);
+                        $pdo->prepare("INSERT INTO foto_menu_multiple (id_belanja, foto) VALUES (?, ?)")->execute([$idBelanja, $savedPhoto]);
                     }
                 }
             }
@@ -201,14 +206,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
 
             if (isset($_FILES['nota_files']['name'][$idx]) && is_array($_FILES['nota_files']['name'][$idx])) {
                 $uploadDir = 'uploads/nota/';
-                if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
                 foreach ($_FILES['nota_files']['name'][$idx] as $key => $filename) {
                     if (!empty($filename) && $_FILES['nota_files']['error'][$idx][$key] === UPLOAD_ERR_OK) {
-                        $tmpName = $_FILES['nota_files']['tmp_name'][$idx][$key];
+                        $fileItem = [
+                            'name'     => $_FILES['nota_files']['name'][$idx][$key],
+                            'type'     => $_FILES['nota_files']['type'][$idx][$key] ?? '',
+                            'tmp_name' => $_FILES['nota_files']['tmp_name'][$idx][$key],
+                            'error'    => $_FILES['nota_files']['error'][$idx][$key],
+                            'size'     => $_FILES['nota_files']['size'][$idx][$key] ?? 0,
+                        ];
                         $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                        $newName = 'nota_' . date('YmdHis') . '_' . $idDetail . '_' . $key . '.' . $fileExt;
-                        if (move_uploaded_file($tmpName, $uploadDir . $newName)) {
-                            $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (?, ?)")->execute([$idDetail, $newName]);
+                        if (in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'])) {
+                            $savedPhoto = smart_upload_foto($fileItem, 'nota', $uploadDir, 'nota_' . $idDetail . '_' . $key);
+                            $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (?, ?)")->execute([$idDetail, $savedPhoto]);
                         }
                     }
                 }
@@ -216,14 +226,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_belanja'])) {
 
             if (isset($_FILES['foto_files']['name'][$idx]) && is_array($_FILES['foto_files']['name'][$idx])) {
                 $uploadDir = 'uploads/foto/';
-                if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
                 foreach ($_FILES['foto_files']['name'][$idx] as $key => $filename) {
                     if (!empty($filename) && $_FILES['foto_files']['error'][$idx][$key] === UPLOAD_ERR_OK) {
-                        $tmpName = $_FILES['foto_files']['tmp_name'][$idx][$key];
+                        $fileItem = [
+                            'name'     => $_FILES['foto_files']['name'][$idx][$key],
+                            'type'     => $_FILES['foto_files']['type'][$idx][$key] ?? '',
+                            'tmp_name' => $_FILES['foto_files']['tmp_name'][$idx][$key],
+                            'error'    => $_FILES['foto_files']['error'][$idx][$key],
+                            'size'     => $_FILES['foto_files']['size'][$idx][$key] ?? 0,
+                        ];
                         $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                        $newName = 'receiving_' . date('YmdHis') . '_' . $idDetail . '_' . $key . '.' . $fileExt;
-                        if (move_uploaded_file($tmpName, $uploadDir . $newName)) {
-                            $pdo->prepare("INSERT INTO foto_receiving (id_detail, foto) VALUES (?, ?)")->execute([$idDetail, $newName]);
+                        if (in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                            $savedPhoto = smart_upload_foto($fileItem, 'receiving', $uploadDir, 'receiving_' . $idDetail . '_' . $key);
+                            $pdo->prepare("INSERT INTO foto_receiving (id_detail, foto) VALUES (?, ?)")->execute([$idDetail, $savedPhoto]);
                         }
                     }
                 }
@@ -273,15 +288,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_single_item'])) {
 
         $hasNota = 0;
         if (isset($_FILES['nota_susulan']) && $_FILES['nota_susulan']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = 'uploads/nota/';
-            if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-            $fileExt = strtolower(pathinfo($_FILES['nota_susulan']['name'], PATHINFO_EXTENSION));
-            $newName = 'nota_' . date('YmdHis') . '_' . $idDetail . '.' . $fileExt;
-            if (move_uploaded_file($_FILES['nota_susulan']['tmp_name'], $uploadDir . $newName)) {
-                $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (:id_detail, :file_nota)")
-                    ->execute([':id_detail' => $idDetail, ':file_nota' => $newName]);
-                $hasNota = 1;
-            }
+            $savedPhoto = smart_upload_foto($_FILES['nota_susulan'], 'nota', 'uploads/nota/', 'nota_' . $idDetail);
+            $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (:id_detail, :file_nota)")
+                ->execute([':id_detail' => $idDetail, ':file_nota' => $savedPhoto]);
+            $hasNota = 1;
         }
 
         if ($isAjax) {
@@ -665,7 +675,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <?php else: ?>
                     <?php foreach ($carouselPhotos as $i => $photo): ?>
                         <div class="slide <?= $i === 0 ? 'active' : '' ?>">
-                            <img src="uploads/menu/<?= htmlspecialchars($photo['foto']) ?>" alt="<?= htmlspecialchars($photo['judul']) ?>">
+                            <img src="<?= htmlspecialchars(resolve_photo_url($photo['foto'], 'uploads/menu/')) ?>" alt="<?= htmlspecialchars($photo['judul']) ?>">
                             <div class="slide-caption"><?= htmlspecialchars($photo['judul']) ?> — <?= formatTanggalIndonesia($photo['tanggal']) ?></div>
                         </div>
                     <?php endforeach; ?>
@@ -733,7 +743,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                         <div style="display:flex; gap:10px; align-items:center;">
                             <?php if ($isAdmin): ?>
                                 <?php if (isset($fakturMap[$tanggal])): ?>
-                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); viewFullImage('uploads/faktur/<?= htmlspecialchars($fakturMap[$tanggal]) ?>')">
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); viewFullImage('<?= htmlspecialchars(resolve_photo_url($fakturMap[$tanggal], 'uploads/faktur/')) ?>')">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                                             <circle cx="12" cy="12" r="3" />
@@ -834,8 +844,16 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                         </div>
                                     </div>
                                     <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
-                                        <div class="menu-thumbnail" onclick="viewFullImage('uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>')">
-                                            <img src="uploads/menu/<?= htmlspecialchars($belanja['fotos'][0]) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?>">
+                                        <div class="menu-thumbnails-group">
+                                            <?php foreach ($belanja['fotos'] as $idx => $fotoItem): ?>
+                                                <?php $thumbUrl = resolve_photo_url($fotoItem, 'uploads/menu/'); ?>
+                                                <div class="menu-thumbnail" onclick="viewFullImage('<?= htmlspecialchars($thumbUrl) ?>')" title="Lihat Foto <?= $idx + 1 ?>: <?= htmlspecialchars($belanja['judul']) ?>">
+                                                    <img src="<?= htmlspecialchars($thumbUrl) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?> (<?= $idx + 1 ?>)">
+                                                    <?php if (count($belanja['fotos']) > 1): ?>
+                                                        <span class="menu-photo-badge"><?= $idx + 1 ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>

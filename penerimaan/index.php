@@ -2,6 +2,7 @@
 session_start();
 date_default_timezone_set('Asia/Jakarta');
 require_once '../database/koneksi.php';
+require_once '../database/cloudinary_helper.php';
 require_once '../database/stok_helper.php';
 
 if (!isset($_SESSION['role'])) {
@@ -101,14 +102,15 @@ function simpanFotoKemasan($fileArray, $index, $dir, $detailPengirimanId)
         throw new Exception("File yang diupload bukan gambar yang valid.");
     }
 
-    $fileName = 'kemasan_' . $detailPengirimanId . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
-    $destPath = $dir . $fileName;
+    $fileItem = [
+        'name'     => $origName,
+        'type'     => $fileArray['type'][$index] ?? '',
+        'tmp_name' => $tmpName,
+        'error'    => $fileArray['error'][$index],
+        'size'     => $size,
+    ];
 
-    if (!move_uploaded_file($tmpName, $destPath)) {
-        throw new Exception("Gagal menyimpan foto kemasan ke server.");
-    }
-
-    return $fileName;
+    return smart_upload_foto($fileItem, 'kemasan', $dir, 'kemasan_' . $detailPengirimanId);
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -190,12 +192,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $keterangan_kemasans = $_POST['keterangan_kemasan'] ?? [];
         $fotoKemasanFiles    = $_FILES['foto_kemasan'] ?? null;
 
-        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, qty_diterima, keterangan, keterangan_kemasan, foto_kemasan) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt_insert = $pdo->prepare("INSERT INTO detail_penerimaan (penerimaan_id, detail_pengiriman_id, status_barang, qty_diterima, keterangan, keterangan_kemasan, foto_kemasan) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                status_barang = VALUES(status_barang),
+                qty_diterima = VALUES(qty_diterima),
+                keterangan = VALUES(keterangan),
+                keterangan_kemasan = VALUES(keterangan_kemasan),
+                foto_kemasan = COALESCE(VALUES(foto_kemasan), foto_kemasan)");
+
+        $processedDetailIds = [];
         for ($i = 0; $i < count($detail_ids); $i++) {
             $status = $statuses[$i] ?? null;
             $ket = trim($keterangans[$i] ?? '');
             $detailPengirimanId = (int)$detail_ids[$i];
             if (!$status) continue;
+            if (isset($processedDetailIds[$detailPengirimanId])) continue;
+            $processedDetailIds[$detailPengirimanId] = true;
 
             $info = $dpMap[$detailPengirimanId] ?? null;
 
@@ -838,8 +850,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <td>
                                         <div class="foto-kemasan-wrap">
                                             <?php if (!empty($d['terima_foto_kemasan'])): ?>
-                                                <a href="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" target="_blank" class="foto-kemasan-preview-link">
-                                                    <img src="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" class="foto-kemasan-thumb" alt="Foto kemasan">
+                                                <?php $fotoKemasanUrl = resolve_photo_url($d['terima_foto_kemasan'], '../uploads/foto-perkemasan/'); ?>
+                                                <a href="<?= htmlspecialchars($fotoKemasanUrl) ?>" target="_blank" class="foto-kemasan-preview-link">
+                                                    <img src="<?= htmlspecialchars($fotoKemasanUrl) ?>" class="foto-kemasan-thumb" alt="Foto kemasan">
                                                 </a>
                                             <?php endif; ?>
                                             <input type="file" name="foto_kemasan[]" class="form-control input-foto-kemasan" accept="image/*" capture="environment">
@@ -928,8 +941,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <div class="barang-card-field">
                                     <label>Foto Kemasan</label>
                                     <?php if (!empty($d['terima_foto_kemasan'])): ?>
-                                        <a href="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" target="_blank" class="foto-kemasan-preview-link">
-                                            <img src="../uploads/foto-perkemasan/<?= htmlspecialchars($d['terima_foto_kemasan']) ?>" class="foto-kemasan-thumb foto-kemasan-thumb-mobile" alt="Foto kemasan">
+                                        <?php $fotoKemasanUrlMobile = resolve_photo_url($d['terima_foto_kemasan'], '../uploads/foto-perkemasan/'); ?>
+                                        <a href="<?= htmlspecialchars($fotoKemasanUrlMobile) ?>" target="_blank" class="foto-kemasan-preview-link">
+                                            <img src="<?= htmlspecialchars($fotoKemasanUrlMobile) ?>" class="foto-kemasan-thumb foto-kemasan-thumb-mobile" alt="Foto kemasan">
                                         </a>
                                     <?php endif; ?>
                                     <input type="file" name="foto_kemasan[]" class="form-control input-foto-kemasan" accept="image/*" capture="environment">
@@ -1354,8 +1368,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const cardsVisible = window.getComputedStyle(document.querySelector('.cards-pengecekan')).display !== 'none';
 
             if (cardsVisible) {
+                // Nonaktifkan desktop inputs agar tidak terkirim ganda
+                document.querySelectorAll('.table-pengecekan input, .table-pengecekan select').forEach(el => el.disabled = true);
+
                 // Validasi mobile cards
-                const empties = document.querySelectorAll('.status-hidden-input');
+                const empties = document.querySelectorAll('.cards-pengecekan .status-hidden-input');
                 for (const inp of empties) {
                     if (!inp.value) {
                         alert('⚠️ Semua status barang wajib dipilih!');
@@ -1363,12 +1380,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             behavior: 'smooth',
                             block: 'center'
                         });
+                        document.querySelectorAll('.table-pengecekan input, .table-pengecekan select').forEach(el => el.disabled = false);
                         return false;
                     }
                 }
             } else {
+                // Nonaktifkan mobile inputs agar tidak terkirim ganda
+                document.querySelectorAll('.cards-pengecekan input, .cards-pengecekan select').forEach(el => el.disabled = true);
+
                 // Validasi desktop table
-                const empties = document.querySelectorAll('.status-hidden-input-desktop');
+                const empties = document.querySelectorAll('.table-pengecekan .status-hidden-input-desktop');
                 for (const inp of empties) {
                     if (!inp.value) {
                         alert('⚠️ Semua status barang wajib dipilih!');
@@ -1376,6 +1397,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             behavior: 'smooth',
                             block: 'center'
                         });
+                        document.querySelectorAll('.cards-pengecekan input, .cards-pengecekan select').forEach(el => el.disabled = false);
                         return false;
                     }
                 }
@@ -1388,10 +1410,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             if (!hasPengirimCanvas && !hasPengirimInput) {
                 alert('⚠️ Tanda tangan PENGIRIM wajib diisi!');
+                document.querySelectorAll('.table-pengecekan input, .cards-pengecekan input').forEach(el => el.disabled = false);
                 return false;
             }
             if (!hasPenerimaCanvas && !hasPenerimaInput) {
                 alert('⚠️ Tanda tangan PENERIMA wajib diisi!');
+                document.querySelectorAll('.table-pengecekan input, .cards-pengecekan input').forEach(el => el.disabled = false);
                 return false;
             }
             if (hasPengirimCanvas) ttdPengirimInput.value = getTrimmedSignature(sigPadPengirim);

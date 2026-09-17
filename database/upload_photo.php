@@ -49,6 +49,7 @@ if (!in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
 }
 
 require_once 'koneksi.php';
+require_once __DIR__ . '/cloudinary_helper.php';
 
 try {
     if ($action === 'add_menu_photo') {
@@ -57,32 +58,15 @@ try {
             throw new Exception('ID belanja tidak valid');
         }
 
-        $uploadDir = '../uploads/menu/';
-        if (!file_exists($uploadDir)) {
-            if (!mkdir($uploadDir, 0777, true)) {
-                throw new Exception('Gagal membuat folder uploads/menu/');
-            }
-        }
-
-        // Pastikan folder writable
-        if (!is_writable($uploadDir)) {
-            throw new Exception('Folder uploads/menu/ tidak bisa ditulis. Cek permission.');
-        }
-
-        $newName = 'menu_' . date('YmdHis') . '_' . $idBelanja . '_' . uniqid() . '.' . $fileExt;
-        $targetPath = $uploadDir . $newName;
-
-        if (!move_uploaded_file($_FILES['foto']['tmp_name'], $targetPath)) {
-            throw new Exception('Gagal menyimpan file ke server');
-        }
+        $savedPhoto = smart_upload_foto($_FILES['foto'], 'menu', '../uploads/menu/', 'menu_' . $idBelanja);
 
         $stmt = $pdo->prepare("INSERT INTO foto_menu_multiple (id_belanja, foto) VALUES (?, ?)");
-        $stmt->execute([$idBelanja, $newName]);
+        $stmt->execute([$idBelanja, $savedPhoto]);
 
         echo json_encode([
             'success' => true,
             'message' => 'Foto menu berhasil diupload',
-            'filename' => $newName
+            'filename' => $savedPhoto
         ]);
     } elseif ($action === 'add_foto_receiving') {
         $idDetail = (int)($_POST['id_detail'] ?? 0);
@@ -90,31 +74,15 @@ try {
             throw new Exception('ID detail tidak valid');
         }
 
-        $uploadDir = '../uploads/foto/';
-        if (!file_exists($uploadDir)) {
-            if (!mkdir($uploadDir, 0777, true)) {
-                throw new Exception('Gagal membuat folder uploads/foto/');
-            }
-        }
-
-        if (!is_writable($uploadDir)) {
-            throw new Exception('Folder uploads/foto/ tidak bisa ditulis. Cek permission.');
-        }
-
-        $newName = 'receiving_' . date('YmdHis') . '_' . $idDetail . '_' . uniqid() . '.' . $fileExt;
-        $targetPath = $uploadDir . $newName;
-
-        if (!move_uploaded_file($_FILES['foto']['tmp_name'], $targetPath)) {
-            throw new Exception('Gagal menyimpan file ke server');
-        }
+        $savedPhoto = smart_upload_foto($_FILES['foto'], 'receiving', '../uploads/foto/', 'receiving_' . $idDetail);
 
         $stmt = $pdo->prepare("INSERT INTO foto_receiving (id_detail, foto) VALUES (?, ?)");
-        $stmt->execute([$idDetail, $newName]);
+        $stmt->execute([$idDetail, $savedPhoto]);
 
         echo json_encode([
             'success' => true,
             'message' => 'Foto receiving berhasil diupload',
-            'filename' => $newName
+            'filename' => $savedPhoto
         ]);
     } elseif ($action === 'add_nota') {
         $idDetail = (int)($_POST['id_detail'] ?? 0);
@@ -122,31 +90,15 @@ try {
             throw new Exception('ID detail tidak valid');
         }
 
-        $uploadDir = '../uploads/nota/';
-        if (!file_exists($uploadDir)) {
-            if (!mkdir($uploadDir, 0777, true)) {
-                throw new Exception('Gagal membuat folder uploads/nota/');
-            }
-        }
-
-        if (!is_writable($uploadDir)) {
-            throw new Exception('Folder uploads/nota/ tidak bisa ditulis. Cek permission.');
-        }
-
-        $newName = 'nota_' . date('YmdHis') . '_' . $idDetail . '_' . uniqid() . '.' . $fileExt;
-        $targetPath = $uploadDir . $newName;
-
-        if (!move_uploaded_file($_FILES['foto']['tmp_name'], $targetPath)) {
-            throw new Exception('Gagal menyimpan file ke server');
-        }
+        $savedPhoto = smart_upload_foto($_FILES['foto'], 'nota', '../uploads/nota/', 'nota_' . $idDetail);
 
         $stmt = $pdo->prepare("INSERT INTO lampiran_nota (id_detail, file_nota) VALUES (?, ?)");
-        $stmt->execute([$idDetail, $newName]);
+        $stmt->execute([$idDetail, $savedPhoto]);
 
         echo json_encode([
             'success' => true,
             'message' => 'Nota berhasil diupload',
-            'filename' => $newName
+            'filename' => $savedPhoto
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Action tidak valid: ' . $action]);

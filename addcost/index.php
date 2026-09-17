@@ -22,6 +22,7 @@ if (isset($_GET['logout'])) {
 }
 
 require_once '../database/koneksi.php';
+require_once '../database/cloudinary_helper.php';
 require_once '../assets/icons.php';
 
 // ====== 🔒 PROSES HAPUS DETAIL ADDCOST (HANYA ADMIN) ======
@@ -116,26 +117,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $id = (int)$_POST['id_detail'];
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = 'uploads/addcost_receiving/';
-        if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-        $fileExt = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
-        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
-        if (!in_array($fileExt, $allowedExt)) {
-            echo json_encode(['success' => false, 'message' => 'Format file tidak didukung']);
-            exit;
-        }
-        $newName = 'receiving_' . date('YmdHis') . '_' . $id . '_' . rand(1000, 9999) . '.' . $fileExt;
-        if (move_uploaded_file($_FILES['foto']['tmp_name'], $uploadDir . $newName)) {
-            $stmt = $pdo->prepare("SELECT foto_receiving FROM pembelian_addcost_detail WHERE id = ?");
-            $stmt->execute([$id]);
-            $existingPhotos = $stmt->fetchColumn();
-            $photosArray = !empty($existingPhotos) ? json_decode($existingPhotos, true) : [];
-            if (!is_array($photosArray)) $photosArray = [];
-            $photosArray[] = $newName;
-            $pdo->prepare("UPDATE pembelian_addcost_detail SET foto_receiving = ? WHERE id = ?")
-                ->execute([json_encode($photosArray), $id]);
-            echo json_encode(['success' => true, 'filename' => $newName]);
-            exit;
-        }
+        $savedPhoto = smart_upload_foto($_FILES['foto'], 'addcost-receiving', $uploadDir, 'receiving_' . $id);
+
+        $stmt = $pdo->prepare("SELECT foto_receiving FROM pembelian_addcost_detail WHERE id = ?");
+        $stmt->execute([$id]);
+        $existingPhotos = $stmt->fetchColumn();
+        $photosArray = !empty($existingPhotos) ? json_decode($existingPhotos, true) : [];
+        if (!is_array($photosArray)) $photosArray = [];
+        $photosArray[] = $savedPhoto;
+        $pdo->prepare("UPDATE pembelian_addcost_detail SET foto_receiving = ? WHERE id = ?")
+            ->execute([json_encode($photosArray), $id]);
+        echo json_encode(['success' => true, 'filename' => $savedPhoto]);
+        exit;
     }
     echo json_encode(['success' => false, 'message' => 'Gagal upload foto receiving']);
     exit;
@@ -146,26 +139,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $id = (int)$_POST['id_detail'];
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = 'uploads/addcost_nota/';
-        if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-        $fileExt = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
-        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
-        if (!in_array($fileExt, $allowedExt)) {
-            echo json_encode(['success' => false, 'message' => 'Format file tidak didukung']);
-            exit;
-        }
-        $newName = 'nota_' . date('YmdHis') . '_' . $id . '_' . rand(1000, 9999) . '.' . $fileExt;
-        if (move_uploaded_file($_FILES['foto']['tmp_name'], $uploadDir . $newName)) {
-            $stmt = $pdo->prepare("SELECT foto_nota FROM pembelian_addcost_detail WHERE id = ?");
-            $stmt->execute([$id]);
-            $existingPhotos = $stmt->fetchColumn();
-            $photosArray = !empty($existingPhotos) ? json_decode($existingPhotos, true) : [];
-            if (!is_array($photosArray)) $photosArray = [];
-            $photosArray[] = $newName;
-            $pdo->prepare("UPDATE pembelian_addcost_detail SET foto_nota = ? WHERE id = ?")
-                ->execute([json_encode($photosArray), $id]);
-            echo json_encode(['success' => true, 'filename' => $newName]);
-            exit;
-        }
+        $savedPhoto = smart_upload_foto($_FILES['foto'], 'addcost-nota', $uploadDir, 'nota_' . $id);
+
+        $stmt = $pdo->prepare("SELECT foto_nota FROM pembelian_addcost_detail WHERE id = ?");
+        $stmt->execute([$id]);
+        $existingPhotos = $stmt->fetchColumn();
+        $photosArray = !empty($existingPhotos) ? json_decode($existingPhotos, true) : [];
+        if (!is_array($photosArray)) $photosArray = [];
+        $photosArray[] = $savedPhoto;
+        $pdo->prepare("UPDATE pembelian_addcost_detail SET foto_nota = ? WHERE id = ?")
+            ->execute([json_encode($photosArray), $id]);
+        echo json_encode(['success' => true, 'filename' => $savedPhoto]);
+        exit;
     }
     echo json_encode(['success' => false, 'message' => 'Gagal upload foto nota']);
     exit;
@@ -686,8 +671,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                         <div style="font-size: 10px; font-weight: 600; color: #64748b; margin-bottom: 6px;">📸 Foto Receiving (<?= count($receivingPhotos) ?>)</div>
                                                         <div class="item-foto-thumbnails">
                                                             <?php foreach ($receivingPhotos as $photo): ?>
+                                                                <?php $recUrl = resolve_photo_url($photo, 'uploads/addcost_receiving/'); ?>
                                                                 <div class="item-foto-thumb-item">
-                                                                    <img src="uploads/addcost_receiving/<?= htmlspecialchars($photo) ?>" alt="Receiving" onclick="viewFullImage('uploads/addcost_receiving/<?= htmlspecialchars($photo) ?>')">
+                                                                    <img src="<?= htmlspecialchars($recUrl) ?>" alt="Receiving" onclick="viewFullImage('<?= htmlspecialchars($recUrl) ?>')">
                                                                     <button type="button" class="item-foto-thumb-delete" onclick="deleteFoto(<?= $detail['id'] ?>, 'receiving', '<?= htmlspecialchars($photo) ?>')" title="Hapus">
                                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -702,8 +688,9 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                         <div style="font-size: 10px; font-weight: 600; color: #64748b; margin-bottom: 6px; margin-top: 8px;">📄 Foto Nota (<?= count($notaPhotos) ?>)</div>
                                                         <div class="item-foto-thumbnails">
                                                             <?php foreach ($notaPhotos as $photo): ?>
+                                                                <?php $notUrl = resolve_photo_url($photo, 'uploads/addcost_nota/'); ?>
                                                                 <div class="item-foto-thumb-item">
-                                                                    <img src="uploads/addcost_nota/<?= htmlspecialchars($photo) ?>" alt="Nota" onclick="viewFullImage('uploads/addcost_nota/<?= htmlspecialchars($photo) ?>')">
+                                                                    <img src="<?= htmlspecialchars($notUrl) ?>" alt="Nota" onclick="viewFullImage('<?= htmlspecialchars($notUrl) ?>')">
                                                                     <button type="button" class="item-foto-thumb-delete" onclick="deleteFoto(<?= $detail['id'] ?>, 'nota', '<?= htmlspecialchars($photo) ?>')" title="Hapus">
                                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                                                             <line x1="18" y1="6" x2="6" y2="18"></line>

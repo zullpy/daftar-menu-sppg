@@ -453,6 +453,11 @@ function uploadInlinePhoto(input, action, id) {
                     }
                 }
             }
+            if (action === 'add_menu_photo') {
+                showToast(`✓ Berhasil mengunggah ${addedCount} foto menu`, 'success');
+                setTimeout(() => window.location.reload(), 700);
+                return;
+            }
             showToast(`✓ Berhasil mengunggah ${addedCount} file`, 'success');
         }
     }).catch(err => {
@@ -481,14 +486,17 @@ function viewPhotos(idDetail, type, count) {
         .then(data => {
             grid.innerHTML = '';
             if (data.photos && data.photos.length > 0) {
-                const photoPath = type === 'nota' ? 'uploads/nota/' : 'uploads/foto/';
+                const defaultLocalPath = type === 'nota' ? 'uploads/nota/' : 'uploads/foto/';
                 data.photos.forEach((photo, index) => {
                     const item = document.createElement('div');
                     item.className = 'photo-item';
-                    const fileExt = photo.split('.').pop().toLowerCase();
-                    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+                    const isUrl = typeof photo === 'string' && (photo.startsWith('http://') || photo.startsWith('https://'));
+                    const fullSrc = isUrl ? photo : (defaultLocalPath + photo);
+                    const cleanFileName = photo.split('?')[0];
+                    const fileExt = cleanFileName.split('.').pop().toLowerCase();
+                    const isImage = isUrl || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
                     if (isImage) {
-                        item.innerHTML = `<img src="${photoPath}${photo}" onclick="viewFullImage('${photoPath}${photo}')" alt="${type} ${index + 1}"><div class="photo-label">${type === 'nota' ? 'Nota' : 'Foto'} ${index + 1}</div>`;
+                        item.innerHTML = `<img src="${fullSrc}" onclick="viewFullImage('${fullSrc}')" alt="${type} ${index + 1}"><div class="photo-label">${type === 'nota' ? 'Nota' : 'Foto'} ${index + 1}</div>`;
                     } else {
                         item.innerHTML = `<div style="height:200px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="photo-label">${photo}</div>`;
                     }

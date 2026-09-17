@@ -9,6 +9,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 
 require_once 'koneksi.php';
+require_once __DIR__ . '/cloudinary_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || ($_POST['action'] ?? '') !== 'add_faktur_ttd') {
     echo json_encode(['success' => false, 'message' => 'Aksi tidak valid.']);
@@ -42,16 +43,12 @@ if ($_FILES['foto']['size'] > 10 * 1024 * 1024) {
 
 try {
     $uploadDir = '../uploads/faktur/';
-    if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    $newName = 'faktur_' . date('YmdHis') . '_' . preg_replace('/-/', '', $tanggal) . '.' . $fileExt;
-
-    if (!move_uploaded_file($_FILES['foto']['tmp_name'], $uploadDir . $newName)) {
-        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan file ke server.']);
-        exit;
-    }
+    $savedPhoto = smart_upload_foto(
+        $_FILES['foto'],
+        'faktur',
+        $uploadDir,
+        'faktur_' . preg_replace('/-/', '', $tanggal)
+    );
 
     // Cek apakah tanggal ini sudah pernah ada fakturnya, kalau ada hapus file lama lalu update
     $stmtCheck = $pdo->prepare("SELECT id_faktur, file_faktur FROM faktur_ttd WHERE tanggal = :tanggal");
@@ -59,24 +56,27 @@ try {
     $existing = $stmtCheck->fetch();
 
     if ($existing) {
-        $oldFile = $uploadDir . $existing['file_faktur'];
-        if (file_exists($oldFile)) {
-            unlink($oldFile);
+        $oldFile = $existing['file_faktur'];
+        if (!empty($oldFile) && !str_starts_with($oldFile, 'http')) {
+            $oldLocal = $uploadDir . $oldFile;
+            if (file_exists($oldLocal)) {
+                @unlink($oldLocal);
+            }
         }
         $stmtUpdate = $pdo->prepare("UPDATE faktur_ttd SET file_faktur = :file_faktur, uploaded_at = NOW() WHERE id_faktur = :id_faktur");
         $stmtUpdate->execute([
-            ':file_faktur' => $newName,
+            ':file_faktur' => $savedPhoto,
             ':id_faktur'   => $existing['id_faktur'],
         ]);
     } else {
         $stmtInsert = $pdo->prepare("INSERT INTO faktur_ttd (tanggal, file_faktur) VALUES (:tanggal, :file_faktur)");
         $stmtInsert->execute([
             ':tanggal'     => $tanggal,
-            ':file_faktur' => $newName,
+            ':file_faktur' => $savedPhoto,
         ]);
     }
 
-    echo json_encode(['success' => true, 'filename' => $newName]);
+    echo json_encode(['success' => true, 'filename' => $savedPhoto]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }

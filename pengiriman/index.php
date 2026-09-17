@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../database/koneksi.php';
+require_once '../database/cloudinary_helper.php';
 require_once '../database/helper-stok.php';
 require_once '../database/stok_helper.php';
 
@@ -337,7 +338,7 @@ foreach ($all_data as $row) {
                                                         <td>
                                                             <?php if ($detail['terima_foto_kemasan']): ?>
                                                                 <button type="button" class="btn-foto"
-                                                                    onclick="bukaFotoModal('../uploads/foto-perkemasan/<?= htmlspecialchars($detail['terima_foto_kemasan']) ?>', <?= htmlspecialchars(json_encode($detail['nama_barang']), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($detail['terima_ket_kemasan'] ?: ''), ENT_QUOTES) ?>)">
+                                                                    onclick="bukaFotoModal('<?= htmlspecialchars(resolve_photo_url($detail['terima_foto_kemasan'], '../uploads/foto-perkemasan/')) ?>', <?= htmlspecialchars(json_encode($detail['nama_barang']), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($detail['terima_ket_kemasan'] ?: ''), ENT_QUOTES) ?>)">
                                                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                                                         <rect x="3" y="5" width="18" height="14" rx="2" />
                                                                         <circle cx="8.5" cy="10.5" r="1.5" />
