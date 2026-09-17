@@ -392,6 +392,18 @@ if (!$isCli && isset($_GET['action'])) {
         $skipExisting = !isset($_POST['skip_existing']) || $_POST['skip_existing'] === '1' || $_POST['skip_existing'] === 'true';
         $deleteLocal  = !empty($_POST['delete_local']) && ($_POST['delete_local'] === '1' || $_POST['delete_local'] === 'true');
 
+        // Pembersihan otomatis sisa dummy/broken URLs saat memulai kategori (offset 0)
+        if ($offset === 0) {
+            try {
+                if ($cat === 'menu') {
+                    $pdo->exec("DELETE FROM foto_menu_multiple WHERE foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto LIKE '%SIMULASI%'");
+                    $pdo->exec("UPDATE belanja SET foto_menu = NULL WHERE foto_menu LIKE '%image.webp%' OR foto_menu LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto_menu LIKE '%SIMULASI%'");
+                } elseif ($cat === 'receiving') {
+                    $pdo->exec("DELETE FROM foto_receiving WHERE foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto LIKE '%SIMULASI%'");
+                }
+            } catch (Exception $e) {}
+        }
+
         $diskConfigs = [
             'menu' => [
                 'dir'   => __DIR__ . '/uploads/menu',

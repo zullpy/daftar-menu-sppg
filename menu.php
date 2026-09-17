@@ -33,6 +33,12 @@ require_once 'database/koneksi.php';
 require_once 'database/cloudinary_helper.php';
 require_once 'assets/icons.php';
 
+// ====== 🧹 PEMBERSIHAN OTOMATIS DATA FOTO DUMMY / BROKEN ======
+try {
+    $pdo->exec("DELETE FROM foto_menu_multiple WHERE foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto LIKE '%SIMULASI%'");
+    $pdo->exec("UPDATE belanja SET foto_menu = NULL WHERE foto_menu LIKE '%image.webp%' OR foto_menu LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto_menu LIKE '%SIMULASI%'");
+} catch (Exception $e) {}
+
 // ====== 🔒 PROSES HAPUS DETAIL (HANYA ADMIN) ======
 if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'] === 'delete_detail')) {
     $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
@@ -194,6 +200,46 @@ if (isset($_GET['delete_menu']) || (isset($_POST['action']) && $_POST['action'] 
             exit;
         }
         header("Location: menu.php?error=" . urlencode($e->getMessage()));
+        exit;
+    }
+}
+
+// ====== 🔒 PROSES HAPUS SATU FOTO MENU (HANYA ADMIN) ======
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_single_menu_photo') {
+    header('Content-Type: application/json');
+    if (!$isAdmin) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya admin yang dapat menghapus foto.']);
+        exit;
+    }
+    $photoId   = (int)($_POST['photo_id'] ?? 0);
+    $idBelanja = (int)($_POST['id_belanja'] ?? 0);
+    $fotoUrl   = trim($_POST['foto_url'] ?? '');
+
+    try {
+        if ($photoId > 0) {
+            $stmt = $pdo->prepare("SELECT foto FROM foto_menu_multiple WHERE id = ?");
+            $stmt->execute([$photoId]);
+            $foto = $stmt->fetchColumn();
+            if ($foto) {
+                delete_photo_asset($foto, 'uploads/menu/');
+                $pdo->prepare("DELETE FROM foto_menu_multiple WHERE id = ?")->execute([$photoId]);
+            }
+        } elseif ($idBelanja > 0 && !empty($fotoUrl)) {
+            $stmt = $pdo->prepare("SELECT id, foto FROM foto_menu_multiple WHERE id_belanja = ? AND foto = ?");
+            $stmt->execute([$idBelanja, $fotoUrl]);
+            $r = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($r) {
+                delete_photo_asset($r['foto'], 'uploads/menu/');
+                $pdo->prepare("DELETE FROM foto_menu_multiple WHERE id = ?")->execute([$r['id']]);
+            } else {
+                delete_photo_asset($fotoUrl, 'uploads/menu/');
+                $pdo->prepare("UPDATE belanja SET foto_menu = NULL WHERE id_belanja = ?")->execute([$idBelanja]);
+            }
+        }
+        echo json_encode(['success' => true, 'message' => 'Foto berhasil dihapus.']);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal menghapus foto: ' . $e->getMessage()]);
         exit;
     }
 }
@@ -523,10 +569,15 @@ if ($isAdmin) {
 }
 
 foreach ($belanjaList as &$belanja) {
-    $stmt = $pdo->prepare("SELECT foto FROM foto_menu_multiple WHERE id_belanja = ? ORDER BY uploaded_at ASC");
+    $stmt = $pdo->prepare("SELECT id, foto FROM foto_menu_multiple WHERE id_belanja = ? AND foto NOT LIKE '%image.webp%' AND foto NOT LIKE '%aplikasi-permenceker/aplikasi-permenceker%' AND foto NOT LIKE '%SIMULASI%' ORDER BY uploaded_at ASC");
     $stmt->execute([$belanja['id_belanja']]);
-    $belanja['fotos'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    if (empty($belanja['fotos']) && !empty($belanja['foto_menu'])) $belanja['fotos'] = [$belanja['foto_menu']];
+    $menuPhotos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $belanja['fotos'] = array_column($menuPhotos, 'foto');
+    $belanja['photo_ids'] = array_column($menuPhotos, 'id');
+    if (empty($belanja['fotos']) && !empty($belanja['foto_menu']) && !str_contains($belanja['foto_menu'], 'image.webp') && !str_contains($belanja['foto_menu'], 'aplikasi-permenceker/aplikasi-permenceker')) {
+        $belanja['fotos'] = [$belanja['foto_menu']];
+        $belanja['photo_ids'] = [0];
+    }
 
     $stmt = $pdo->prepare("SELECT * FROM belanja_detail WHERE id_belanja = ? ORDER BY FIELD(kategori,'Karbohidrat','Protein','Sayuran','Buah-buahan','Bumbu','Pelengkap/Tambahan'), item_barang");
     $stmt->execute([$belanja['id_belanja']]);
@@ -992,9 +1043,15 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                     <?php if (!empty($belanja['fotos']) && count($belanja['fotos']) > 0): ?>
                                         <div class="menu-thumbnails-group">
                                             <?php foreach ($belanja['fotos'] as $idx => $fotoItem): ?>
-                                                <?php $thumbUrl = resolve_photo_url($fotoItem, 'uploads/menu/'); ?>
+                                                <?php 
+                                                $thumbUrl = resolve_photo_url($fotoItem, 'uploads/menu/'); 
+                                                $photoId = $belanja['photo_ids'][$idx] ?? 0;
+                                                ?>
                                                 <div class="menu-thumbnail" onclick="viewFullImage('<?= htmlspecialchars($thumbUrl) ?>')" title="Lihat Foto <?= $idx + 1 ?>: <?= htmlspecialchars($belanja['judul']) ?>">
                                                     <img src="<?= htmlspecialchars($thumbUrl) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?> (<?= $idx + 1 ?>)">
+                                                    <?php if ($isAdmin): ?>
+                                                        <button type="button" class="btn-delete-single-photo" onclick="deleteSingleMenuPhoto(event, <?= $photoId ?>, <?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($fotoItem)) ?>')" title="Hapus foto ini dari menu">&times;</button>
+                                                    <?php endif; ?>
                                                     <?php if (count($belanja['fotos']) > 1): ?>
                                                         <span class="menu-photo-badge"><?= $idx + 1 ?></span>
                                                     <?php endif; ?>

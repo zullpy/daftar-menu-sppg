@@ -724,6 +724,73 @@ async function deleteMenu(idBelanja, menuTitle) {
     }
 }
 
+// ===== Hapus Satu Foto Menu (Thumbnail) =====
+async function deleteSingleMenuPhoto(e, photoId, idBelanja, fotoUrl) {
+    e.stopPropagation(); // Cegah full image viewer terbuka
+
+    if (!confirm('Apakah Anda yakin ingin menghapus foto ini dari menu?')) {
+        return;
+    }
+
+    const thumbElem = e.target.closest('.menu-thumbnail');
+    if (thumbElem) {
+        thumbElem.style.opacity = '0.4';
+        thumbElem.style.pointerEvents = 'none';
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'delete_single_menu_photo');
+        formData.append('photo_id', photoId);
+        formData.append('id_belanja', idBelanja);
+        formData.append('foto_url', fotoUrl);
+        formData.append('ajax', '1');
+
+        const res = await fetch('menu.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const json = await res.json();
+        if (json.success) {
+            showToast(json.message || '✓ Foto berhasil dihapus!', 'success');
+            if (thumbElem) {
+                const group = thumbElem.closest('.menu-thumbnails-group');
+                thumbElem.remove();
+                if (group) {
+                    const remaining = group.querySelectorAll('.menu-thumbnail');
+                    remaining.forEach((th, idx) => {
+                        let badge = th.querySelector('.menu-photo-badge');
+                        if (remaining.length > 1) {
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'menu-photo-badge';
+                                th.appendChild(badge);
+                            }
+                            badge.textContent = idx + 1;
+                        } else if (badge) {
+                            badge.remove();
+                        }
+                    });
+                }
+            }
+        } else {
+            alert('Gagal menghapus foto: ' + (json.message || 'Error'));
+            if (thumbElem) {
+                thumbElem.style.opacity = '1';
+                thumbElem.style.pointerEvents = 'auto';
+            }
+        }
+    } catch (err) {
+        alert('Terjadi kesalahan jaringan: ' + err.message);
+        if (thumbElem) {
+            thumbElem.style.opacity = '1';
+            thumbElem.style.pointerEvents = 'auto';
+        }
+    }
+}
+
 // ===== Hapus Item Tanpa Reload =====
 async function deleteDetailItem(idDetail, btn) {
     if (!confirm('Yakin ingin menghapus item ini?')) return;
