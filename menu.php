@@ -33,11 +33,14 @@ require_once 'database/koneksi.php';
 require_once 'database/cloudinary_helper.php';
 require_once 'assets/icons.php';
 
-// ====== 🧹 PEMBERSIHAN OTOMATIS DATA FOTO DUMMY / BROKEN ======
-try {
-    $pdo->exec("DELETE FROM foto_menu_multiple WHERE foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto LIKE '%SIMULASI%'");
-    $pdo->exec("UPDATE belanja SET foto_menu = NULL WHERE foto_menu LIKE '%image.webp%' OR foto_menu LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto_menu LIKE '%SIMULASI%'");
-} catch (Exception $e) {}
+// ====== 🧹 PEMBERSIHAN OTOMATIS DATA FOTO DUMMY / BROKEN (Hanya 1x per sesi) ======
+if (empty($_SESSION['cleanup_broken_done'])) {
+    try {
+        $pdo->exec("DELETE FROM foto_menu_multiple WHERE foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto LIKE '%SIMULASI%'");
+        $pdo->exec("UPDATE belanja SET foto_menu = NULL WHERE foto_menu LIKE '%image.webp%' OR foto_menu LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto_menu LIKE '%SIMULASI%'");
+        $_SESSION['cleanup_broken_done'] = true;
+    } catch (Exception $e) {}
+}
 
 // ====== 🔒 PROSES HAPUS DETAIL (HANYA ADMIN) ======
 if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'] === 'delete_detail')) {
@@ -568,30 +571,66 @@ if ($isAdmin) {
     $belanjaList = $stmt->fetchAll();
 }
 
+$belanjaIds = array_column($belanjaList, 'id_belanja');
+$photosByBelanja = [];
+$detailsByBelanja = [];
+
+if (!empty($belanjaIds)) {
+    $inPlaceholders = implode(',', array_fill(0, count($belanjaIds), '?'));
+
+    // 1. Ambil seluruh foto menu sekaligus dalam 1 query batch
+    $stmtPhotos = $pdo->prepare("
+        SELECT id, id_belanja, foto 
+        FROM foto_menu_multiple 
+        WHERE id_belanja IN ($inPlaceholders) 
+          AND foto NOT LIKE '%image.webp%' 
+          AND foto NOT LIKE '%aplikasi-permenceker/aplikasi-permenceker%' 
+          AND foto NOT LIKE '%SIMULASI%' 
+        ORDER BY uploaded_at ASC
+    ");
+    $stmtPhotos->execute($belanjaIds);
+    while ($p = $stmtPhotos->fetch(PDO::FETCH_ASSOC)) {
+        $photosByBelanja[$p['id_belanja']][] = $p;
+    }
+
+    // 2. Ambil seluruh detail belanja beserta count nota & foto dalam 1 query batch
+    $stmtDetails = $pdo->prepare("
+        SELECT d.*, 
+               COALESCE(n.cnt, 0) AS jumlah_nota,
+               COALESCE(r.cnt, 0) AS jumlah_foto
+        FROM belanja_detail d
+        LEFT JOIN (
+            SELECT id_detail, COUNT(*) AS cnt FROM lampiran_nota GROUP BY id_detail
+        ) n ON d.id_detail = n.id_detail
+        LEFT JOIN (
+            SELECT id_detail, COUNT(*) AS cnt FROM foto_receiving GROUP BY id_detail
+        ) r ON d.id_detail = r.id_detail
+        WHERE d.id_belanja IN ($inPlaceholders)
+        ORDER BY FIELD(d.kategori,'Karbohidrat','Protein','Sayuran','Buah-buahan','Bumbu','Pelengkap/Tambahan'), d.item_barang
+    ");
+    $stmtDetails->execute($belanjaIds);
+    while ($d = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
+        $detailsByBelanja[$d['id_belanja']][] = $d;
+    }
+}
+
 foreach ($belanjaList as &$belanja) {
-    $stmt = $pdo->prepare("SELECT id, foto FROM foto_menu_multiple WHERE id_belanja = ? AND foto NOT LIKE '%image.webp%' AND foto NOT LIKE '%aplikasi-permenceker/aplikasi-permenceker%' AND foto NOT LIKE '%SIMULASI%' ORDER BY uploaded_at ASC");
-    $stmt->execute([$belanja['id_belanja']]);
-    $menuPhotos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $belanja['fotos'] = array_column($menuPhotos, 'foto');
-    $belanja['photo_ids'] = array_column($menuPhotos, 'id');
+    $bid = $belanja['id_belanja'];
+
+    // Map Foto Menu
+    $mPhotos = $photosByBelanja[$bid] ?? [];
+    $belanja['fotos'] = array_column($mPhotos, 'foto');
+    $belanja['photo_ids'] = array_column($mPhotos, 'id');
     if (empty($belanja['fotos']) && !empty($belanja['foto_menu']) && !str_contains($belanja['foto_menu'], 'image.webp') && !str_contains($belanja['foto_menu'], 'aplikasi-permenceker/aplikasi-permenceker')) {
         $belanja['fotos'] = [$belanja['foto_menu']];
         $belanja['photo_ids'] = [0];
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM belanja_detail WHERE id_belanja = ? ORDER BY FIELD(kategori,'Karbohidrat','Protein','Sayuran','Buah-buahan','Bumbu','Pelengkap/Tambahan'), item_barang");
-    $stmt->execute([$belanja['id_belanja']]);
-    $belanja['details'] = $stmt->fetchAll();
+    // Map Details Belanja
+    $belanja['details'] = $detailsByBelanja[$bid] ?? [];
 
     $belanja['status_stats'] = ['lengkap' => 0, 'kurang' => 0, 'tidak ada' => 0, 'belum' => 0];
     foreach ($belanja['details'] as &$detail) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM lampiran_nota WHERE id_detail = ?");
-        $stmt->execute([$detail['id_detail']]);
-        $detail['jumlah_nota'] = $stmt->fetchColumn();
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM foto_receiving WHERE id_detail = ?");
-        $stmt->execute([$detail['id_detail']]);
-        $detail['jumlah_foto'] = $stmt->fetchColumn();
-
         $st = $detail['status_item'] ?? 'belum';
         if ($st === 'belum' || !in_array($st, ['lengkap', 'kurang', 'tidak ada'])) {
             $belanja['status_stats']['belum']++;
@@ -865,7 +904,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                 <?php else: ?>
                     <?php foreach ($carouselPhotos as $i => $photo): ?>
                         <div class="slide <?= $i === 0 ? 'active' : '' ?>">
-                            <img src="<?= htmlspecialchars(resolve_photo_url($photo['foto'], 'uploads/menu/')) ?>" alt="<?= htmlspecialchars($photo['judul']) ?>">
+                            <img src="<?= htmlspecialchars(resolve_photo_url($photo['foto'], 'uploads/menu/')) ?>" alt="<?= htmlspecialchars($photo['judul']) ?>" <?= $i > 0 ? 'loading="lazy"' : 'fetchpriority="high"' ?> decoding="async">
                             <div class="slide-caption"><?= htmlspecialchars($photo['judul']) ?> — <?= formatTanggalIndonesia($photo['tanggal']) ?></div>
                         </div>
                     <?php endforeach; ?>
@@ -1048,7 +1087,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                 $photoId = $belanja['photo_ids'][$idx] ?? 0;
                                                 ?>
                                                 <div class="menu-thumbnail" onclick="viewFullImage('<?= htmlspecialchars($thumbUrl) ?>')" title="Lihat Foto <?= $idx + 1 ?>: <?= htmlspecialchars($belanja['judul']) ?>">
-                                                    <img src="<?= htmlspecialchars($thumbUrl) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?> (<?= $idx + 1 ?>)">
+                                                    <img src="<?= htmlspecialchars($thumbUrl) ?>" alt="<?= htmlspecialchars($belanja['judul']) ?> (<?= $idx + 1 ?>)" loading="lazy" decoding="async">
                                                     <?php if ($isAdmin): ?>
                                                         <button type="button" class="btn-delete-single-photo" onclick="deleteSingleMenuPhoto(event, <?= $photoId ?>, <?= $belanja['id_belanja'] ?>, '<?= htmlspecialchars(addslashes($fotoItem)) ?>')" title="Hapus foto ini dari menu">&times;</button>
                                                     <?php endif; ?>
