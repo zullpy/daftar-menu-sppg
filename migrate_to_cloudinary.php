@@ -365,6 +365,76 @@ if (!$isCli && isset($_GET['action'])) {
         exit;
     }
 
+    if ($action === 'sync_disk_menu') {
+        $menuDir = __DIR__ . '/uploads/menu';
+        if (!is_dir($menuDir)) {
+            echo json_encode(['success' => false, 'message' => 'Folder uploads/menu tidak ditemukan di server']);
+            exit;
+        }
+
+        $files = array_diff(scandir($menuDir), ['.', '..', '.gitkeep']);
+        $results = [];
+        $uploaded = 0;
+        $failed = 0;
+
+        foreach ($files as $filename) {
+            $localPath = $menuDir . '/' . $filename;
+            if (!is_file($localPath)) continue;
+
+            $idBelanja = 0;
+            if (preg_match('/menu_\d+_(\d+)_[a-zA-Z0-9]+/', $filename, $m)) {
+                $idBelanja = (int)$m[1];
+            }
+
+            try {
+                $up = cloudinary_upload($localPath, 'menu');
+                if ($up['success'] && !empty($up['url'])) {
+                    $cloudUrl = $up['url'];
+                    $uploaded++;
+
+                    if ($idBelanja > 0) {
+                        // Cari baris yang broken / duplikat / lokal untuk id_belanja ini
+                        $stmtCheck = $pdo->prepare("SELECT id FROM foto_menu_multiple WHERE id_belanja = ? AND (foto LIKE '%image.webp%' OR foto LIKE '%aplikasi-permenceker/aplikasi-permenceker%' OR foto NOT LIKE '%res.cloudinary.com%') LIMIT 1");
+                        $stmtCheck->execute([$idBelanja]);
+                        $existId = $stmtCheck->fetchColumn();
+
+                        if ($existId) {
+                            $pdo->prepare("UPDATE foto_menu_multiple SET foto = ? WHERE id = ?")->execute([$cloudUrl, $existId]);
+                        } else {
+                            $stmtExact = $pdo->prepare("SELECT id FROM foto_menu_multiple WHERE id_belanja = ? AND foto = ?");
+                            $stmtExact->execute([$idBelanja, $cloudUrl]);
+                            if (!$stmtExact->fetchColumn()) {
+                                $pdo->prepare("INSERT INTO foto_menu_multiple (id_belanja, foto) VALUES (?, ?)")->execute([$idBelanja, $cloudUrl]);
+                            }
+                        }
+                    }
+
+                    $results[] = [
+                        'file' => $filename,
+                        'id_belanja' => $idBelanja,
+                        'url' => $cloudUrl,
+                        'status' => 'ok'
+                    ];
+                } else {
+                    $failed++;
+                    $results[] = ['file' => $filename, 'status' => 'failed', 'message' => 'Upload gagal'];
+                }
+            } catch (Exception $e) {
+                $failed++;
+                $results[] = ['file' => $filename, 'status' => 'error', 'message' => $e->getMessage()];
+            }
+        }
+
+        echo json_encode([
+            'success'  => true,
+            'uploaded' => $uploaded,
+            'failed'   => $failed,
+            'items'    => $results,
+            'stats'    => getMigrationStats($pdo, $MIGRATION_TARGETS)
+        ]);
+        exit;
+    }
+
     if ($action === 'process_batch') {
         $targetKey   = $_POST['target_key'] ?? 'menu';
         $lastId      = (int)($_POST['last_id'] ?? 0);
@@ -778,6 +848,14 @@ $stats = getMigrationStats($pdo, $MIGRATION_TARGETS);
                 </svg>
                 <span>Cek Sampel URL di Database</span>
             </button>
+            <button type="button" id="btnSyncMenu" class="btn btn-warning btn-sm" onclick="syncDiskMenu()" title="Upload ulang foto menu langsung dari folder server untuk memperbaiki foto yang rusak/404">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Perbaiki & Upload Ulang Menu</span>
+            </button>
             <span id="migrationStatusLabel" style="font-size: 13px; font-weight: 600; color: #64748b;"></span>
         </div>
 
@@ -956,6 +1034,55 @@ async function inspectSamples() {
         }
     } catch (e) {
         addLog('Error inspect: ' + e.message, 'err');
+    }
+}
+
+async function syncDiskMenu() {
+    if (!confirm('Fitur ini akan memindai folder uploads/menu/ di server dan mengunggah ulang seluruh foto menu ke Cloudinary serta memperbaiki link yang rusak di database.\n\nLanjutkan?')) return;
+
+    const btn = document.getElementById('btnSyncMenu');
+    btn.disabled = true;
+    btn.innerHTML = '<span>Sedang Memproses...</span>';
+    addLog('Memulai pemindaian & upload ulang foto menu dari folder server...', 'info');
+
+    try {
+        const res = await fetch('migrate_to_cloudinary.php?action=sync_disk_menu');
+        const json = await res.json();
+
+        if (json.success) {
+            addLog(`=== SELESAI SINKRONISASI MENU ===`, 'ok');
+            addLog(`Berhasil diunggah & diperbaiki: ${json.uploaded} file`, 'ok');
+            if (json.failed > 0) addLog(`Gagal: ${json.failed} file`, 'err');
+
+            if (json.items) {
+                json.items.forEach(it => {
+                    if (it.status === 'ok') {
+                        addLog(`✓ ${it.file} (Menu ID ${it.id_belanja}) -> Sukses diunggah ke Cloudinary`, 'ok');
+                    } else {
+                        addLog(`✗ ${it.file} -> ${it.message}`, 'err');
+                    }
+                });
+            }
+
+            if (json.stats) updateUIStats(json.stats);
+            alert(`Berhasil mengunggah dan memperbaiki ${json.uploaded} foto menu ke Cloudinary! Halaman menu sekarang sudah normal.`);
+        } else {
+            addLog('Gagal sinkronisasi: ' + (json.message || 'Error'), 'err');
+            alert('Gagal: ' + json.message);
+        }
+    } catch (e) {
+        addLog('Error sinkronisasi: ' + e.message, 'err');
+        alert('Terjadi kesalahan jaringan: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Perbaiki & Upload Ulang Menu</span>
+        `;
     }
 }
 </script>
