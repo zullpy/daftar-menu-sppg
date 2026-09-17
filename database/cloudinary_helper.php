@@ -53,7 +53,16 @@ function cloudinary_upload(string $filePath, string $subfolder = '', ?string $pu
     $apiSecret = trim(CLOUDINARY_API_SECRET);
 
     $baseFolder = defined('CLOUDINARY_BASE_FOLDER') ? trim(CLOUDINARY_BASE_FOLDER, '/') : 'aplikasi-permenceker';
-    $targetFolder = !empty($subfolder) ? ($baseFolder . '/' . trim($subfolder, '/')) : $baseFolder;
+    if (!empty($subfolder)) {
+        $cleanSub = trim($subfolder, '/');
+        if ($cleanSub === $baseFolder || str_starts_with($cleanSub, $baseFolder . '/')) {
+            $targetFolder = $cleanSub;
+        } else {
+            $targetFolder = $baseFolder . '/' . $cleanSub;
+        }
+    } else {
+        $targetFolder = $baseFolder;
+    }
 
     $timestamp = time();
     $paramsToSign = [

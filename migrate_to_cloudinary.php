@@ -37,7 +37,7 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id',
         'col'          => 'foto',
         'local_dir'    => __DIR__ . '/uploads/menu',
-        'cloud_folder' => 'aplikasi-permenceker/menu',
+        'cloud_folder' => 'menu',
     ],
     'menu_single' => [
         'label'        => 'Foto Menu (Tabel Belanja)',
@@ -45,7 +45,7 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id_belanja',
         'col'          => 'foto_menu',
         'local_dir'    => __DIR__ . '/uploads/menu',
-        'cloud_folder' => 'aplikasi-permenceker/menu',
+        'cloud_folder' => 'menu',
     ],
     'foto' => [
         'label'        => 'Foto Receiving / Penerimaan Item',
@@ -53,7 +53,7 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id_receiving',
         'col'          => 'foto',
         'local_dir'    => __DIR__ . '/uploads/foto',
-        'cloud_folder' => 'aplikasi-permenceker/foto',
+        'cloud_folder' => 'receiving',
     ],
     'kemasan' => [
         'label'        => 'Foto Kemasan Penerimaan',
@@ -61,7 +61,7 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id',
         'col'          => 'foto_kemasan',
         'local_dir'    => __DIR__ . '/uploads/foto-perkemasan',
-        'cloud_folder' => 'aplikasi-permenceker/kemasan',
+        'cloud_folder' => 'kemasan',
     ],
     'nota' => [
         'label'        => 'Foto Lampiran Nota',
@@ -69,7 +69,7 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id_nota',
         'col'          => 'file_nota',
         'local_dir'    => __DIR__ . '/uploads/nota',
-        'cloud_folder' => 'aplikasi-permenceker/nota',
+        'cloud_folder' => 'nota',
     ],
     'faktur' => [
         'label'        => 'Faktur TTD',
@@ -77,7 +77,25 @@ $MIGRATION_TARGETS = [
         'pk'           => 'id_faktur',
         'col'          => 'file_faktur',
         'local_dir'    => __DIR__ . '/uploads/faktur',
-        'cloud_folder' => 'aplikasi-permenceker/faktur',
+        'cloud_folder' => 'faktur',
+    ],
+    'addcost_nota' => [
+        'label'        => 'Foto Nota Addcost',
+        'table'        => 'pembelian_addcost_detail',
+        'pk'           => 'id',
+        'col'          => 'foto_nota',
+        'local_dir'    => __DIR__ . '/addcost/uploads/addcost_nota',
+        'cloud_folder' => 'addcost-nota',
+        'is_json'      => true,
+    ],
+    'addcost_receiving' => [
+        'label'        => 'Foto Receiving Addcost',
+        'table'        => 'pembelian_addcost_detail',
+        'pk'           => 'id',
+        'col'          => 'foto_receiving',
+        'local_dir'    => __DIR__ . '/addcost/uploads/addcost_receiving',
+        'cloud_folder' => 'addcost-receiving',
+        'is_json'      => true,
     ],
 ];
 
@@ -94,12 +112,33 @@ function getMigrationStats(PDO $pdo, array $targets): array
         $table = $t['table'];
         $col   = $t['col'];
 
-        try {
-            $stmtLocal = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE 'http%'");
-            $countLocal = (int)$stmtLocal->fetchColumn();
+        $isJson = $t['is_json'] ?? false;
 
-            $stmtCloud = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` LIKE 'http%'");
-            $countCloud = (int)$stmtCloud->fetchColumn();
+        try {
+            if ($isJson) {
+                $stmt = $pdo->query("SELECT `{$col}` FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != ''");
+                $countLocal = 0;
+                $countCloud = 0;
+                while ($val = $stmt->fetchColumn()) {
+                    $arr = json_decode($val, true);
+                    if (is_array($arr) && !empty($arr)) {
+                        $hasLocal = false;
+                        foreach ($arr as $f) {
+                            if (!str_starts_with($f, 'http://') && !str_starts_with($f, 'https://')) {
+                                $hasLocal = true;
+                                break;
+                            }
+                        }
+                        if ($hasLocal) $countLocal++; else $countCloud++;
+                    }
+                }
+            } else {
+                $stmtLocal = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` IS NOT NULL AND `{$col}` != '' AND `{$col}` NOT LIKE 'http%'");
+                $countLocal = (int)$stmtLocal->fetchColumn();
+
+                $stmtCloud = $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE `{$col}` LIKE 'http%'");
+                $countCloud = (int)$stmtCloud->fetchColumn();
+            }
 
             $stats[$key] = [
                 'key'         => $key,
@@ -140,13 +179,81 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
     $col         = $targetConfig['col'];
     $localDir    = $targetConfig['local_dir'];
     $cloudFolder = $targetConfig['cloud_folder'];
+    $isJson      = $targetConfig['is_json'] ?? false;
 
     $id       = (int)$row[$pkCol];
-    $filename = trim($row[$col]);
+    $rawVal   = trim($row[$col] ?? '');
 
-    if (empty($filename)) {
-        return ['success' => false, 'status' => 'empty', 'id' => $id, 'filename' => '', 'message' => 'Nama file kosong di database'];
+    if (empty($rawVal)) {
+        return ['success' => false, 'status' => 'empty', 'id' => $id, 'filename' => '', 'message' => 'Nilai kolom kosong di database'];
     }
+
+    if ($isJson) {
+        $arr = json_decode($rawVal, true);
+        if (!is_array($arr) || empty($arr)) {
+            return ['success' => false, 'status' => 'empty', 'id' => $id, 'filename' => '', 'message' => 'Array JSON kosong'];
+        }
+
+        $newArr = [];
+        $uploadedCount = 0;
+        $missingCount = 0;
+
+        foreach ($arr as $itemPhoto) {
+            $itemPhoto = trim($itemPhoto);
+            if (empty($itemPhoto)) continue;
+
+            if (str_starts_with($itemPhoto, 'http://') || str_starts_with($itemPhoto, 'https://')) {
+                $newArr[] = $itemPhoto;
+                continue;
+            }
+
+            $localPath = rtrim($localDir, '/') . '/' . ltrim($itemPhoto, '/');
+            if (!file_exists($localPath)) {
+                $altPath = __DIR__ . '/addcost/uploads/' . basename($localDir) . '/' . $itemPhoto;
+                if (file_exists($altPath)) $localPath = $altPath;
+            }
+
+            if (!file_exists($localPath)) {
+                $newArr[] = $itemPhoto; // Tetap simpan nilai lama
+                $missingCount++;
+                continue;
+            }
+
+            if ($dryRun) {
+                $newArr[] = '[SIMULASI_CLOUDINARY]';
+                $uploadedCount++;
+                continue;
+            }
+
+            try {
+                $uploadResult = cloudinary_upload($localPath, $cloudFolder, 'image');
+                if ($uploadResult['success'] && !empty($uploadResult['url'])) {
+                    $newArr[] = $uploadResult['url'];
+                    $uploadedCount++;
+                    if ($deleteLocal) @unlink($localPath);
+                } else {
+                    $newArr[] = $itemPhoto;
+                }
+            } catch (Exception $e) {
+                $newArr[] = $itemPhoto;
+            }
+        }
+
+        if ($uploadedCount > 0 && !$dryRun) {
+            $updateStmt = $pdo->prepare("UPDATE `{$table}` SET `{$col}` = ? WHERE `{$pkCol}` = ?");
+            $updateStmt->execute([json_encode($newArr), $id]);
+        }
+
+        if ($uploadedCount > 0) {
+            return ['success' => true, 'status' => $dryRun ? 'dry_run' : 'uploaded', 'id' => $id, 'filename' => "JSON ({$uploadedCount} file)", 'message' => "Sukses diunggah ({$uploadedCount} file)"];
+        } elseif ($missingCount > 0) {
+            return ['success' => false, 'status' => 'missing', 'id' => $id, 'filename' => $rawVal, 'message' => 'File tidak ada di disk'];
+        } else {
+            return ['success' => true, 'status' => 'already_cloud', 'id' => $id, 'filename' => $rawVal, 'message' => 'Semua foto sudah di Cloudinary'];
+        }
+    }
+
+    $filename = $rawVal;
 
     if (str_starts_with($filename, 'http://') || str_starts_with($filename, 'https://')) {
         return ['success' => true, 'status' => 'already_cloud', 'id' => $id, 'filename' => $filename, 'message' => 'Sudah berupa URL Cloudinary'];
@@ -181,7 +288,7 @@ function migrateSingleItem(PDO $pdo, array $targetConfig, array $row, bool $dele
     }
 
     try {
-        $uploadResult = cloudinary_upload($localPath, $cloudFolder, 'image');
+        $uploadResult = cloudinary_upload($localPath, $cloudFolder);
 
         if (!$uploadResult['success'] || empty($uploadResult['url'])) {
             throw new Exception("Gagal mengunggah ke Cloudinary");
@@ -609,6 +716,8 @@ $stats = getMigrationStats($pdo, $MIGRATION_TARGETS);
                         <option value="kemasan">Foto Kemasan Saja</option>
                         <option value="nota">Foto Nota Saja</option>
                         <option value="faktur">Faktur TTD Saja</option>
+                        <option value="addcost_nota">Nota Addcost Saja</option>
+                        <option value="addcost_receiving">Receiving Addcost Saja</option>
                     </select>
                 </div>
                 <div>
@@ -654,7 +763,7 @@ $stats = getMigrationStats($pdo, $MIGRATION_TARGETS);
 let isRunning = false;
 let shouldStop = false;
 
-const ALL_KEYS = ['menu', 'menu_single', 'foto', 'kemasan', 'nota', 'faktur'];
+const ALL_KEYS = ['menu', 'menu_single', 'foto', 'kemasan', 'nota', 'faktur', 'addcost_nota', 'addcost_receiving'];
 
 function addLog(msg, type = 'info') {
     const logBox = document.getElementById('logBox');
