@@ -22,21 +22,28 @@ function showToast(message, type = 'success') {
 // ===== Modal =====
 function openModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.add('active');
+    if (el) {
+        el.classList.add('active');
+        if (el.classList.contains('modal-overlay-dompet')) el.style.display = 'flex';
+    }
     document.body.style.overflow = 'hidden';
 }
 function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.remove('active');
-    if (!document.querySelector('.modal-overlay.active')) {
+    if (el) {
+        el.classList.remove('active');
+        if (el.classList.contains('modal-overlay-dompet')) el.style.display = 'none';
+    }
+    if (!document.querySelector('.modal-overlay.active, .modal-overlay-dompet.active')) {
         document.body.style.overflow = '';
     }
 }
-document.querySelectorAll('.modal-overlay').forEach(m => {
+document.querySelectorAll('.modal-overlay, .modal-overlay-dompet').forEach(m => {
     m.addEventListener('click', e => {
         if (e.target === m) {
             m.classList.remove('active');
-            if (!document.querySelector('.modal-overlay.active')) {
+            if (m.classList.contains('modal-overlay-dompet')) m.style.display = 'none';
+            if (!document.querySelector('.modal-overlay.active, .modal-overlay-dompet.active')) {
                 document.body.style.overflow = '';
             }
         }
@@ -520,13 +527,26 @@ function uploadInlinePhoto(input, action, id) {
 }
 
 // ===== View Photos =====
-function viewPhotos(idDetail, type, count) {
+function viewPhotos(idDetail, type, count, namaBarang) {
     const modal = document.getElementById('photoViewerModal');
     const title = document.getElementById('photoViewerTitle');
     const grid = document.getElementById('photoGrid');
-    title.textContent = type === 'nota' ? `Lampiran Nota (${count})` : `Foto Receiving (${count})`;
-    grid.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div><p style="margin-top:12px;">Memuat...</p></div>';
+    
+    if (!namaBarang) {
+        const row = document.querySelector(`button[onclick*="viewPhotos(${idDetail},"]`)?.closest('.item-row')
+                 || document.querySelector(`.item-row [data-id="${idDetail}"]`)?.closest('.item-row');
+        if (row) {
+            const nameEl = row.querySelector('.item-name') || row.querySelector('strong') || row.querySelector('.nama-barang');
+            if (nameEl) namaBarang = nameEl.textContent.trim();
+        }
+    }
+
+    const isNota = (type === 'nota');
+    const titleText = isNota ? 'Nota' : 'Foto Receiving';
+    title.textContent = namaBarang ? `${titleText} — ${namaBarang.toUpperCase()}` : `${titleText} (${count})`;
+    grid.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat...</p></div>';
     openModal('photoViewerModal');
+
     fetch(`database/get_photos.php?id_detail=${idDetail}&type=${type}`)
         .then(async r => {
             const text = await r.text();
@@ -535,29 +555,186 @@ function viewPhotos(idDetail, type, count) {
         .then(data => {
             grid.innerHTML = '';
             if (data.photos && data.photos.length > 0) {
-                const defaultLocalPath = type === 'nota' ? 'uploads/nota/' : 'uploads/foto/';
+                const defaultLocalPath = isNota ? 'uploads/nota/' : 'uploads/foto/';
                 data.photos.forEach((photo, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'photo-item';
                     const isUrl = typeof photo === 'string' && (photo.startsWith('http://') || photo.startsWith('https://'));
                     const fullSrc = isUrl ? photo : (defaultLocalPath + photo);
                     const cleanFileName = photo.split('?')[0];
                     const fileExt = cleanFileName.split('.').pop().toLowerCase();
-                    const isImage = isUrl || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
-                    if (isImage) {
-                        item.innerHTML = `<img src="${fullSrc}" onclick="viewFullImage('${fullSrc}')" alt="${type} ${index + 1}"><div class="photo-label">${type === 'nota' ? 'Nota' : 'Foto'} ${index + 1}</div>`;
+                    const isPdf = fileExt === 'pdf';
+
+                    const item = document.createElement('div');
+                    item.className = 'nota-preview-item';
+
+                    const itemLabelText = (isNota ? 'Nota ' : 'Foto Receiving ') + (index + 1);
+
+                    const labelHtml = `
+                        <div class="nota-preview-label">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <rect x="1" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+                                <circle cx="4.5" cy="6" r="1.2" fill="currentColor"/>
+                                <path d="M1 12l4-4 2.5 2.5 2-2L13 12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            ${itemLabelText}
+                        </div>
+                    `;
+
+                    const delBtnHtml = `
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                            <button type="button" class="btn-delete-nota" onclick="deletePhotoItem(${idDetail}, '${type}', '${photo}', this)">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                    <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                    <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                ${isNota ? 'Hapus Nota' : 'Hapus Foto'}
+                            </button>
+                        </div>
+                    `;
+
+                    if (isPdf) {
+                        item.innerHTML = `
+                            ${labelHtml}
+                            <div class="nota-preview-pdf-wrap">
+                                <embed src="${fullSrc}" type="application/pdf" class="nota-preview-pdf">
+                            </div>
+                            ${delBtnHtml}
+                        `;
                     } else {
-                        item.innerHTML = `<div style="height:200px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="photo-label">${photo}</div>`;
+                        item.innerHTML = `
+                            ${labelHtml}
+                            <img src="${fullSrc}" alt="${itemLabelText}" class="nota-preview-img" onclick="window.open('${fullSrc}', '_blank')">
+                            ${delBtnHtml}
+                        `;
                     }
                     grid.appendChild(item);
                 });
             } else {
-                grid.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px;grid-column:1/-1;">Tidak ada foto</p>';
+                grid.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px;">Tidak ada foto</p>';
             }
         })
         .catch(error => {
-            grid.innerHTML = `<p style="text-align:center;color:var(--danger);padding:40px;grid-column:1/-1;">Gagal memuat foto: ${error.message}</p>`;
+            grid.innerHTML = `<p style="text-align:center;color:var(--danger);padding:40px;">Gagal memuat foto: ${error.message}</p>`;
         });
+}
+
+async function deletePhotoItem(idDetail, type, photo, btnEl) {
+    const isNota = (type === 'nota');
+    const label = isNota ? 'Nota' : 'Foto';
+
+    let confirmed = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: isNota ? 'Hapus Nota?' : 'Hapus Foto?',
+            text: 'File ' + (isNota ? 'nota' : 'foto') + ' fisik akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Hapus Permanen',
+            cancelButtonText: 'Batal',
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
+            }
+        });
+        confirmed = result.isConfirmed;
+    } else {
+        confirmed = confirm(`Yakin ingin menghapus ${label.toLowerCase()} ini? File fisik di Cloudinary/server akan ikut terhapus permanen.`);
+    }
+
+    if (!confirmed) return;
+
+    const itemCard = btnEl ? (btnEl.closest('.nota-preview-item') || btnEl.closest('.preview-box-custom')) : null;
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<span>Menghapus...</span>';
+    }
+
+    try {
+        const res = await fetch('database/delete_photo_item.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_detail: idDetail,
+                type: type,
+                file: photo
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Dihapus',
+                    text: `File fisik ${label.toLowerCase()} telah dimusnahkan.`,
+                    timer: 1500,
+                    showConfirmButton: false,
+                    customClass: { popup: 'swal-kopdes' },
+                    didOpen: () => {
+                        const container = document.querySelector('.swal2-container');
+                        if (container) container.style.zIndex = '99999999';
+                    }
+                });
+            } else {
+                showToast(`✓ ${label} berhasil dihapus`, 'success');
+            }
+
+            if (itemCard) itemCard.remove();
+            
+            // Periksa sisa foto di grid
+            const grid = document.getElementById('photoGrid');
+            if (grid && grid.querySelectorAll('.nota-preview-item').length === 0) {
+                grid.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px;">Tidak ada foto tersisa</p>';
+                setTimeout(() => closeModal('photoViewerModal'), 800);
+            }
+
+            // Update badge di tabel secara real-time tanpa reload
+            const actionBtn = document.querySelector(`button[onclick*="viewPhotos(${idDetail}, '${type}'"]`);
+            if (actionBtn) {
+                const rem = result.remaining || 0;
+                if (rem > 0) {
+                    actionBtn.setAttribute('onclick', `viewPhotos(${idDetail}, '${type}', ${rem})`);
+                    const countSpan = actionBtn.querySelector('.count-badge') || actionBtn.querySelector('span');
+                    if (countSpan) countSpan.textContent = `(${rem})`;
+                } else {
+                    window.location.reload();
+                }
+            }
+        } else {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: result.message || 'Terjadi kesalahan' });
+            } else {
+                alert('❌ Gagal: ' + (result.message || 'Terjadi kesalahan'));
+            }
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = `
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    ${isNota ? 'Hapus Nota' : 'Hapus Foto'}
+                `;
+            }
+        }
+    } catch (err) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        } else {
+            alert('❌ Error: ' + err.message);
+        }
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = `
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                    <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                ${isNota ? 'Hapus Nota' : 'Hapus Foto'}
+            `;
+        }
+    }
 }
 function viewFullImage(src) {
     const ext = src.split('.').pop().toLowerCase();
@@ -692,11 +869,33 @@ async function submitEditDetail(e) {
     }
 }
 
-// ===== Hapus Seluruh Menu Beserta Foto Cloudinary =====
+// ===== Hapus Seluruh Menu Beserta Foto Fisik & Cloudinary =====
 async function deleteMenu(idBelanja, menuTitle) {
     const titleText = menuTitle ? `"${menuTitle}"` : 'ini';
-    const confirmMsg = `Yakin ingin menghapus menu ${titleText}?\n\nPERINGATAN: Seluruh item barang, foto menu, foto receiving, dan nota terkait di Cloudinary akan ikut terhapus secara permanen!`;
-    if (!confirm(confirmMsg)) return;
+    let confirmed = false;
+
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: `Hapus Menu ${titleText}?`,
+            text: 'Seluruh item barang, foto fisik menu, foto receiving, dan nota terkait di server/Cloudinary akan ikut terhapus permanen!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Hapus Permanen',
+            cancelButtonText: 'Batal',
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
+            }
+        });
+        confirmed = result.isConfirmed;
+    } else {
+        confirmed = confirm(`Yakin ingin menghapus menu ${titleText}?\n\nPERINGATAN: Seluruh item barang, foto menu, foto receiving, dan nota terkait akan ikut terhapus fisik secara permanen!`);
+    }
+
+    if (!confirmed) return;
 
     const card = document.querySelector(`.menu-card[data-id-belanja="${idBelanja}"]`);
     let deleteBtn = null;
@@ -708,6 +907,20 @@ async function deleteMenu(idBelanja, menuTitle) {
         }
         card.style.opacity = '0.6';
         card.style.pointerEvents = 'none';
+    }
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Menghapus...',
+            text: 'Sedang menghapus menu dan seluruh berkas fisik...',
+            allowOutsideClick: false,
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
+                Swal.showLoading();
+            }
+        });
     }
 
     try {
@@ -725,7 +938,11 @@ async function deleteMenu(idBelanja, menuTitle) {
         const json = await res.json();
 
         if (!json.success) {
-            alert('Gagal menghapus menu: ' + (json.message || 'Error'));
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: json.message || 'Error', customClass: { popup: 'swal-kopdes' } });
+            } else {
+                alert('Gagal menghapus menu: ' + (json.message || 'Error'));
+            }
             if (card) {
                 card.style.opacity = '1';
                 card.style.pointerEvents = 'auto';
@@ -743,7 +960,19 @@ async function deleteMenu(idBelanja, menuTitle) {
             return;
         }
 
-        showToast(json.message || '✓ Menu dan seluruh foto berhasil dihapus!', 'success');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil Dihapus',
+                text: json.message || 'Menu dan seluruh foto fisik berhasil dihapus.',
+                timer: 1500,
+                showConfirmButton: false,
+                customClass: { popup: 'swal-kopdes' }
+            });
+        } else {
+            showToast(json.message || '✓ Menu dan seluruh foto berhasil dihapus!', 'success');
+        }
+
         if (card) {
             card.style.transition = 'all 0.4s ease';
             card.style.opacity = '0';
@@ -755,7 +984,11 @@ async function deleteMenu(idBelanja, menuTitle) {
 
     } catch (err) {
         console.error('Error deleteMenu:', err);
-        alert('Terjadi kesalahan saat menghapus menu: ' + err.message);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message, customClass: { popup: 'swal-kopdes' } });
+        } else {
+            alert('Terjadi kesalahan saat menghapus menu: ' + err.message);
+        }
         if (card) {
             card.style.opacity = '1';
             card.style.pointerEvents = 'auto';
@@ -773,13 +1006,33 @@ async function deleteMenu(idBelanja, menuTitle) {
     }
 }
 
-// ===== Hapus Satu Foto Menu (Thumbnail) =====
+// ===== Hapus Satu Foto Menu (Thumbnail) Beserta File Fisik =====
 async function deleteSingleMenuPhoto(e, photoId, idBelanja, fotoUrl) {
     e.stopPropagation(); // Cegah full image viewer terbuka
 
-    if (!confirm('Apakah Anda yakin ingin menghapus foto ini dari menu?')) {
-        return;
+    let confirmed = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Hapus Foto Menu?',
+            text: 'File fisik foto menu di server/Cloudinary akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Hapus Permanen',
+            cancelButtonText: 'Batal',
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
+            }
+        });
+        confirmed = result.isConfirmed;
+    } else {
+        confirmed = confirm('Apakah Anda yakin ingin menghapus foto ini dari menu? File fisik akan ikut terhapus.');
     }
+
+    if (!confirmed) return;
 
     const thumbElem = e.target.closest('.menu-thumbnail');
     if (thumbElem) {
@@ -803,7 +1056,18 @@ async function deleteSingleMenuPhoto(e, photoId, idBelanja, fotoUrl) {
 
         const json = await res.json();
         if (json.success) {
-            showToast(json.message || '✓ Foto berhasil dihapus!', 'success');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Dihapus',
+                    text: json.message || 'File fisik foto telah dimusnahkan.',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    customClass: { popup: 'swal-kopdes' }
+                });
+            } else {
+                showToast(json.message || '✓ Foto berhasil dihapus!', 'success');
+            }
             if (thumbElem) {
                 const group = thumbElem.closest('.menu-thumbnails-group');
                 thumbElem.remove();
@@ -825,14 +1089,22 @@ async function deleteSingleMenuPhoto(e, photoId, idBelanja, fotoUrl) {
                 }
             }
         } else {
-            alert('Gagal menghapus foto: ' + (json.message || 'Error'));
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: json.message || 'Error', customClass: { popup: 'swal-kopdes' } });
+            } else {
+                alert('Gagal menghapus foto: ' + (json.message || 'Error'));
+            }
             if (thumbElem) {
                 thumbElem.style.opacity = '1';
                 thumbElem.style.pointerEvents = 'auto';
             }
         }
     } catch (err) {
-        alert('Terjadi kesalahan jaringan: ' + err.message);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message, customClass: { popup: 'swal-kopdes' } });
+        } else {
+            alert('Terjadi kesalahan jaringan: ' + err.message);
+        }
         if (thumbElem) {
             thumbElem.style.opacity = '1';
             thumbElem.style.pointerEvents = 'auto';

@@ -65,14 +65,14 @@ if (isset($_GET['delete_detail']) || (isset($_POST['action']) && $_POST['action'
         $stmtNota = $pdo->prepare("SELECT file_nota FROM lampiran_nota WHERE id_detail = ?");
         $stmtNota->execute([$id]);
         foreach ($stmtNota->fetchAll(PDO::FETCH_COLUMN) as $nota) {
-            delete_photo_asset($nota, 'uploads/nota/');
+            delete_photo_asset($nota, __DIR__ . '/uploads/nota/');
         }
 
         // Hapus foto receiving dari Cloudinary / lokal
         $stmtRec = $pdo->prepare("SELECT foto FROM foto_receiving WHERE id_detail = ?");
         $stmtRec->execute([$id]);
         foreach ($stmtRec->fetchAll(PDO::FETCH_COLUMN) as $rec) {
-            delete_photo_asset($rec, 'uploads/foto/');
+            delete_photo_asset($rec, __DIR__ . '/uploads/foto/');
         }
 
         // Hapus baris relasi & item detail
@@ -138,7 +138,7 @@ if (isset($_GET['delete_menu']) || (isset($_POST['action']) && $_POST['action'] 
 
         // Hapus foto_menu lama di tabel belanja (jika ada)
         if (!empty($belanjaData['foto_menu'])) {
-            delete_photo_asset($belanjaData['foto_menu'], 'uploads/menu/');
+            delete_photo_asset($belanjaData['foto_menu'], __DIR__ . '/uploads/menu/');
         }
 
         // 2. Ambil & hapus semua foto menu dari Cloudinary / lokal
@@ -146,7 +146,7 @@ if (isset($_GET['delete_menu']) || (isset($_POST['action']) && $_POST['action'] 
         $stmtFotoMenu->execute([$idBelanja]);
         $fotosMenu = $stmtFotoMenu->fetchAll(PDO::FETCH_COLUMN);
         foreach ($fotosMenu as $foto) {
-            delete_photo_asset($foto, 'uploads/menu/');
+            delete_photo_asset($foto, __DIR__ . '/uploads/menu/');
         }
 
         // 3. Ambil semua id_detail terkait menu ini
@@ -161,14 +161,14 @@ if (isset($_GET['delete_menu']) || (isset($_POST['action']) && $_POST['action'] 
             $stmtNota = $pdo->prepare("SELECT file_nota FROM lampiran_nota WHERE id_detail IN ($placeholders)");
             $stmtNota->execute($detailIds);
             foreach ($stmtNota->fetchAll(PDO::FETCH_COLUMN) as $nota) {
-                delete_photo_asset($nota, 'uploads/nota/');
+                delete_photo_asset($nota, __DIR__ . '/uploads/nota/');
             }
 
             // Hapus foto receiving dari Cloudinary / lokal
             $stmtRec = $pdo->prepare("SELECT foto FROM foto_receiving WHERE id_detail IN ($placeholders)");
             $stmtRec->execute($detailIds);
             foreach ($stmtRec->fetchAll(PDO::FETCH_COLUMN) as $rec) {
-                delete_photo_asset($rec, 'uploads/foto/');
+                delete_photo_asset($rec, __DIR__ . '/uploads/foto/');
             }
 
             // Hapus baris relasi detail
@@ -227,18 +227,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt->execute([$photoId]);
             $foto = $stmt->fetchColumn();
             if ($foto) {
-                delete_photo_asset($foto, 'uploads/menu/');
+                delete_photo_asset($foto, __DIR__ . '/uploads/menu/');
                 $pdo->prepare("DELETE FROM foto_menu_multiple WHERE id = ?")->execute([$photoId]);
             }
         } elseif ($idBelanja > 0 && !empty($fotoUrl)) {
-            $stmt = $pdo->prepare("SELECT id, foto FROM foto_menu_multiple WHERE id_belanja = ? AND foto = ?");
-            $stmt->execute([$idBelanja, $fotoUrl]);
+            $cleanName = basename(parse_url($fotoUrl, PHP_URL_PATH) ?? $fotoUrl);
+            $stmt = $pdo->prepare("SELECT id, foto FROM foto_menu_multiple WHERE id_belanja = ? AND (foto = ? OR foto LIKE ?)");
+            $stmt->execute([$idBelanja, $fotoUrl, '%' . $cleanName . '%']);
             $r = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($r) {
-                delete_photo_asset($r['foto'], 'uploads/menu/');
+                delete_photo_asset($r['foto'], __DIR__ . '/uploads/menu/');
                 $pdo->prepare("DELETE FROM foto_menu_multiple WHERE id = ?")->execute([$r['id']]);
             } else {
-                delete_photo_asset($fotoUrl, 'uploads/menu/');
+                delete_photo_asset($fotoUrl, __DIR__ . '/uploads/menu/');
                 $pdo->prepare("UPDATE belanja SET foto_menu = NULL WHERE id_belanja = ?")->execute([$idBelanja]);
             }
         }
@@ -1762,15 +1763,31 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
         </div>
     </div>
 
-    <!-- Modal Photo Viewer -->
-    <div class="modal-overlay" id="photoViewerModal">
-        <div class="modal-content">
+    <!-- Modal Photo Viewer (Persis Dompet Harian) -->
+    <div class="modal-overlay-dompet" id="photoViewerModal" style="display:none;">
+        <div class="modal-dompet">
             <div class="modal-header">
-                <h2 id="photoViewerTitle">Lihat Foto</h2>
-                <button class="close-modal" onclick="closeModal('photoViewerModal')"><?= icon('x', 20) ?></button>
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <rect x="1" y="2.5" width="16" height="13" rx="1.5" stroke="#fff" stroke-width="1.5" />
+                            <circle cx="5.5" cy="8" r="1.5" fill="#fff" />
+                            <path d="M1 15l5-5 3 3 2.5-2.5L17 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="photoViewerTitle">Lihat Foto</div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeModal('photoViewerModal')" aria-label="Tutup">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
             </div>
-            <div class="photo-viewer">
-                <div class="photo-grid" id="photoGrid"></div>
+            <div class="nota-modal-body" id="photoViewerBody">
+                <div id="photoGrid" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('photoViewerModal')" class="btn-cancel">Tutup</button>
             </div>
         </div>
     </div>
@@ -1787,6 +1804,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
 
     <div id="toastNotif" class="toast-notif"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="script.js?v=<?= filemtime('script.js') ?>"></script>
     <script>
         const KATEGORI_LIST = <?= json_encode($KATEGORI_LIST) ?>;

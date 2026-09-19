@@ -57,11 +57,8 @@ try {
 
     if ($existing) {
         $oldFile = $existing['file_faktur'];
-        if (!empty($oldFile) && !str_starts_with($oldFile, 'http')) {
-            $oldLocal = $uploadDir . $oldFile;
-            if (file_exists($oldLocal)) {
-                @unlink($oldLocal);
-            }
+        if (!empty($oldFile)) {
+            delete_photo_asset($oldFile, __DIR__ . '/../uploads/faktur/');
         }
         $stmtUpdate = $pdo->prepare("UPDATE faktur_ttd SET file_faktur = :file_faktur, uploaded_at = NOW() WHERE id_faktur = :id_faktur");
         $stmtUpdate->execute([

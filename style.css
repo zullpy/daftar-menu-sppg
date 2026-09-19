@@ -2430,3 +2430,260 @@ main {
     right: 23px !important;
     z-index: 9998 !important;
 }
+
+/* ============================================================
+   MODAL PREVIEW NOTA / FOTO PERSIS SEPERTI DOMPET HARIAN (100% IDENTIK)
+   ============================================================ */
+.modal-overlay-dompet {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15, 23, 42, 0.45) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 99999 !important;
+    display: none;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
+    box-sizing: border-box !important;
+}
+
+.modal-overlay-dompet.active,
+.modal-overlay-dompet[style*="display: flex"] {
+    display: flex !important;
+}
+
+.modal-dompet {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    width: 95vw !important;
+    max-width: 640px !important;
+    max-height: calc(100vh - 40px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    animation: modalInDompet 0.25s ease !important;
+    position: relative !important;
+    padding: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+}
+
+@keyframes modalInDompet {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-dompet .modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 1.25rem 1.5rem !important;
+    background: linear-gradient(135deg, #2563a8 0%, #4a9fd4 100%) !important;
+    border-radius: 16px 16px 0 0 !important;
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+    margin: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.modal-dompet .modal-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+}
+
+.modal-dompet .modal-header-icon {
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+}
+
+.modal-dompet .modal-title {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    font-family: inherit !important;
+    margin: 0 !important;
+}
+
+.modal-dompet .modal-close {
+    width: 34px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    color: #ffffff !important;
+    padding: 0 !important;
+}
+
+.modal-dompet .modal-close:hover {
+    background: rgba(255, 255, 255, 0.22) !important;
+}
+
+.modal-dompet .nota-modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.25rem !important;
+    max-height: 65vh !important;
+    overflow-y: auto !important;
+    padding: 1.25rem 1.5rem !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.modal-dompet .nota-preview-item {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+    box-sizing: border-box !important;
+}
+
+.modal-dompet .nota-preview-label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: #2563eb !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+}
+
+.modal-dompet .nota-preview-img {
+    width: 100% !important;
+    max-height: 420px !important;
+    object-fit: contain !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    cursor: zoom-in !important;
+    transition: opacity 0.2s !important;
+    display: block !important;
+    margin: 0 auto !important;
+}
+
+.modal-dompet .nota-preview-pdf-wrap {
+    width: 100% !important;
+    height: 420px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.modal-dompet .nota-preview-pdf {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+.modal-dompet .btn-delete-nota {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 14px !important;
+    background: #fef2f2 !important;
+    color: #ef4444 !important;
+    border: 1px solid #fee2e2 !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    width: auto !important;
+}
+
+.modal-dompet .btn-delete-nota:hover {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+}
+
+.modal-dompet .modal-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.6rem !important;
+    padding: 1rem 1.5rem !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    flex-shrink: 0 !important;
+    border-radius: 0 0 16px 16px !important;
+    z-index: 10 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.modal-dompet .btn-cancel {
+    height: 40px !important;
+    padding: 0 1.5rem !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    border-radius: 8px !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.modal-dompet .btn-cancel:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+/* SweetAlert2 Theme Persis Dompet Harian & Di Depan Modal */
+.swal2-container {
+    z-index: 99999999 !important;
+}
+
+.swal-kopdes {
+    border-radius: 16px !important;
+    font-family: inherit !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+    padding: 1.8rem !important;
+}
+
+.swal-kopdes .swal2-title {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+}
+
+.swal-kopdes .swal2-html-container,
+.swal-kopdes .swal2-content {
+    font-size: 0.875rem !important;
+    color: #64748b !important;
+}
+
+.swal-kopdes .swal2-confirm,
+.swal-kopdes .swal2-cancel {
+    border-radius: 8px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1.2rem !important;
+}

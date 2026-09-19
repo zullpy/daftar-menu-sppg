@@ -162,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $type = $_POST['type'];
     $filename = $_POST['filename'];
     $column = $type === 'receiving' ? 'foto_receiving' : 'foto_nota';
-    $uploadDir = $type === 'receiving' ? 'uploads/addcost_receiving/' : 'uploads/addcost_nota/';
+    $uploadDir = $type === 'receiving' ? __DIR__ . '/../uploads/foto/' : __DIR__ . '/../uploads/nota/';
     $stmt = $pdo->prepare("SELECT $column FROM pembelian_addcost_detail WHERE id = ?");
     $stmt->execute([$id]);
     $existingPhotos = $stmt->fetchColumn();
@@ -172,9 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         return $photo !== $filename;
     });
     $photosArray = array_values($photosArray);
-    if (file_exists($uploadDir . $filename)) {
-        unlink($uploadDir . $filename);
-    }
+    delete_photo_asset($filename, $uploadDir);
     $pdo->prepare("UPDATE pembelian_addcost_detail SET $column = ? WHERE id = ?")
         ->execute([json_encode($photosArray), $id]);
     echo json_encode(['success' => true]);
@@ -673,7 +671,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                             <?php foreach ($receivingPhotos as $photo): ?>
                                                                 <?php $recUrl = resolve_photo_url($photo, 'uploads/addcost_receiving/'); ?>
                                                                 <div class="item-foto-thumb-item">
-                                                                    <img src="<?= htmlspecialchars($recUrl) ?>" alt="Receiving" onclick="viewFullImage('<?= htmlspecialchars($recUrl) ?>')">
+                                                                    <img src="<?= htmlspecialchars($recUrl) ?>" alt="Receiving" onclick="openAddcostPreview('<?= htmlspecialchars($recUrl) ?>', '<?= htmlspecialchars($photo) ?>', <?= $detail['id'] ?>, 'receiving', '<?= htmlspecialchars($detail['nama_barang'], ENT_QUOTES) ?>')">
                                                                     <button type="button" class="item-foto-thumb-delete" onclick="deleteFoto(<?= $detail['id'] ?>, 'receiving', '<?= htmlspecialchars($photo) ?>')" title="Hapus">
                                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -690,7 +688,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                                                             <?php foreach ($notaPhotos as $photo): ?>
                                                                 <?php $notUrl = resolve_photo_url($photo, 'uploads/addcost_nota/'); ?>
                                                                 <div class="item-foto-thumb-item">
-                                                                    <img src="<?= htmlspecialchars($notUrl) ?>" alt="Nota" onclick="viewFullImage('<?= htmlspecialchars($notUrl) ?>')">
+                                                                    <img src="<?= htmlspecialchars($notUrl) ?>" alt="Nota" onclick="openAddcostPreview('<?= htmlspecialchars($notUrl) ?>', '<?= htmlspecialchars($photo) ?>', <?= $detail['id'] ?>, 'nota', '<?= htmlspecialchars($detail['nama_barang'], ENT_QUOTES) ?>')">
                                                                     <button type="button" class="item-foto-thumb-delete" onclick="deleteFoto(<?= $detail['id'] ?>, 'nota', '<?= htmlspecialchars($photo) ?>')" title="Hapus">
                                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -920,11 +918,34 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
         <span class="full-image-close"><?= icon('x', 30) ?></span>
         <img id="fullImage" src="" alt="Full">
     </div>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <p id="loadingText">Memproses...</p>
+    <!-- MODAL PREVIEW FOTO ADDCOST PERSIS SEPERTI DOMPET HARIAN -->
+    <div class="modal-overlay-dompet" id="addcostPreviewModal" style="display:none;">
+        <div class="modal-dompet">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <rect x="1" y="2.5" width="16" height="13" rx="1.5" stroke="#fff" stroke-width="1.5" />
+                            <circle cx="5.5" cy="8" r="1.5" fill="#fff" />
+                            <path d="M1 15l5-5 3 3 2.5-2.5L17 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="addcostPreviewTitle">Preview Foto</div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeAddcostPreview()" aria-label="Tutup">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="nota-modal-body" id="addcostPreviewBody"></div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeAddcostPreview()" class="btn-cancel">Tutup</button>
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>"></script>
     <script src="../script.js?v=<?= filemtime(__DIR__ . '/../script.js') ?>"></script>
     <script src="../assets/push-subscribe.js?v=<?= file_exists('../assets/push-subscribe.js') ? filemtime('../assets/push-subscribe.js') : 1 ?>"></script>

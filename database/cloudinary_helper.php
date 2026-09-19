@@ -335,10 +335,10 @@ function cloudinary_delete(string $publicIdOrUrl, string $resourceType = 'image'
 }
 
 /**
- * Hapus aset foto baik yang tersimpan di Cloudinary maupun file lokal lama.
+ * Hapus aset foto baik yang tersimpan di Cloudinary maupun file fisik lokal.
  *
- * @param string|null $photo URL Cloudinary atau nama file lokal
- * @param string $localPrefix Path relatif folder penyimpanan lokal (misal 'uploads/menu/')
+ * @param string|null $photo URL Cloudinary atau nama file lokal / URL lokal
+ * @param string $localPrefix Path relatif folder penyimpanan lokal (misal 'uploads/menu/', 'uploads/foto/')
  * @return bool
  */
 function delete_photo_asset(?string $photo, string $localPrefix = ''): bool
@@ -347,16 +347,94 @@ function delete_photo_asset(?string $photo, string $localPrefix = ''): bool
         return false;
     }
 
-    if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+    $photo = trim($photo);
+    if ($photo === '') {
+        return false;
+    }
+
+    // Jika berupa URL Cloudinary yang sesungguhnya
+    if ((str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) && str_contains($photo, 'cloudinary.com')) {
         return cloudinary_delete($photo);
     }
 
-    $localPath = rtrim($localPrefix, '/') . '/' . ltrim($photo, '/');
-    if (file_exists($localPath)) {
-        return @unlink($localPath);
+    // Dapatkan nama file murni (bersihkan query string seperti ?v=..., atau path URL)
+    $cleanPath = parse_url($photo, PHP_URL_PATH) ?? $photo;
+    $fileName = basename($cleanPath);
+    $fileName = rawurldecode($fileName);
+
+    if (empty($fileName) || $fileName === '.' || $fileName === '..') {
+        return false;
     }
 
-    return false;
+    // Base direktori aplikasi-MBG
+    $appDir = realpath(__DIR__ . '/..') ?: dirname(__DIR__);
+
+    // Kumpulkan seluruh kandidat path yang mungkin
+    $candidatePaths = [];
+
+    // 1. Jika $localPrefix diberikan
+    if (!empty($localPrefix)) {
+        $cleanPrefix = rtrim($localPrefix, "/\\");
+        // Jika prefix adalah path absolut
+        if (str_starts_with($cleanPrefix, '/') || preg_match('/^[A-Za-z]:/', $cleanPrefix)) {
+            $candidatePaths[] = $cleanPrefix . '/' . $fileName;
+        } else {
+            // Relative terhadap aplikasi-MBG (misal uploads/menu atau ../uploads/foto)
+            $normPrefix = ltrim(preg_replace('#^(\.\./)+#', '', $cleanPrefix), '/');
+            $candidatePaths[] = $appDir . '/' . $normPrefix . '/' . $fileName;
+            $candidatePaths[] = $cleanPrefix . '/' . $fileName;
+            if (getcwd()) {
+                $candidatePaths[] = getcwd() . '/' . $cleanPrefix . '/' . $fileName;
+                $candidatePaths[] = getcwd() . '/' . $normPrefix . '/' . $fileName;
+            }
+        }
+    }
+
+    // 2. Jika $photo itu sendiri memuat direktori
+    if (str_contains($cleanPath, '/')) {
+        $relPath = ltrim(preg_replace('#^.*?uploads/#', 'uploads/', $cleanPath), '/');
+        $candidatePaths[] = $appDir . '/' . $relPath;
+        if (getcwd()) {
+            $candidatePaths[] = getcwd() . '/' . $relPath;
+        }
+        $candidatePaths[] = $cleanPath;
+    }
+
+    // 3. Fallback cerdas berdasarkan prefix nama file
+    if (str_starts_with($fileName, 'menu_')) {
+        $candidatePaths[] = $appDir . '/uploads/menu/' . $fileName;
+    } elseif (str_starts_with($fileName, 'receiving_')) {
+        $candidatePaths[] = $appDir . '/uploads/foto/' . $fileName;
+    } elseif (str_starts_with($fileName, 'nota_')) {
+        $candidatePaths[] = $appDir . '/uploads/nota/' . $fileName;
+    } elseif (str_starts_with($fileName, 'faktur_')) {
+        $candidatePaths[] = $appDir . '/uploads/faktur/' . $fileName;
+    } elseif (str_starts_with($fileName, 'addcost_receiving_')) {
+        $candidatePaths[] = $appDir . '/uploads/foto/' . $fileName;
+        $candidatePaths[] = $appDir . '/uploads/addcost_receiving/' . $fileName;
+    } elseif (str_starts_with($fileName, 'addcost_nota_')) {
+        $candidatePaths[] = $appDir . '/uploads/nota/' . $fileName;
+        $candidatePaths[] = $appDir . '/uploads/addcost_nota/' . $fileName;
+    }
+
+    // 4. Periksa juga subfolder uploads aplikasi-MBG
+    $candidatePaths[] = $appDir . '/uploads/menu/' . $fileName;
+    $candidatePaths[] = $appDir . '/uploads/foto/' . $fileName;
+    $candidatePaths[] = $appDir . '/uploads/nota/' . $fileName;
+    $candidatePaths[] = $appDir . '/uploads/faktur/' . $fileName;
+    $candidatePaths[] = $appDir . '/uploads/foto-perkemasan/' . $fileName;
+
+    $deleted = false;
+    foreach (array_unique($candidatePaths) as $path) {
+        if (!empty($path) && file_exists($path) && is_file($path)) {
+            if (@unlink($path)) {
+                $deleted = true;
+            }
+        }
+    }
+
+    return $deleted;
 }
+
 
 
