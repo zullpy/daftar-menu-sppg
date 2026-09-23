@@ -23,7 +23,7 @@ if (isset($_GET['logout'])) {
 
 $filterDari  = $_GET['dari'] ?? '';
 $filterSampai = $_GET['sampai'] ?? '';
-$filterSppg  = $_GET['sppg'] ?? '';
+$filterNo     = trim($_GET['no_pengambilan'] ?? $_GET['sppg'] ?? '');
 
 $where = [];
 $params = [];
@@ -42,10 +42,9 @@ if (!empty($filterSampai)) {
     $where[] = "pb.tanggal_pengambilan <= :sampai";
     $params[':sampai'] = $filterSampai;
 }
-if (!empty($filterSppg)) {
-    $where[] = "(pb.nama_sppg LIKE :sppg OR pb.nama_pengambil LIKE :sppg2)";
-    $params[':sppg'] = '%' . $filterSppg . '%';
-    $params[':sppg2'] = '%' . $filterSppg . '%';
+if (!empty($filterNo)) {
+    $where[] = "pb.no_pengambilan LIKE :no_pengambilan";
+    $params[':no_pengambilan'] = '%' . $filterNo . '%';
 }
 
 $whereSql = !empty($where) ? "WHERE " . implode(' AND ', $where) : '';
@@ -201,7 +200,7 @@ while ($row = $stmt->fetch()) {
     <button type="button" class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilter()">
         <span style="display:flex; align-items:center; gap:8px;">
             <i class="ph ph-funnel"></i> Filter Data
-            <?php if ($filterDari || $filterSampai || $filterSppg): ?>
+            <?php if ($filterDari || $filterSampai || $filterNo): ?>
                 <span class="count-badge">aktif</span>
             <?php endif; ?>
         </span>
@@ -218,8 +217,8 @@ while ($row = $stmt->fetch()) {
             <input type="date" name="sampai" value="<?= htmlspecialchars($filterSampai) ?>">
         </div>
         <div class="filter-group">
-            <label>Cari SPPG / Pengambil</label>
-            <input type="text" name="sppg" placeholder="Cari..." value="<?= htmlspecialchars($filterSppg) ?>">
+            <label>No. Pengambilan</label>
+            <input type="text" name="no_pengambilan" placeholder="Cari No. Pengambilan..." value="<?= htmlspecialchars($filterNo) ?>">
         </div>
         <button type="submit" class="btn btn-primary"><i class="ph ph-funnel"></i> Filter</button>
         <a href="pengambilan.php" class="btn btn-outline"><i class="ph ph-x"></i> Reset</a>
