@@ -9,6 +9,10 @@ database/koneksi.php
 database/cloudinary.php
 cloudinary.php
 
+# Konfigurasi Password / Kredensial Auth
+database/auth_config.php
+auth_config.php
+
 # Environment & konfigurasi lokal
 .env
 .env.local

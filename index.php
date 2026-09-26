@@ -2,13 +2,9 @@
 session_start();
 date_default_timezone_set('Asia/Jakarta');
 // =======================================================
-// KONFIGURASI PASSWORD
+// KONFIGURASI PASSWORD (DIMUAT DARI FILE KONFIGURASI)
 // =======================================================
-$password_admin    = "evinkbus2026";
-$password_admin_alt = "amiw";
-$password_opsodong = "sodong123";
-$password_opsariwangi = "sariwangi123";
-$password_opmanonjaya = "manonjaya123";
+require_once __DIR__ . '/database/auth.php';
 
 // =======================================================
 // PROSES VERIFIKASI PASSWORD
@@ -18,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
     $role     = $_POST['role'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    if ($role === 'admin' && ($password === $password_admin || $password === $password_admin_alt)) {
+    if ($role === 'admin' && (mbg_verify_password($password, $password_admin) || mbg_verify_password($password, $password_admin_alt))) {
         $_SESSION['role'] = 'admin';
         $_SESSION['lokasi'] = 'semua';
         $_SESSION['nama_op'] = 'Admin';
@@ -30,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         exit;
     }
 
-    if ($role === 'opsodong' && $password === $password_opsodong) {
+    if ($role === 'opsodong' && mbg_verify_password($password, $password_opsodong)) {
         $_SESSION['role'] = 'operator';
         $_SESSION['lokasi'] = 'sodong';
         $_SESSION['nama_op'] = 'Sodong';
@@ -42,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         exit;
     }
 
-    if ($role === 'opsariwangi' && $password === $password_opsariwangi) {
+    if ($role === 'opsariwangi' && mbg_verify_password($password, $password_opsariwangi)) {
         $_SESSION['role'] = 'operator';
         $_SESSION['lokasi'] = 'sariwangi';
         $_SESSION['nama_op'] = 'Sariwangi';
@@ -54,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         exit;
     }
 
-    if ($role === 'opmanonjaya' && $password === $password_opmanonjaya) {
+    if ($role === 'opmanonjaya' && mbg_verify_password($password, $password_opmanonjaya)) {
         $_SESSION['role'] = 'operator';
         $_SESSION['lokasi'] = 'manonjaya';
         $_SESSION['nama_op'] = 'Manonjaya';
