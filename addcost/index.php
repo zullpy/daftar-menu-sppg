@@ -1,10 +1,5 @@
 <?php
-session_start();
-// ====== CEK SESSION ROLE ======
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
-    header('Location: index.php');
-    exit;
-}
+require_once '../database/session_guard.php';
 $role = $_SESSION['role'];
 $isAdmin = ($role === 'admin');
 $isOperator = ($role === 'operator');
@@ -13,13 +8,6 @@ $isOperator = ($role === 'operator');
 $lokasiSession = $_SESSION['lokasi'] ?? 'semua';
 $lokasiMap = ['sodong' => 'Sodong', 'sariwangi' => 'Sariwangi', 'manonjaya' => 'Manonjaya', 'semua' => 'Semua'];
 $namaLokasiDisplay = $lokasiMap[$lokasiSession] ?? $lokasiSession;
-
-// ====== LOGOUT ======
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../index.php');
-    exit;
-}
 
 require_once '../database/koneksi.php';
 require_once '../database/cloudinary_helper.php';
@@ -340,6 +328,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../style.css?v=<?= file_exists('../style.css') ? filemtime('../style.css') : 1 ?>">
     <link rel="stylesheet" href="style.css?v=<?= file_exists('style.css') ? filemtime('style.css') : 1 ?>">
+    <script src="../assets/session-guard.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* ✅ Tambahan style untuk info dapur operator */
@@ -416,7 +405,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </span>
                 <?php endif; ?>
             </div>
-            <a href="?logout=1" class="btn-logout" onclick="return confirm('Yakin ingin keluar?')">
+            <a href="javascript:void(0)" class="btn-logout" onclick="mbgLogout('Yakin ingin keluar?')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <polyline points="16 17 21 12 16 7" />

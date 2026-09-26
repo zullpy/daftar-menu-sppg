@@ -9,16 +9,15 @@
 
 return [
     'admin' => [
-        'password'     => 'evinkbus2026',
-        'password_alt' => 'amiw',
+        'password' => 'your_pass'
     ],
     'opsodong' => [
-        'password' => 'sodong123',
+        'password' => 'your_pass',
     ],
     'opsariwangi' => [
-        'password' => 'sariwangi123',
+        'password' => 'your_pass',
     ],
     'opmanonjaya' => [
-        'password' => 'manonjaya123',
+        'password' => 'your_pass',
     ],
 ];

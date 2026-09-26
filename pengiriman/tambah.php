@@ -1,9 +1,9 @@
 <?php
-session_start();
+require_once '../database/session_guard.php';
 require_once '../database/koneksi.php';
 require_once '../database/helper-stok.php';
 require_once '../database/stok_helper.php';
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+if ($_SESSION['role'] !== 'admin') {
     header("Location: ../index.php?error=unauthorized");
     exit;
 }
@@ -285,6 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <title><?= $edit_id ? 'Edit' : 'Tambah' ?> Pengiriman - MBG</title>
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
+    <script src="../assets/session-guard.js"></script>
 </head>
 
 <body>

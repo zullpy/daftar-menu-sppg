@@ -1,18 +1,5 @@
 <?php
-session_start();
-date_default_timezone_set('Asia/Jakarta');
-
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: index.php');
-    exit;
-}
-
-if (!isset($_SESSION['role'])) {
-    header('Location: index.php');
-    exit;
-}
-
+require_once __DIR__ . '/database/session_guard.php';
 $role = $_SESSION['role'];
 ?>
 <!DOCTYPE html>
@@ -26,6 +13,7 @@ $role = $_SESSION['role'];
 
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <script src="assets/session-guard.js"></script>
 
     <style>
         :root {
@@ -225,8 +213,8 @@ $role = $_SESSION['role'];
         <div class="role-badge">
             Login sebagai: <strong><?= ucfirst($role) ?></strong>
         </div>
-        <a href="dashboard.php?logout=1" class="logout-btn"
-            onclick="return confirm('Yakin ingin keluar?')">Logout</a>
+        <a href="javascript:void(0)" class="logout-btn"
+            onclick="mbgLogout('Yakin ingin keluar?')">Logout</a>
     </div>
 
     <div class="header">

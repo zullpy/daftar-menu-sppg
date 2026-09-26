@@ -1,14 +1,9 @@
 <?php
-session_start();
+require_once '../database/session_guard.php';
 require_once '../database/koneksi.php';
 require_once '../database/cloudinary_helper.php';
 require_once '../database/helper-stok.php';
 require_once '../database/stok_helper.php';
-
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
-    header("Location: ../index.php?error=unauthorized");
-    exit;
-}
 
 $is_admin = ($_SESSION['role'] === 'admin');
 $is_operator = ($_SESSION['role'] === 'operator');
@@ -121,6 +116,7 @@ foreach ($all_data as $row) {
     <title>Data Pengiriman - MBG</title>
     <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
     <link rel="icon" href="../assets/favicon.ico">
+    <script src="../assets/session-guard.js"></script>
 </head>
 
 <body>
@@ -139,7 +135,7 @@ foreach ($all_data as $row) {
                     <span>MBG &middot; LOGISTIK (<?= strtoupper($_SESSION['role']) ?>)</span>
                 </div>
             </div>
-            <nav>
+            <nav style="display:flex; align-items:center; gap:8px;">
                 <a href="../dashboard.php" class="btn btn-secondary">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 11l9-7 9 7" />
@@ -155,6 +151,14 @@ foreach ($all_data as $row) {
                         Tambah Pengiriman
                     </a>
                 <?php endif; ?>
+                <a href="javascript:void(0)" onclick="mbgLogout('Yakin ingin logout?')" class="btn btn-danger" style="background:#ef4444; color:#fff; border:none; text-decoration:none;">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Logout
+                </a>
             </nav>
         </header>
         <div class="header-stripe"></div>

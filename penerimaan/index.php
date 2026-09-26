@@ -1,18 +1,9 @@
 <?php
-session_start();
 date_default_timezone_set('Asia/Jakarta');
+require_once '../database/session_guard.php';
 require_once '../database/koneksi.php';
 require_once '../database/cloudinary_helper.php';
 require_once '../database/stok_helper.php';
-
-if (!isset($_SESSION['role'])) {
-    header("Location: ../index.php");
-    exit;
-}
-if (!in_array($_SESSION['role'], ['admin', 'operator'])) {
-    header("Location: ../index.php");
-    exit;
-}
 
 $is_admin = ($_SESSION['role'] === 'admin');
 $is_operator = ($_SESSION['role'] === 'operator');
@@ -677,6 +668,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     </style>
+    <script src="../assets/session-guard.js"></script>
 </head>
 
 <body>
@@ -693,12 +685,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <span>MBG &middot; <?= strtoupper($_SESSION['role']) ?></span>
                 </div>
             </div>
-            <nav>
+            <nav style="display:flex; align-items:center; gap:8px;">
                 <a href="../pengiriman/index.php" class="btn btn-secondary">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M19 12H5M11 18l-6-6 6-6" />
                     </svg>
                     Kembali
+                </a>
+                <a href="javascript:void(0)" onclick="mbgLogout('Yakin ingin logout?')" class="btn btn-danger" style="background:#ef4444; color:#fff; border:none; text-decoration:none;">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Logout
                 </a>
             </nav>
         </header>

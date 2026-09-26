@@ -1,22 +1,12 @@
 <?php
 // laporan/stok.php
-session_start();
+require_once '../database/session_guard.php';
 require '../database/koneksi.php'; // menyediakan $pdo (koneksi ke db_mbg)
-if (!isset($_SESSION['role'])) {
-    header('Location: ../index.php');
-    exit;
-}
+
 $role = $_SESSION['role'];
 $userRole = strtolower($role);
 $lokasiSession = $_SESSION['lokasi'] ?? 'sodong';
 $namaLokasi = $_SESSION['nama_op'] ?? '';
-
-// Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../index.php');
-    exit;
-}
 
 $LOKASI_LIST  = ['sodong', 'sariwangi', 'manonjaya'];
 $LOKASI_LABEL = [
@@ -154,6 +144,7 @@ $showTotalColumn = ($userRole === 'admin') ? 'true' : 'false';
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="stok.css?v=<?= filemtime('stok.css') ?>">
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="../assets/session-guard.js"></script>
 </head>
 <body>
 <!-- TOPBAR -->
@@ -163,10 +154,13 @@ $showTotalColumn = ($userRole === 'admin') ? 'true' : 'false';
         <h1>Data Stok Dapur</h1>
         <p>Monitoring Persediaan · Gudang Cabang</p>
     </div>
-    <div class="topbar-badges">
+    <div class="topbar-badges" style="display:flex; align-items:center; gap:8px;">
         <span class="badge <?= $userRole === 'admin' ? 'badge-admin' : 'badge-operator' ?>">
             <?= $userRole === 'admin' ? 'Admin' : 'Operator' ?>
         </span>
+        <button type="button" onclick="mbgLogout('Yakin ingin logout?')" style="background:#ef4444; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-weight:600; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:4px;">
+            <i class="ph ph-sign-out"></i> Logout
+        </button>
     </div>
 </div>
 

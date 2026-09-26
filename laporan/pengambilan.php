@@ -2,24 +2,13 @@
 // pengambilan.php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-session_start();
+require_once '../database/session_guard.php';
 require '../database/koneksi.php';
-
-if (!isset($_SESSION['role'])) {
-    header('Location: index.php');
-    exit;
-}
 
 $userRole = strtolower($_SESSION['role']);
 $lokasiSession = $_SESSION['lokasi'] ?? 'semua';
 $lokasiMap = ['sodong' => 'Sodong', 'sariwangi' => 'Sariwangi', 'manonjaya' => 'Manonjaya', 'semua' => 'Semua'];
 $namaLokasiDisplay = $lokasiMap[$lokasiSession] ?? $lokasiSession;
-
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: /index.php');
-    exit;
-}
 
 $filterDari  = $_GET['dari'] ?? '';
 $filterSampai = $_GET['sampai'] ?? '';
@@ -86,6 +75,7 @@ while ($row = $stmt->fetch()) {
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="pengambilan.css?v=<?= filemtime('pengambilan.css') ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../assets/session-guard.js"></script>
     <style>
         /* Info banner lokasi operator */
         .lokasi-info-banner {
@@ -150,6 +140,10 @@ while ($row = $stmt->fetch()) {
                 <button class="btn-add" onclick="openModal()">
                     <i class="ph ph-plus"></i>
                     <span>Tambah Laporan</span>
+                </button>
+                <button type="button" onclick="mbgLogout('Yakin ingin logout?')" style="background:#ef4444; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;">
+                    <i class="ph ph-sign-out"></i>
+                    <span>Logout</span>
                 </button>
             </div>
         </div>

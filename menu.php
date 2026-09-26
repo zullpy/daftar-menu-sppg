@@ -2,12 +2,8 @@
 if (!in_array('ob_gzhandler', ob_list_handlers()) && extension_loaded('zlib') && !ini_get('zlib.output_compression')) {
     ob_start('ob_gzhandler');
 }
-session_start();
-// ====== CEK SESSION ROLE ======
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'operator'])) {
-    header('Location: index.php');
-    exit;
-}
+require_once __DIR__ . '/database/session_guard.php';
+date_default_timezone_set('Asia/Jakarta');
 $role = $_SESSION['role'];
 $isAdmin = ($role === 'admin');
 $isOperator = ($role === 'operator');
@@ -24,13 +20,6 @@ $LOKASI_MAP = [
     'semua' => 'Semua Dapur'
 ];
 $namaLokasiDisplay = $LOKASI_MAP[$lokasiSession] ?? $namaLokasi;
-
-// ====== LOGOUT ======
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: index.php');
-    exit;
-}
 
 require_once 'database/koneksi.php';
 require_once 'database/cloudinary_helper.php';
@@ -684,6 +673,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
     <title>Daftar Menu MBG - Koperasi Bina Usaha Sauyunan</title>
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css?v=<?= filemtime('style.css') ?>">
+    <script src="assets/session-guard.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -861,7 +851,7 @@ $LOKASI_LIST = ['sodong' => 'Dapur Sodong', 'sariwangi' => 'Dapur Sariwangi', 'm
                     </span>
                 <?php endif; ?>
             </div>
-            <a href="?logout=1" class="btn-logout" onclick="return confirm('Yakin ingin keluar?')">
+            <a href="javascript:void(0)" class="btn-logout" onclick="mbgLogout('Yakin ingin keluar?')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <polyline points="16 17 21 12 16 7" />

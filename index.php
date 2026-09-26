@@ -1,6 +1,28 @@
 <?php
 session_start();
 date_default_timezone_set('Asia/Jakarta');
+
+// Handle logout
+if (isset($_GET['logout'])) {
+    $_SESSION = [];
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    session_destroy();
+    if ($_GET['logout'] === 'sync') {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'logged_out']);
+        exit;
+    }
+    $reason = isset($_GET['reason']) ? '?reason=' . urlencode($_GET['reason']) : '';
+    header("Location: index.php" . $reason);
+    exit;
+}
+
 // =======================================================
 // KONFIGURASI PASSWORD (DIMUAT DARI FILE KONFIGURASI)
 // =======================================================
@@ -254,6 +276,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             <img src="/assets/banner.png" alt="PerMen CekeR Banner" class="banner-image">
         </div>
 
+        <?php if (isset($_SESSION['role'])): ?>
+            <div id="active-session-banner" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px 18px; margin-bottom:24px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; box-shadow:0 2px 8px rgba(37,99,235,0.08);">
+                <div style="font-size:14px; color:#1e40af;">
+                    <i class="ph-bold ph-info" style="margin-right:4px;"></i>
+                    Sesi Anda masih aktif sebagai <strong><?= htmlspecialchars($_SESSION['nama_op'] ?? ucfirst($_SESSION['role'])) ?></strong>
+                    <?php if (!empty($_SESSION['lokasi']) && $_SESSION['lokasi'] !== 'semua'): ?>
+                        (Dapur: <strong><?= htmlspecialchars(ucfirst($_SESSION['lokasi'])) ?></strong>)
+                    <?php endif; ?>.
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <a href="dashboard.php" style="background:#2563eb; color:#fff; padding:7px 16px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="ph-bold ph-squares-four"></i> Ke Dashboard
+                    </a>
+                    <a href="javascript:void(0)" onclick="sessionStorage.removeItem('mbg_session_active'); sessionStorage.removeItem('mbg_last_activity'); window.location.href='index.php?logout=1';" style="background:#ef4444; color:#fff; padding:7px 16px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="ph-bold ph-sign-out"></i> Logout
+                    </a>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <div class="pilihan-wrapper">
             <div class="kartu-akses admin" onclick="pilihAkses('admin')">
                 <div class="icon-wrapper">
@@ -389,6 +431,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'sukses') {
+                        // Simpan tanda sesi aktif di tab ini
+                        sessionStorage.setItem('mbg_session_active', '1');
+                        sessionStorage.setItem('mbg_last_activity', Date.now().toString());
+
                         Swal.fire({
                             icon: 'success',
                             title: `Selamat datang, ${label}!`,
@@ -414,6 +460,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                         text: 'Tidak dapat terhubung ke server, coba lagi.'
                     });
                 });
+        }
+
+        // =======================================================
+        // AUTO LOGOUT & SESSION SYNC
+        // =======================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Bersihkan sessionStorage jika ada parameter logout
+        if (urlParams.get('logout') !== null) {
+            sessionStorage.removeItem('mbg_session_active');
+            sessionStorage.removeItem('mbg_last_activity');
+        }
+
+        // Tampilkan pesan jika sesi kedaluwarsa karena tidak ada aktivitas 30 menit
+        if (urlParams.get('reason') === 'idle_timeout' || urlParams.get('error') === 'expired') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sesi Berakhir',
+                text: 'Sesi Anda telah berakhir otomatis karena tidak ada aktivitas selama 30 menit. Silakan login kembali.',
+                confirmButtonColor: '#2563eb'
+            });
+        }
+
+        // Jika tab baru dibuka tanpa sessionStorage tetapi server masih punya sesi lama,
+        // bersihkan sesi server secara diam-diam agar sinkron dengan status tab
+        const hasServerSession = <?= isset($_SESSION['role']) ? 'true' : 'false' ?>;
+        if (!sessionStorage.getItem('mbg_session_active')) {
+            if (hasServerSession) {
+                fetch('index.php?logout=sync');
+            }
+        } else if (hasServerSession) {
+            // Tampilkan banner sesi aktif jika tab ini memang memiliki sesi yang valid
+            const bannerEl = document.getElementById('active-session-banner');
+            if (bannerEl) bannerEl.style.display = 'flex';
         }
     </script>
 </body>
