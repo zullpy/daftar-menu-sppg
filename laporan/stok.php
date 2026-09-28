@@ -158,9 +158,6 @@ $showTotalColumn = ($userRole === 'admin') ? 'true' : 'false';
         <span class="badge <?= $userRole === 'admin' ? 'badge-admin' : 'badge-operator' ?>">
             <?= $userRole === 'admin' ? 'Admin' : 'Operator' ?>
         </span>
-        <button type="button" onclick="mbgLogout('Yakin ingin logout?')" style="background:#ef4444; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-weight:600; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:4px;">
-            <i class="ph ph-sign-out"></i> Logout
-        </button>
     </div>
 </div>
 

@@ -141,10 +141,6 @@ while ($row = $stmt->fetch()) {
                     <i class="ph ph-plus"></i>
                     <span>Tambah Laporan</span>
                 </button>
-                <button type="button" onclick="mbgLogout('Yakin ingin logout?')" style="background:#ef4444; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;">
-                    <i class="ph ph-sign-out"></i>
-                    <span>Logout</span>
-                </button>
             </div>
         </div>
     </div>
